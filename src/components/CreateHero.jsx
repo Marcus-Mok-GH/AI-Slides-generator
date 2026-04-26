@@ -18,11 +18,24 @@ const suggestions = [
   'Investor update for Q2 2026',
 ]
 
-export default function CreateHero() {
+export default function CreateHero({ onGenerate, status = 'idle', error = '' }) {
   const [format, setFormat] = useState('presentation')
   const [prompt, setPrompt] = useState('')
   const [length, setLength] = useState('8 cards')
   const [tone, setTone] = useState('Professional')
+  const [language, setLanguage] = useState('English')
+  const isLoading = status === 'loading'
+
+  function submit() {
+    if (!prompt.trim() || isLoading) return
+    onGenerate?.({
+      prompt: prompt.trim(),
+      format,
+      length,
+      tone,
+      language,
+    })
+  }
 
   return (
     <section className="hero">
@@ -101,7 +114,11 @@ export default function CreateHero() {
 
           <div className="control-group grow">
             <label className="control-label">Language</label>
-            <select className="select" defaultValue="English">
+            <select
+              className="select"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            >
               <option>English</option>
               <option>Español</option>
               <option>Français</option>
@@ -112,12 +129,20 @@ export default function CreateHero() {
 
           <button
             className="generate-btn"
-            disabled={!prompt.trim()}
-            onClick={() => {}}
+            disabled={!prompt.trim() || isLoading}
+            onClick={submit}
           >
-            Generate ✦
+            {isLoading ? (
+              <>
+                <span className="spinner" /> Generating…
+              </>
+            ) : (
+              <>Generate ✦</>
+            )}
           </button>
         </div>
+
+        {error ? <div className="error-banner">⚠ {error}</div> : null}
       </div>
 
       <div className="suggestions">
