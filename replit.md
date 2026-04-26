@@ -31,6 +31,8 @@ key server-side and never exposes it to the browser.
 ├── server/
 │   ├── index.js                # Express app, routes, port 3001
 │   ├── generateDeck.js         # Orbitron call + JSON parsing/normalization
+│   ├── streamParser.js         # Incremental JSON parser → emits slides as
+│   │                           #   they complete inside the streamed payload
 │   └── db.js                   # Postgres pool + decks CRUD (pg)
 └── src/
     ├── main.jsx
@@ -52,7 +54,27 @@ key server-side and never exposes it to the browser.
 ```
 
 ## API
-### `POST /api/generate-deck`
+### `POST /api/generate-deck/stream`  ← used by the UI
+Same body as `/api/generate-deck`. Returns a `text/event-stream` SSE response
+with these events:
+
+- `meta`  → `{ title, subtitle, theme }` — sent once after the model has
+  emitted enough JSON to parse the deck header.
+- `slide` → `{ slide, index }` — sent each time a complete slide object closes
+  inside the streamed `slides: [ ... ]` array. The slide is server-normalized.
+- `done`  → `{ deck }` — the full normalized + persisted deck (with `id`).
+- `error` → `{ error }` — fatal error, stream ends.
+
+The server keeps the connection alive with `: ping` comments every 15s and
+sets `X-Accel-Buffering: no` to defeat reverse-proxy buffering. Vite's dev
+proxy passes the stream through.
+
+The streaming parser (`server/streamParser.js`) is a small string-aware brace
+counter. It locates `"slides": [`, then watches `{}` depth so each top-level
+slide object can be JSON.parse'd in isolation as soon as it closes — meaning
+slides reach the browser one-by-one while the model is still writing.
+
+### `POST /api/generate-deck`  (legacy, non-streaming)
 Body:
 ```json
 {
@@ -63,7 +85,8 @@ Body:
   "language": "English | Español | ..."
 }
 ```
-Returns `{ deck: { title, subtitle, theme, slides[], meta } }`.
+Returns `{ deck: { title, subtitle, theme, slides[], meta } }`. Kept for
+backwards compatibility but no longer wired to the UI.
 
 Slide shape supports layouts: `title`, `content`, `two-column`, `bullets`,
 `quote`, `stats`. The server validates and normalizes whatever the model returns
@@ -112,6 +135,22 @@ CREATE INDEX decks_updated_at_idx ON decks (updated_at DESC);
 The frontend debounces autosave (~700ms) on any deck change in the viewer so
 new decks and inline edits land in the DB without an explicit Save button.
 The Recent decks gallery refreshes after each save and supports Open / Delete.
+
+## Generation flow (streaming)
+- Clicking **Generate** opens the Slide Viewer immediately with a streaming
+  stub (`deck.streaming = true`, empty `slides`, `expectedCount` from the
+  Length pick).
+- The viewer shows a "Drafting…" placeholder card and shimmering thumbnail
+  rows for every expected slide.
+- As `meta` arrives, the deck title/subtitle/theme update in place (theme
+  recolors the stage live).
+- As each `slide` event arrives, the slot in `deck.slides[index]` fills in.
+  The stage auto-advances to the newest slide unless the user has manually
+  navigated (clicked a thumb / pressed an arrow) — then we leave them where
+  they are.
+- When `done` arrives, the server has already persisted the deck; the viewer
+  swaps in the final deck (`streaming: false`) and the editor panel unlocks.
+- Autosave is suppressed while `streaming` is true to avoid hammering the DB.
 
 ## Editor flow
 - Generated decks land in the **Slide Viewer** with editing on by default.

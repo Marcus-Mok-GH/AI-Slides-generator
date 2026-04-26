@@ -1,0 +1,116 @@
+/**
+ * Incremental JSON deck parser.
+ *
+ * Feeds streaming text from the model and emits events:
+ *   { type: 'meta', meta: { title, subtitle, theme } }   (once)
+ *   { type: 'slide', slide: {...}, index: n }            (per completed slide)
+ *
+ * Strategy: scan character-by-character (string-aware) to find the
+ *   "slides": [ ... ]
+ * array opener, then track {} depth to know when each top-level slide object
+ * closes. Each closed object is JSON.parse'd in isolation.
+ *
+ * Top-level meta (title/subtitle/theme) is extracted by trying to parse the
+ * prefix that comes BEFORE the "slides" key as a self-contained JSON object.
+ */
+export class DeckStreamParser {
+  constructor() {
+    this.buf = ''
+    this.cursor = 0
+    this.state = 'preSlides' // preSlides | inArray | done
+    this.elementStart = -1
+    this.depth = 0
+    this.inString = false
+    this.escape = false
+    this.metaSent = false
+    this.slidesEmitted = 0
+  }
+
+  feed(chunk) {
+    this.buf += chunk
+    const events = []
+
+    // 1) Try to emit top-level meta (title/subtitle/theme) once we have
+    //    enough buffer to see "slides":.
+    if (!this.metaSent) {
+      const slidesKeyIdx = this.buf.indexOf('"slides"')
+      if (slidesKeyIdx > 0) {
+        let prefix = this.buf.slice(0, slidesKeyIdx).trim()
+        // strip any trailing comma so we can close the object
+        while (prefix.endsWith(',')) prefix = prefix.slice(0, -1).trimEnd()
+        const candidate = prefix + '}'
+        try {
+          const obj = JSON.parse(candidate)
+          events.push({
+            type: 'meta',
+            meta: {
+              title: obj.title,
+              subtitle: obj.subtitle,
+              theme: obj.theme,
+            },
+          })
+          this.metaSent = true
+        } catch {
+          // not enough yet (e.g. theme object still streaming) — try again later
+        }
+      }
+    }
+
+    // 2) Find slides array opener
+    if (this.state === 'preSlides') {
+      const slice = this.buf.slice(this.cursor)
+      const m = slice.match(/"slides"\s*:\s*\[/)
+      if (m) {
+        this.cursor = this.cursor + m.index + m[0].length
+        this.state = 'inArray'
+        this.elementStart = -1
+        this.depth = 0
+      }
+    }
+
+    // 3) Scan for slide objects inside the array
+    if (this.state === 'inArray') {
+      while (this.cursor < this.buf.length) {
+        const ch = this.buf[this.cursor]
+
+        if (this.inString) {
+          if (this.escape) {
+            this.escape = false
+          } else if (ch === '\\') {
+            this.escape = true
+          } else if (ch === '"') {
+            this.inString = false
+          }
+        } else {
+          if (ch === '"') {
+            this.inString = true
+          } else if (ch === '{') {
+            if (this.depth === 0) this.elementStart = this.cursor
+            this.depth++
+          } else if (ch === '}') {
+            this.depth--
+            if (this.depth === 0 && this.elementStart >= 0) {
+              const json = this.buf.slice(this.elementStart, this.cursor + 1)
+              try {
+                const slide = JSON.parse(json)
+                const index = this.slidesEmitted
+                this.slidesEmitted++
+                events.push({ type: 'slide', slide, index })
+              } catch {
+                // shouldn't happen for well-balanced object; ignore
+              }
+              this.elementStart = -1
+            }
+          } else if (ch === ']' && this.depth === 0) {
+            this.state = 'done'
+            this.cursor++
+            break
+          }
+        }
+        this.cursor++
+      }
+    }
+
+    return events
+  }
+}

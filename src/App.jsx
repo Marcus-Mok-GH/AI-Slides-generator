@@ -6,7 +6,7 @@ import TemplateRow from './components/TemplateRow.jsx'
 import RecentGallery from './components/RecentGallery.jsx'
 import SlideViewer from './components/SlideViewer.jsx'
 import {
-  generateDeck,
+  streamGenerateDeck,
   saveDeck as saveDeckApi,
   loadDeck,
   deleteDeck as deleteDeckApi,
@@ -14,9 +14,22 @@ import {
 } from './lib/api.js'
 import './App.css'
 
+const DEFAULT_THEME = {
+  name: 'Aurora',
+  primary: '#7c5cff',
+  accent: '#ff6ea0',
+  background: '#0f0f1a',
+}
+
+function parseLength(length) {
+  const m = String(length).match(/(\d+)/)
+  if (m) return Math.max(3, Math.min(20, parseInt(m[1], 10)))
+  return 8
+}
+
 export default function App() {
   const [deck, setDeck] = useState(null)
-  const [status, setStatus] = useState('idle') // idle | loading | error
+  const [status, setStatus] = useState('idle') // idle | streaming | error
   const [error, setError] = useState('')
   const [savedDecks, setSavedDecks] = useState([])
   const [savingState, setSavingState] = useState('idle') // idle | saving | saved | error
@@ -35,9 +48,10 @@ export default function App() {
     refreshDecks()
   }, [refreshDecks])
 
-  // Debounced auto-save whenever an open deck changes.
+  // Debounced auto-save whenever an open deck changes — but skip while the
+  // deck is still streaming (the server persists it on stream completion).
   useEffect(() => {
-    if (!deck) return
+    if (!deck || deck.streaming) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
     setSavingState('saving')
     saveTimer.current = setTimeout(async () => {
@@ -59,15 +73,65 @@ export default function App() {
   }, [deck, refreshDecks])
 
   async function handleGenerate(payload) {
-    setStatus('loading')
     setError('')
+    setStatus('streaming')
+    const expectedCount = parseLength(payload.length)
+
+    // Open the viewer immediately with a streaming stub.
+    setDeck({
+      title: 'Generating…',
+      subtitle: payload.prompt.slice(0, 120),
+      theme: DEFAULT_THEME,
+      slides: [],
+      meta: {
+        model: 'claude-sonnet-4.6',
+        prompt: payload.prompt,
+        format: payload.format,
+        length: payload.length,
+        tone: payload.tone,
+        language: payload.language,
+        generatedAt: new Date().toISOString(),
+      },
+      streaming: true,
+      expectedCount,
+    })
+
     try {
-      const result = await generateDeck(payload)
-      setDeck(result)
-      setStatus('idle')
+      await streamGenerateDeck(payload, {
+        onMeta: ({ title, subtitle, theme }) => {
+          setDeck((prev) => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              title: title || prev.title,
+              subtitle: subtitle || prev.subtitle,
+              theme: { ...prev.theme, ...(theme || {}) },
+            }
+          })
+        },
+        onSlide: ({ slide, index }) => {
+          setDeck((prev) => {
+            if (!prev) return prev
+            const slides = prev.slides.slice()
+            slides[index] = slide
+            return { ...prev, slides }
+          })
+        },
+        onDone: (finalDeck) => {
+          setDeck({ ...finalDeck, streaming: false })
+          setStatus('idle')
+          refreshDecks()
+        },
+        onError: (msg) => {
+          setError(msg || 'Failed to generate')
+          setStatus('error')
+          setDeck(null)
+        },
+      })
     } catch (e) {
       setError(e.message || 'Something went wrong')
       setStatus('error')
+      setDeck(null)
     }
   }
 

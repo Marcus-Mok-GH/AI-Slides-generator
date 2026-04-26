@@ -30,6 +30,55 @@ export async function regenerateSlide({ deck, slideIndex, instruction }) {
   return data.slide
 }
 
+export async function streamGenerateDeck(payload, handlers = {}) {
+  const res = await fetch('/api/generate-deck/stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok || !res.body) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `Server returned ${res.status}`)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+
+    let idx
+    while ((idx = buf.indexOf('\n\n')) >= 0) {
+      const block = buf.slice(0, idx)
+      buf = buf.slice(idx + 2)
+      let event = 'message'
+      let data = ''
+      for (const line of block.split('\n')) {
+        if (line.startsWith(':')) continue // comment / keepalive
+        if (line.startsWith('event:')) event = line.slice(6).trim()
+        else if (line.startsWith('data:')) data += line.slice(5).trim()
+      }
+      if (!data) continue
+      let parsed
+      try {
+        parsed = JSON.parse(data)
+      } catch {
+        continue
+      }
+      if (event === 'meta') handlers.onMeta?.(parsed)
+      else if (event === 'slide') handlers.onSlide?.(parsed)
+      else if (event === 'done') handlers.onDone?.(parsed.deck)
+      else if (event === 'error') {
+        handlers.onError?.(parsed.error || 'Failed to generate')
+        return
+      }
+    }
+  }
+}
+
 export async function listDecks() {
   const res = await fetch('/api/decks')
   if (!res.ok) throw new Error(`Server returned ${res.status}`)

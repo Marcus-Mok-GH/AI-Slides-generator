@@ -1,3 +1,5 @@
+import { DeckStreamParser } from './streamParser.js'
+
 const ORBITRON_BASE = 'https://orbitron--pastelsjuice8t.replit.app/api'
 
 /**
@@ -226,6 +228,95 @@ export async function generateDeck(ctx) {
   const user = `Topic / brief:\n"""${ctx.prompt}"""\n\nGenerate the deck JSON now.`
   const content = await callOrbitron({ model: DECK_MODEL, system, user })
   const parsed = extractJson(content)
+  return normalizeDeck(parsed, ctx)
+}
+
+/**
+ * Streaming variant. Calls Orbitron with the same prompt as generateDeck but
+ * forwards meta + each completed slide as it parses out of the model's stream.
+ *
+ * `handlers`:
+ *   onMeta({ title, subtitle, theme })  // once
+ *   onSlide({ slide, index })           // per slide
+ *
+ * Returns the final, normalized deck (so the caller can persist it).
+ */
+export async function streamGenerateDeck(ctx, handlers = {}) {
+  const system = buildDeckSystemPrompt(ctx)
+  const user = `Topic / brief:\n"""${ctx.prompt}"""\n\nGenerate the deck JSON now.`
+
+  const upstream = await fetch(`${ORBITRON_BASE}/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.ORBITRON_API_KEY}`,
+    },
+    body: JSON.stringify({
+      modelId: DECK_MODEL,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+    }),
+  })
+
+  if (!upstream.ok) {
+    const text = await upstream.text().catch(() => '')
+    throw new Error(`Orbitron ${upstream.status}: ${text.slice(0, 300)}`)
+  }
+
+  const parser = new DeckStreamParser()
+  let raw = ''
+  let pending = ''
+
+  const reader = upstream.body.getReader()
+  const decoder = new TextDecoder()
+
+  const emit = (events) => {
+    for (const ev of events) {
+      if (ev.type === 'meta') {
+        handlers.onMeta?.(ev.meta)
+      } else if (ev.type === 'slide') {
+        const normalized = normalizeSlide(ev.slide, ev.index)
+        handlers.onSlide?.({ slide: normalized, index: ev.index })
+      }
+    }
+  }
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    pending += decoder.decode(value, { stream: true })
+
+    // Orbitron sends SSE-style "data: {...}\n" lines
+    const lines = pending.split('\n')
+    pending = lines.pop() || ''
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed.startsWith('data:')) continue
+      const payload = trimmed.slice(5).trim()
+      if (!payload) continue
+      try {
+        const obj = JSON.parse(payload)
+        if (obj.error) {
+          throw new Error(obj.error.message || 'AI error')
+        }
+        if (typeof obj.delta === 'string' && obj.delta) {
+          raw += obj.delta
+          emit(parser.feed(obj.delta))
+        }
+      } catch (e) {
+        // ignore non-JSON keepalive lines but propagate real errors
+        if (e?.message && !/Unexpected token|in JSON at/.test(e.message)) {
+          throw e
+        }
+      }
+    }
+  }
+
+  if (!raw) throw new Error('Empty response from model')
+  const parsed = extractJson(raw)
   return normalizeDeck(parsed, ctx)
 }
 

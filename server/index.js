@@ -1,5 +1,5 @@
 import express from 'express'
-import { generateDeck, regenerateSlide } from './generateDeck.js'
+import { generateDeck, streamGenerateDeck, regenerateSlide } from './generateDeck.js'
 import { listDecks, getDeck, saveDeck, deleteDeck } from './db.js'
 
 const app = express()
@@ -43,6 +43,72 @@ app.post('/api/generate-deck', async (req, res) => {
     res.status(500).json({
       error: err?.message || 'Failed to generate deck',
     })
+  }
+})
+
+app.post('/api/generate-deck/stream', async (req, res) => {
+  const {
+    prompt,
+    format = 'presentation',
+    length = '8 cards',
+    tone = 'Professional',
+    language = 'English',
+  } = req.body || {}
+
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache, no-transform')
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('X-Accel-Buffering', 'no')
+  res.flushHeaders?.()
+
+  const send = (event, data) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+  }
+
+  // periodic comment to keep proxies from buffering
+  const ping = setInterval(() => res.write(': ping\n\n'), 15000)
+  req.on('close', () => clearInterval(ping))
+
+  try {
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+      send('error', { error: 'Missing "prompt"' })
+      return res.end()
+    }
+    if (!process.env.ORBITRON_API_KEY) {
+      send('error', { error: 'Server is missing ORBITRON_API_KEY.' })
+      return res.end()
+    }
+
+    const ctx = {
+      prompt: prompt.trim(),
+      format,
+      length,
+      tone,
+      language,
+    }
+
+    const deck = await streamGenerateDeck(ctx, {
+      onMeta: (meta) => send('meta', meta),
+      onSlide: ({ slide, index }) => send('slide', { slide, index }),
+    })
+
+    // Persist the finished deck so it shows up in Recent decks immediately.
+    try {
+      const saved = await saveDeck(deck)
+      deck.id = saved.id
+      deck.updatedAt = saved.updatedAt
+    } catch (e) {
+      console.warn('[stream] failed to persist deck:', e?.message)
+    }
+
+    send('done', { deck })
+    res.end()
+  } catch (err) {
+    console.error('[generate-deck/stream] error:', err)
+    send('error', { error: err?.message || 'Failed to generate deck' })
+    res.end()
+  } finally {
+    clearInterval(ping)
   }
 })
 
