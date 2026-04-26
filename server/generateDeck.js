@@ -75,6 +75,7 @@ Return ONLY valid JSON (no prose, no code fences). Match this exact schema:
       "stats":     [{"label":"≤ 3 words","value":"e.g. 92% or $1.2B or 4.4 km/s"}],
       "quote":     {"text":"≤ 22 words","attribution":"Name, role"},
       "sectionLabel":"For 'section' layout: a 1-3 word section eyebrow",
+      "imagePrompt":"1-sentence editorial photo description for this slide — concrete, evocative, NO text/logos/words in image. Used as bg for hero/section/statement and side panel for bullets/stats/quote/content.",
       "speakerNotes":"1 sentence (≤ 22 words) — the talking point a speaker says"
     }
   ]
@@ -117,6 +118,12 @@ DESIGN LAW — follow strictly:
    - quote         → title + quote{text,attribution}
    - two-column    → title + body (≤ 18 words) + bullets[3-5]
    - content       → title + body (≤ 18 words)
+   ALSO ALWAYS include "imagePrompt" for every non-section/non-comparison slide
+   when an image would help the slide land. Skip "imagePrompt" for:
+   - "comparison" (the layout has no room for imagery)
+   - "steps"      (the layout has no room for imagery)
+   For all other layouts, write a vivid 1-sentence editorial photograph
+   description tied to the slide content. NO text/logos/words in the image.
 
 5. WRITING:
    - Tone: ${tone}.
@@ -149,6 +156,7 @@ Return ONLY valid JSON (no prose, no code fences) for ONE slide, matching:
   "stats":     [{"label":"≤ 3 words","value":"..."}],
   "quote":     {"text":"≤ 22 words","attribution":"..."},
   "sectionLabel":"...",
+  "imagePrompt":"1-sentence editorial photo description (no text in image)",
   "speakerNotes":"1 sentence (≤ 22 words)"
 }
 
@@ -278,6 +286,14 @@ function normalizeSlide(s, fallbackIndex = 0) {
           }
         : null,
     sectionLabel: s?.sectionLabel ? String(s.sectionLabel) : '',
+    imagePrompt: s?.imagePrompt ? String(s.imagePrompt) : '',
+    image:
+      s?.image && typeof s.image === 'object' && s.image.url
+        ? {
+            url: String(s.image.url),
+            prompt: String(s.image.prompt || ''),
+          }
+        : null,
     speakerNotes: s?.speakerNotes ? String(s.speakerNotes) : '',
   }
 }

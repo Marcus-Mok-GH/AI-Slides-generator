@@ -150,18 +150,18 @@
 
 .viewer-body {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 200px 1fr;
   flex: 1;
   min-height: 0;
 }
 
 .viewer-body.with-editor {
-  grid-template-columns: 240px 1fr 340px;
+  grid-template-columns: 200px 1fr 320px;
 }
 
 @media (max-width: 1100px) {
   .viewer-body.with-editor {
-    grid-template-columns: 240px 1fr 300px;
+    grid-template-columns: 180px 1fr 280px;
   }
 }
 
@@ -244,69 +244,143 @@
 }
 
 .stage {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 24px 32px 24px;
-  overflow-y: auto;
-  gap: 14px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 16px 20px;
+  min-height: 0;
+  overflow: hidden;
+  container-type: size;
 }
 
+/* Letterbox: largest 16:9 rectangle that fits in the stage container.
+   Both width and height are computed from container queries so the slide
+   always uses the maximum available space without scrolling.            */
 .stage-frame {
-  width: 100%;
-  max-width: 960px;
-  aspect-ratio: 16 / 9;
+  width: min(100cqw, calc(100cqh * 16 / 9));
+  height: min(100cqh, calc(100cqw * 9 / 16));
   border-radius: 16px;
   overflow: hidden;
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--border);
+  position: relative;
 }
 
-.stage-controls {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.stage-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+/* Floating chrome-less arrows on the slide edges. */
+.stage-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--surface);
-  font-size: 16px;
   color: var(--text);
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  z-index: 5;
+  opacity: 0.85;
+  transition: opacity 120ms ease, transform 120ms ease;
 }
-.stage-btn:hover:not(:disabled) {
-  background: var(--surface-2);
+.stage-nav:hover:not(:disabled) {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.05);
 }
-.stage-btn:disabled {
-  opacity: 0.4;
+.stage-nav:disabled {
+  opacity: 0.25;
   cursor: not-allowed;
 }
+.stage-nav.prev { left: 8px; }
+.stage-nav.next { right: 8px; }
 
-.stage-counter {
-  min-width: 110px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.notes {
-  width: 100%;
-  max-width: 960px;
+/* Floating slide counter pill at bottom of stage. */
+.stage-counter-pill {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--text-muted);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-variant-numeric: tabular-nums;
+  z-index: 4;
+  pointer-events: none;
 }
-.notes-label {
+
+/* Speaker notes drawer — collapsed by default, slides up from bottom. */
+.notes-drawer {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  width: min(720px, calc(100cqw - 80px));
+  max-height: 38%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px 10px;
+  overflow-y: auto;
+  z-index: 6;
+  box-shadow: var(--shadow-lg);
+}
+.notes-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.notes-drawer-label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-soft);
   font-weight: 600;
+}
+.notes-drawer-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 6px;
+}
+.notes-drawer-close:hover {
+  color: var(--text);
+}
+.notes-drawer p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.notes-toggle {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.notes-toggle:hover {
+  color: var(--text);
+  background: var(--surface-2);
 }
 .notes p {
   margin: 4px 0 0;
@@ -376,6 +450,87 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  z-index: 2;
+}
+
+/* ============================================================
+   Slide imagery — full-bleed bg vs side panel
+   ============================================================ */
+
+.slide-bg-image {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.slide-bg-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: saturate(1.05);
+}
+.slide-bg-tint {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--slide-bg, #0f0f1a) 78%, transparent) 0%,
+    color-mix(in srgb, var(--slide-bg, #0f0f1a) 55%, transparent) 60%,
+    color-mix(in srgb, var(--slide-bg, #0f0f1a) 88%, transparent) 100%
+  );
+}
+.slide.has-bg-image .slide-grain {
+  opacity: 0.4;
+}
+/* When a slide has a full-bleed background, soften the title gradient so it
+   stays readable on photography. */
+.slide.has-bg-image .slide-h1,
+.slide.has-bg-image .slide-section-title {
+  background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.85));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.4);
+}
+.slide.has-bg-image .statement-text {
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Split layout: text on the left, image card on the right. Used by
+   bullets / stats / quote / content layouts when an image is attached. */
+.split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 28px;
+  height: 100%;
+  align-items: stretch;
+}
+.split.has-image {
+  grid-template-columns: 1.2fr 1fr;
+}
+.split-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.slide-side-image {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.3);
+  align-self: stretch;
+  min-height: 0;
+}
+.slide-side-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 /* ============================================================

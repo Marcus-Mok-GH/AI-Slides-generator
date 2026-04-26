@@ -157,6 +157,89 @@ app.delete('/api/decks/:id', async (req, res) => {
   }
 })
 
+/**
+ * Generate an AI image for a single slide using OpenAI's gpt-image-1.
+ * Returns a base64 data URL so the image can be saved straight into the
+ * deck's JSON without a separate static-asset pipeline.
+ *
+ * Body: { prompt, theme?, aspectRatio? }
+ * Response: { image: { url, prompt } } where url is a data: URL.
+ */
+app.post('/api/generate-slide-image', async (req, res) => {
+  try {
+    const { prompt, theme, aspectRatio = '16:9' } = req.body || {}
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+      return res.status(400).json({ error: 'Missing "prompt"' })
+    }
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(400).json({
+        error:
+          'Add an OPENAI_API_KEY secret to enable AI image generation. ' +
+          'Get one at platform.openai.com.',
+      })
+    }
+
+    const sizeMap = {
+      '16:9': '1536x1024',
+      '9:16': '1024x1536',
+      '1:1': '1024x1024',
+    }
+    const size = sizeMap[aspectRatio] || '1536x1024'
+
+    // Wrap the model's prompt with a consistent style so all slides look
+    // like they belong to the same deck. The user-supplied prompt is the
+    // subject; the rest sets the visual register.
+    const palette = theme
+      ? ` Color palette: primary ${theme.primary}, accent ${theme.accent}, dark backdrop ${theme.background}.`
+      : ''
+    const fullPrompt =
+      `Editorial slide imagery, modern presentation aesthetic, cinematic lighting, ` +
+      `shallow depth of field, photographic, no text, no logos, no watermarks. ` +
+      `Subject: ${prompt.trim()}.${palette}`
+
+    const upstream = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-image-1',
+        prompt: fullPrompt,
+        size,
+        quality: 'medium',
+        n: 1,
+      }),
+    })
+
+    if (!upstream.ok) {
+      const text = await upstream.text().catch(() => '')
+      console.error('[generate-slide-image] OpenAI error:', upstream.status, text.slice(0, 400))
+      return res.status(502).json({
+        error: `Image API ${upstream.status}: ${text.slice(0, 200)}`,
+      })
+    }
+
+    const json = await upstream.json()
+    const b64 = json?.data?.[0]?.b64_json
+    if (!b64) {
+      return res.status(502).json({ error: 'Image API returned no image' })
+    }
+
+    res.json({
+      image: {
+        url: `data:image/png;base64,${b64}`,
+        prompt: prompt.trim(),
+      },
+    })
+  } catch (err) {
+    console.error('[generate-slide-image] error:', err)
+    res.status(500).json({
+      error: err?.message || 'Failed to generate image',
+    })
+  }
+})
+
 app.post('/api/regenerate-slide', async (req, res) => {
   try {
     const { deck, slideIndex, instruction } = req.body || {}

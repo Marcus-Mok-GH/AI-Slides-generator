@@ -30,6 +30,15 @@ export async function regenerateSlide({ deck, slideIndex, instruction }) {
   return data.slide
 }
 
+export async function generateSlideImage({ prompt, theme, aspectRatio }) {
+  const data = await postJson('/api/generate-slide-image', {
+    prompt,
+    theme,
+    aspectRatio,
+  })
+  return data.image
+}
+
 export async function streamGenerateDeck(payload, handlers = {}) {
   const res = await fetch('/api/generate-deck/stream', {
     method: 'POST',

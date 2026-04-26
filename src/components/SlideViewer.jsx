@@ -2,54 +2,92 @@ import { useEffect, useRef, useState } from 'react'
 import SlideEditor from './SlideEditor.jsx'
 import './SlideViewer.css'
 
+/* ----------------------------------------------------------------
+   Helpers — image rendering varies a lot by layout. Each slide can
+   carry a generated image (slide.image.url). Some layouts use it as
+   a full-bleed background; others as a side panel.
+   ---------------------------------------------------------------- */
+
+function HeroBackground({ image }) {
+  if (!image?.url) return null
+  return (
+    <div className="slide-bg-image" aria-hidden>
+      <img src={image.url} alt="" />
+      <div className="slide-bg-tint" />
+    </div>
+  )
+}
+
+function SidePanelImage({ image }) {
+  if (!image?.url) return null
+  return (
+    <div className="slide-side-image" aria-hidden>
+      <img src={image.url} alt="" />
+    </div>
+  )
+}
+
 function TitleSlide({ slide, theme }) {
   return (
-    <div className="slide-title-block">
-      <div className="slide-eyebrow">{theme.name || 'Deck'}</div>
-      <h1 className="slide-h1">{slide.title}</h1>
-      {slide.body ? <p className="slide-lead">{slide.body}</p> : null}
-    </div>
+    <>
+      <HeroBackground image={slide.image} />
+      <div className="slide-title-block">
+        <div className="slide-eyebrow">{theme.name || 'Deck'}</div>
+        <h1 className="slide-h1">{slide.title}</h1>
+        {slide.body ? <p className="slide-lead">{slide.body}</p> : null}
+      </div>
+    </>
   )
 }
 
 function SectionSlide({ slide }) {
   return (
-    <div className="slide-section">
-      <div className="slide-section-rule" aria-hidden />
-      <div className="slide-section-eyebrow">
-        {slide.sectionLabel || 'Section'}
+    <>
+      <HeroBackground image={slide.image} />
+      <div className="slide-section">
+        <div className="slide-section-rule" aria-hidden />
+        <div className="slide-section-eyebrow">
+          {slide.sectionLabel || 'Section'}
+        </div>
+        <h2 className="slide-section-title">{slide.title}</h2>
       </div>
-      <h2 className="slide-section-title">{slide.title}</h2>
-    </div>
+    </>
   )
 }
 
 function StatementSlide({ slide }) {
   return (
-    <div className="slide-statement">
-      <div className="statement-quote-mark" aria-hidden>“</div>
-      <h2 className="statement-text">{slide.title}</h2>
-      {slide.body ? (
-        <p className="statement-sub">{slide.body}</p>
-      ) : null}
-    </div>
+    <>
+      <HeroBackground image={slide.image} />
+      <div className="slide-statement">
+        <div className="statement-quote-mark" aria-hidden>“</div>
+        <h2 className="statement-text">{slide.title}</h2>
+        {slide.body ? (
+          <p className="statement-sub">{slide.body}</p>
+        ) : null}
+      </div>
+    </>
   )
 }
 
 function BulletsSlide({ slide }) {
   const items = slide.bullets || []
+  const hasImg = !!slide.image?.url
   return (
-    <>
-      <h2 className="slide-h2">{slide.title}</h2>
-      <ul className="bullets-grid">
-        {items.map((b, i) => (
-          <li key={i} className="bullet-card">
-            <span className="bullet-dot" aria-hidden />
-            <span className="bullet-text">{b}</span>
-          </li>
-        ))}
-      </ul>
-    </>
+    <div className={`split ${hasImg ? 'has-image' : ''}`}>
+      <div className="split-text">
+        <h2 className="slide-h2">{slide.title}</h2>
+        <ul className="bullets-grid">
+          {items.map((b, i) => (
+            <li key={i} className="bullet-card">
+              <span className="bullet-dot" aria-hidden />
+              <span className="bullet-text">{b}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {hasImg && <SidePanelImage image={slide.image} />}
+    </div>
   )
 }
 
@@ -114,31 +152,39 @@ function ComparisonSlide({ slide }) {
 }
 
 function StatsSlide({ slide }) {
+  const hasImg = !!slide.image?.url
   return (
-    <>
-      <h2 className="slide-h2">{slide.title}</h2>
-      <div className="stats">
-        {(slide.stats || []).map((s, i) => (
-          <div key={i} className="stat">
-            <div className="stat-value">{s.value}</div>
-            <div className="stat-label">{s.label}</div>
-          </div>
-        ))}
+    <div className={`split ${hasImg ? 'has-image' : ''}`}>
+      <div className="split-text">
+        <h2 className="slide-h2">{slide.title}</h2>
+        <div className="stats">
+          {(slide.stats || []).map((s, i) => (
+            <div key={i} className="stat">
+              <div className="stat-value">{s.value}</div>
+              <div className="stat-label">{s.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
-    </>
+      {hasImg && <SidePanelImage image={slide.image} />}
+    </div>
   )
 }
 
 function QuoteSlide({ slide }) {
   const q = slide.quote || { text: '', attribution: '' }
+  const hasImg = !!slide.image?.url
   return (
-    <>
-      {slide.title ? <div className="quote-eyebrow">{slide.title}</div> : null}
-      <blockquote className="quote">
-        <p>“{q.text}”</p>
-        {q.attribution ? <footer>— {q.attribution}</footer> : null}
-      </blockquote>
-    </>
+    <div className={`split ${hasImg ? 'has-image' : ''}`}>
+      <div className="split-text">
+        {slide.title ? <div className="quote-eyebrow">{slide.title}</div> : null}
+        <blockquote className="quote">
+          <p>“{q.text}”</p>
+          {q.attribution ? <footer>— {q.attribution}</footer> : null}
+        </blockquote>
+      </div>
+      {hasImg && <SidePanelImage image={slide.image} />}
+    </div>
   )
 }
 
@@ -164,11 +210,15 @@ function TwoColumnSlide({ slide }) {
 }
 
 function ContentSlide({ slide }) {
+  const hasImg = !!slide.image?.url
   return (
-    <>
-      <h2 className="slide-h2">{slide.title}</h2>
-      {slide.body ? <p className="slide-prose lead">{slide.body}</p> : null}
-    </>
+    <div className={`split ${hasImg ? 'has-image' : ''}`}>
+      <div className="split-text">
+        <h2 className="slide-h2">{slide.title}</h2>
+        {slide.body ? <p className="slide-prose lead">{slide.body}</p> : null}
+      </div>
+      {hasImg && <SidePanelImage image={slide.image} />}
+    </div>
   )
 }
 
@@ -223,18 +273,23 @@ function Slide({ slide, theme, index, total }) {
       )
   }
 
+  const hasFullBleed =
+    (isHero || isSection || isStatement) && !!slide.image?.url
+
   return (
     <div
       className={`slide layout-${slide.layout} ${
         isHero ? 'is-hero' : ''
       } ${isSection ? 'is-section' : ''} ${
         isStatement ? 'is-statement' : ''
-      }`}
+      } ${hasFullBleed ? 'has-bg-image' : ''}`}
       style={style}
     >
       <div className="slide-grain" aria-hidden />
-      <div className="slide-glow" aria-hidden />
-      {isSection ? <div className="slide-glow alt" aria-hidden /> : null}
+      {!hasFullBleed && <div className="slide-glow" aria-hidden />}
+      {!hasFullBleed && isSection ? (
+        <div className="slide-glow alt" aria-hidden />
+      ) : null}
 
       <div className="slide-body-wrap">{body}</div>
 
@@ -278,6 +333,7 @@ function GeneratingSlide({ theme, expectedCount, slidesSoFar }) {
 export default function SlideViewer({ deck, savingState, onDeckChange, onBack }) {
   const [active, setActive] = useState(0)
   const [editing, setEditing] = useState(true)
+  const [showNotes, setShowNotes] = useState(false)
   const userNavigatedRef = useRef(false)
   const prevSlideCountRef = useRef(deck.slides.length)
 
@@ -346,6 +402,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
   }
 
   const showGenerating = !slide
+  const hasNotes = !!slide?.speakerNotes
 
   return (
     <div className="viewer">
@@ -362,7 +419,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
           <span className="vbar-deck">{deck.title}</span>
           <span className="vbar-meta">
             · {slideCount}{isStreaming ? `/${expectedCount}` : ''} slides ·{' '}
-            {deck.theme?.name || 'Aurora'} theme · {deck.meta?.model}
+            {deck.theme?.name || 'Aurora'} theme
           </span>
           {statusText ? (
             <span className={`vbar-status ${isStreaming ? 'is-streaming' : ''}`}>
@@ -405,7 +462,10 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
                   {s ? (
                     <>
                       <div className="thumb-title">{s.title}</div>
-                      <div className="thumb-layout">{s.layout}</div>
+                      <div className="thumb-layout">
+                        {s.layout}
+                        {s.image?.url ? ' · img' : ''}
+                      </div>
                     </>
                   ) : (
                     <>
@@ -440,51 +500,74 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
         </div>
 
         <main className="stage">
-          <div className="stage-frame">
-            {showGenerating ? (
-              <GeneratingSlide
-                theme={deck.theme || {}}
-                expectedCount={expectedCount}
-                slidesSoFar={slideCount}
-              />
-            ) : (
+          {showGenerating ? (
+            <GeneratingSlide
+              theme={deck.theme || {}}
+              expectedCount={expectedCount}
+              slidesSoFar={slideCount}
+            />
+          ) : (
+            <div className="stage-frame">
               <Slide
                 slide={slide}
                 theme={deck.theme}
                 index={active}
                 total={Math.max(slideCount, expectedCount)}
               />
-            )}
-          </div>
+            </div>
+          )}
 
-          <div className="stage-controls">
-            <button
-              className="stage-btn"
-              onClick={() => userJump(Math.max(active - 1, 0))}
-              disabled={active === 0 || slideCount === 0}
-            >
-              ←
-            </button>
-            <span className="stage-counter">
+          <button
+            className="stage-nav prev"
+            onClick={() => userJump(Math.max(active - 1, 0))}
+            disabled={active === 0 || slideCount === 0}
+            aria-label="Previous slide"
+          >
+            ‹
+          </button>
+          <button
+            className="stage-nav next"
+            onClick={() => userJump(Math.min(active + 1, slideCount - 1))}
+            disabled={slideCount === 0 || active >= slideCount - 1}
+            aria-label="Next slide"
+          >
+            ›
+          </button>
+
+          {!showNotes && (
+            <div className="stage-counter-pill">
               {slideCount === 0
                 ? 'Drafting…'
-                : `Slide ${active + 1} of ${slideCount}${isStreaming ? ` of ${expectedCount}` : ''}`}
-            </span>
-            <button
-              className="stage-btn"
-              onClick={() => userJump(Math.min(active + 1, slideCount - 1))}
-              disabled={slideCount === 0 || active >= slideCount - 1}
-            >
-              →
-            </button>
-          </div>
+                : `${active + 1} / ${Math.max(slideCount, expectedCount)}`}
+            </div>
+          )}
 
-          {slide?.speakerNotes ? (
-            <div className="notes">
-              <span className="notes-label">Speaker notes</span>
+          {hasNotes && !showNotes && (
+            <button
+              className="notes-toggle"
+              onClick={() => setShowNotes(true)}
+              title="Show speaker notes"
+            >
+              <span aria-hidden>☰</span> Notes
+            </button>
+          )}
+
+          {showNotes && hasNotes && (
+            <div className="notes-drawer">
+              <div className="notes-drawer-head">
+                <span className="notes-drawer-label">Speaker notes</span>
+                <button
+                  type="button"
+                  className="notes-drawer-close"
+                  onClick={() => setShowNotes(false)}
+                  aria-label="Close notes"
+                >
+                  ×
+                </button>
+              </div>
               <p>{slide.speakerNotes}</p>
             </div>
-          ) : null}
+          )}
         </main>
 
         {editing && !isStreaming && slide && (
