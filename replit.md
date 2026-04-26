@@ -1,10 +1,9 @@
 # AI Slides Generator
 
 ## Overview
-Imported from the GitHub repo `Sjdjdiejdrirhdkjej/AI-Slides-generator`. The
-upstream repository was empty (0 bytes), so the project was bootstrapped with a
-minimal scaffold that displays a landing page and is ready to be built out into
-an AI-powered slide deck generator.
+A Gamma-inspired scaffold UI for an AI-powered slide deck generator. The
+current build is the front-end shell only — the prompt input and "Generate"
+button are wired but no AI provider or slide engine is connected yet.
 
 ## Stack
 - **Frontend:** React 18 + Vite 5 (JavaScript)
@@ -15,15 +14,31 @@ an AI-powered slide deck generator.
 ## Project Layout
 ```
 .
-├── index.html          # Vite HTML entry
-├── package.json        # npm scripts and deps
-├── vite.config.js      # Dev/preview server configuration (port 5000, allowedHosts)
+├── index.html              # Vite HTML entry
+├── package.json            # npm scripts and deps
+├── vite.config.js          # Dev/preview server configuration
 └── src/
-    ├── main.jsx        # React bootstrap
-    ├── App.jsx         # Landing page component
-    ├── App.css         # Page styles
-    └── index.css       # Global styles
+    ├── main.jsx            # React bootstrap
+    ├── App.jsx             # Page composition
+    ├── App.css             # Layout grid (sidebar + main)
+    ├── index.css           # Global tokens (colors, radii, shadows)
+    └── components/
+        ├── Sidebar.jsx/css       # Left nav, workspaces, upgrade card
+        ├── TopBar.jsx/css        # Search, notifications, avatar
+        ├── CreateHero.jsx/css    # Prompt area, format/length/tone controls
+        ├── TemplateRow.jsx/css   # "Start from a template" gallery
+        └── RecentGallery.jsx/css # Recent decks grid
 ```
+
+## UI structure (Gamma-inspired)
+- **Sidebar:** primary "New" CTA, navigation, workspace folders, Pro upgrade.
+- **Top bar:** global search with ⌘K hint, notifications, avatar.
+- **Create hero:** format tabs (Presentation / Document / Webpage / Social),
+  prompt textarea with Paste / Import / URL chips, length & tone segmented
+  controls, language select, and the gradient "Generate" button. Also shows
+  example prompt suggestions that fill the textarea on click.
+- **Template row:** quick-start templates with gradient thumbnails.
+- **Recent decks:** grid of recent deck cards with thumbnails and metadata.
 
 ## Workflow
 - `Start application` runs `npm run dev` and serves on port 5000 (webview).
@@ -34,6 +49,8 @@ Configured as a `static` deployment:
 - Public directory: `dist`
 
 ## Next Steps
-The scaffold is intentionally minimal. The user should specify the desired
-features (AI provider, slide editor, export formats, etc.) so the application
-can be built out.
+This is a UI scaffold only. Likely follow-ups:
+- Wire the "Generate" button to an AI provider to produce slide outlines.
+- Add a slide editor view (open a deck, edit cards, change theme).
+- Persist decks (Replit DB or Postgres) and add auth for per-user libraries.
+- Export to PPTX / PDF.
