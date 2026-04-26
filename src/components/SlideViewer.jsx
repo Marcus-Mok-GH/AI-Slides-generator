@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import SlideEditor from './SlideEditor.jsx'
 import './SlideViewer.css'
 
 function Slide({ slide, theme, index, total }) {
@@ -81,11 +82,17 @@ function Slide({ slide, theme, index, total }) {
   )
 }
 
-export default function SlideViewer({ deck, onBack }) {
+export default function SlideViewer({ deck, onDeckChange, onBack }) {
   const [active, setActive] = useState(0)
+  const [editing, setEditing] = useState(true)
 
   useEffect(() => {
     const handler = (e) => {
+      const t = e.target
+      const tag = t?.tagName
+      const isFormField =
+        tag === 'INPUT' || tag === 'TEXTAREA' || t?.isContentEditable
+      if (isFormField) return
       if (e.key === 'ArrowRight' || e.key === ' ') {
         setActive((i) => Math.min(i + 1, deck.slides.length - 1))
       } else if (e.key === 'ArrowLeft') {
@@ -100,6 +107,11 @@ export default function SlideViewer({ deck, onBack }) {
 
   const slide = deck.slides[active]
 
+  function updateSlide(updated) {
+    const nextSlides = deck.slides.map((s, i) => (i === active ? updated : s))
+    onDeckChange?.({ ...deck, slides: nextSlides })
+  }
+
   return (
     <div className="viewer">
       <header className="viewer-bar">
@@ -111,12 +123,18 @@ export default function SlideViewer({ deck, onBack }) {
           </span>
         </div>
         <div className="vbar-actions">
+          <button
+            className={`vbar-btn ${editing ? 'primary' : ''}`}
+            onClick={() => setEditing((v) => !v)}
+          >
+            {editing ? '✓ Editing' : '✎ Edit'}
+          </button>
           <button className="vbar-btn ghost">Share</button>
-          <button className="vbar-btn primary">Export</button>
+          <button className="vbar-btn">Export</button>
         </div>
       </header>
 
-      <div className="viewer-body">
+      <div className={`viewer-body ${editing ? 'with-editor' : ''}`}>
         <aside className="viewer-side">
           <div className="side-title">Slides</div>
           <ol className="thumb-list">
@@ -175,6 +193,14 @@ export default function SlideViewer({ deck, onBack }) {
             </div>
           ) : null}
         </main>
+
+        {editing && (
+          <SlideEditor
+            deck={deck}
+            slideIndex={active}
+            onChangeSlide={updateSlide}
+          />
+        )}
       </div>
     </div>
   )

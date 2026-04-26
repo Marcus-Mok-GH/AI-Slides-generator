@@ -10,10 +10,10 @@ The AI provider is the Orbitron unified-model gateway at
 key server-side and never exposes it to the browser.
 
 ## AI model selection
-- **Deck content generation:** `claude-sonnet-4.6` — balanced intelligence and
-  speed; excellent at structured JSON output and tight, on-brief prose. This is
-  the recommended default for most production work on Orbitron.
-- (Future) Single-slide tweaks / quick reformatting: `gpt-5-mini` (cheap, fast).
+- **Full deck generation:** `claude-sonnet-4.6` — balanced intelligence and
+  speed; excellent at structured JSON output, theme cohesion, and tight prose.
+- **Single-slide regeneration:** `gpt-5-mini` — fast, cheap production
+  workhorse. Smaller scope per call, so we favor speed/cost over peak reasoning.
 - (Future) Per-slide imagery: `gpt-image-1`.
 
 ## Stack
@@ -44,7 +44,10 @@ key server-side and never exposes it to the browser.
         ├── CreateHero.jsx/css      # Prompt + format/length/tone/lang controls
         ├── TemplateRow.jsx/css     # Template gallery
         ├── RecentGallery.jsx/css   # Recent decks grid
-        └── SlideViewer.jsx/css     # Generated deck stage + thumbnails + notes
+        ├── SlideViewer.jsx/css     # Stage + thumbnails + notes + edit toggle
+        └── SlideEditor.jsx/css     # Right-side properties panel for the
+                                    # active slide (layout swap, inline edits,
+                                    # AI regenerate)
 ```
 
 ## API
@@ -65,8 +68,32 @@ Slide shape supports layouts: `title`, `content`, `two-column`, `bullets`,
 `quote`, `stats`. The server validates and normalizes whatever the model returns
 so the viewer never crashes on missing fields.
 
+### `POST /api/regenerate-slide`
+Body:
+```json
+{
+  "deck": { ... full deck object ... },
+  "slideIndex": 0,
+  "instruction": "Optional: 'make it punchier', 'add an NPS stat', etc."
+}
+```
+Returns `{ slide: { ... single normalized slide ... } }`. Layout is preserved
+from the original slide; only the contents are rewritten. The endpoint passes
+the deck title, brief, and other slide titles as context so the rewrite stays
+cohesive.
+
 ### `GET /api/health`
 Returns `{ ok: true, hasKey: boolean }`.
+
+## Editor flow
+- Generated decks land in the **Slide Viewer** with editing on by default.
+- The right-side **Slide Editor** panel exposes:
+  - Layout selector (6 layouts)
+  - Inline editable title, body, bullets, stats, quote, speaker notes
+  - AI **Regenerate this slide** with optional instruction (calls
+    `gpt-5-mini` via `/api/regenerate-slide`)
+- Edits are local-only until the user navigates away (no persistence yet — see
+  Next Steps).
 
 ## Required secrets
 - `ORBITRON_API_KEY` — Orbitron gateway API key.
@@ -85,7 +112,6 @@ files in production.
 
 ## Next Steps
 - Persist generated decks (Replit DB or Postgres) so users can reopen them.
-- Add an in-place slide editor (edit titles, bullets, swap layouts).
 - Add per-slide image generation via `gpt-image-1`.
 - Export to PPTX / PDF.
 - Switch deployment target to a Node server and serve `dist` from Express.

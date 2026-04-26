@@ -27,7 +27,13 @@ export default function App() {
   }
 
   if (deck) {
-    return <SlideViewer deck={deck} onBack={() => setDeck(null)} />
+    return (
+      <SlideViewer
+        deck={deck}
+        onDeckChange={setDeck}
+        onBack={() => setDeck(null)}
+      />
+    )
   }
 
   return (

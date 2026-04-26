@@ -76,6 +76,16 @@
   min-height: 0;
 }
 
+.viewer-body.with-editor {
+  grid-template-columns: 240px 1fr 340px;
+}
+
+@media (max-width: 1100px) {
+  .viewer-body.with-editor {
+    grid-template-columns: 240px 1fr 300px;
+  }
+}
+
 .viewer-side {
   background: var(--surface-2);
   border-right: 1px solid var(--border);

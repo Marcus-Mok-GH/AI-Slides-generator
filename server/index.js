@@ -1,5 +1,5 @@
 import express from 'express'
-import { generateDeck } from './generateDeck.js'
+import { generateDeck, regenerateSlide } from './generateDeck.js'
 
 const app = express()
 app.use(express.json({ limit: '1mb' }))
@@ -41,6 +41,28 @@ app.post('/api/generate-deck', async (req, res) => {
     console.error('[generate-deck] error:', err)
     res.status(500).json({
       error: err?.message || 'Failed to generate deck',
+    })
+  }
+})
+
+app.post('/api/regenerate-slide', async (req, res) => {
+  try {
+    const { deck, slideIndex, instruction } = req.body || {}
+    if (!process.env.ORBITRON_API_KEY) {
+      return res.status(500).json({
+        error: 'Server is missing ORBITRON_API_KEY. Add it in Secrets.',
+      })
+    }
+    const slide = await regenerateSlide({
+      deck,
+      slideIndex: Number(slideIndex),
+      instruction: typeof instruction === 'string' ? instruction.trim() : '',
+    })
+    res.json({ slide })
+  } catch (err) {
+    console.error('[regenerate-slide] error:', err)
+    res.status(500).json({
+      error: err?.message || 'Failed to regenerate slide',
     })
   }
 })
