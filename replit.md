@@ -88,9 +88,33 @@ Body:
 Returns `{ deck: { title, subtitle, theme, slides[], meta } }`. Kept for
 backwards compatibility but no longer wired to the UI.
 
-Slide shape supports layouts: `title`, `content`, `two-column`, `bullets`,
-`quote`, `stats`. The server validates and normalizes whatever the model returns
-so the viewer never crashes on missing fields.
+Slide shape supports 10 layouts, each rendered as a distinct visual primitive
+(not just title + bullets variants):
+
+- `title`       — Hero / cover (deck title, subtitle, theme eyebrow).
+- `section`     — Section divider (huge title + 1-3 word eyebrow, no body).
+- `statement`   — One bold sentence (the central insight of the slide).
+- `bullets`     — 3-5 bullets rendered as a card grid.
+- `steps`       — 3-5 numbered process cards with arrows between them.
+- `comparison`  — Side-by-side A / B with vs badge.
+- `stats`       — 3-4 KPI cards with big gradient numbers.
+- `quote`       — Pull quote with accent bar + attribution.
+- `two-column`  — Prose + bullets (sparingly).
+- `content`     — Title + short subhead (sparingly).
+
+The deck prompt enforces "real slide" design rules:
+
+- One idea per slide.
+- Hard word caps: title ≤ 6 words; body/subhead ≤ 18 words; bullet ≤ 6 words.
+- Apply the 5/5/5 rule (≤ 5 words/line, ≤ 5 lines, no 5 dense slides in a row).
+- Layout diversity: ≥ 4 different non-title layouts per deck; never 3 of the
+  same layout in a row; first slide is `title`; last slide is `statement` or
+  `quote`. Decks of 8+ slides include a `section` divider.
+- Layout-specific field rules — the model fills only the fields a layout needs.
+
+The server validates and normalizes whatever the model returns so the viewer
+never crashes on missing fields. Existing decks (saved before the new layouts)
+keep working — old layouts (`content`, `two-column`, etc.) still render.
 
 ### `POST /api/regenerate-slide`
 Body:

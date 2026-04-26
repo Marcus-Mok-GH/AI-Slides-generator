@@ -2,78 +2,241 @@ import { useEffect, useRef, useState } from 'react'
 import SlideEditor from './SlideEditor.jsx'
 import './SlideViewer.css'
 
+function TitleSlide({ slide, theme }) {
+  return (
+    <div className="slide-title-block">
+      <div className="slide-eyebrow">{theme.name || 'Deck'}</div>
+      <h1 className="slide-h1">{slide.title}</h1>
+      {slide.body ? <p className="slide-lead">{slide.body}</p> : null}
+    </div>
+  )
+}
+
+function SectionSlide({ slide }) {
+  return (
+    <div className="slide-section">
+      <div className="slide-section-rule" aria-hidden />
+      <div className="slide-section-eyebrow">
+        {slide.sectionLabel || 'Section'}
+      </div>
+      <h2 className="slide-section-title">{slide.title}</h2>
+    </div>
+  )
+}
+
+function StatementSlide({ slide }) {
+  return (
+    <div className="slide-statement">
+      <div className="statement-quote-mark" aria-hidden>“</div>
+      <h2 className="statement-text">{slide.title}</h2>
+      {slide.body ? (
+        <p className="statement-sub">{slide.body}</p>
+      ) : null}
+    </div>
+  )
+}
+
+function BulletsSlide({ slide }) {
+  const items = slide.bullets || []
+  return (
+    <>
+      <h2 className="slide-h2">{slide.title}</h2>
+      <ul className="bullets-grid">
+        {items.map((b, i) => (
+          <li key={i} className="bullet-card">
+            <span className="bullet-dot" aria-hidden />
+            <span className="bullet-text">{b}</span>
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+
+function StepsSlide({ slide }) {
+  const steps = (slide.steps || []).filter(
+    (s) => s && (s.label || s.detail),
+  )
+  return (
+    <>
+      <h2 className="slide-h2">{slide.title}</h2>
+      <ol className="steps">
+        {steps.map((s, i) => (
+          <li key={i} className="step">
+            <div className="step-num">{i + 1}</div>
+            <div className="step-meta">
+              <div className="step-label">{s.label}</div>
+              {s.detail ? <div className="step-detail">{s.detail}</div> : null}
+            </div>
+            {i < steps.length - 1 && (
+              <div className="step-arrow" aria-hidden>→</div>
+            )}
+          </li>
+        ))}
+      </ol>
+    </>
+  )
+}
+
+function ComparisonSlide({ slide }) {
+  const cmp = slide.comparison || {
+    leftLabel: '',
+    leftItems: [],
+    rightLabel: '',
+    rightItems: [],
+  }
+  return (
+    <>
+      <h2 className="slide-h2">{slide.title}</h2>
+      <div className="cmp">
+        <div className="cmp-col cmp-left">
+          <div className="cmp-label">{cmp.leftLabel || 'Before'}</div>
+          <ul className="cmp-list">
+            {(cmp.leftItems || []).map((it, i) => (
+              <li key={i}>{it}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="cmp-divider" aria-hidden>
+          <span>vs</span>
+        </div>
+        <div className="cmp-col cmp-right">
+          <div className="cmp-label">{cmp.rightLabel || 'After'}</div>
+          <ul className="cmp-list">
+            {(cmp.rightItems || []).map((it, i) => (
+              <li key={i}>{it}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </>
+  )
+}
+
+function StatsSlide({ slide }) {
+  return (
+    <>
+      <h2 className="slide-h2">{slide.title}</h2>
+      <div className="stats">
+        {(slide.stats || []).map((s, i) => (
+          <div key={i} className="stat">
+            <div className="stat-value">{s.value}</div>
+            <div className="stat-label">{s.label}</div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function QuoteSlide({ slide }) {
+  const q = slide.quote || { text: '', attribution: '' }
+  return (
+    <>
+      {slide.title ? <div className="quote-eyebrow">{slide.title}</div> : null}
+      <blockquote className="quote">
+        <p>“{q.text}”</p>
+        {q.attribution ? <footer>— {q.attribution}</footer> : null}
+      </blockquote>
+    </>
+  )
+}
+
+function TwoColumnSlide({ slide }) {
+  return (
+    <>
+      <h2 className="slide-h2">{slide.title}</h2>
+      <div className="cols">
+        {slide.body ? <p className="slide-prose">{slide.body}</p> : null}
+        {slide.bullets?.length ? (
+          <ul className="bullets-grid compact">
+            {slide.bullets.map((b, i) => (
+              <li key={i} className="bullet-card">
+                <span className="bullet-dot" aria-hidden />
+                <span className="bullet-text">{b}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </>
+  )
+}
+
+function ContentSlide({ slide }) {
+  return (
+    <>
+      <h2 className="slide-h2">{slide.title}</h2>
+      {slide.body ? <p className="slide-prose lead">{slide.body}</p> : null}
+    </>
+  )
+}
+
 function Slide({ slide, theme, index, total }) {
-  const isTitle = slide.layout === 'title' || index === 0
+  const isHero = slide.layout === 'title' || index === 0
+  const isSection = slide.layout === 'section'
+  const isStatement = slide.layout === 'statement'
+
   const style = {
     '--slide-bg': theme.background,
     '--slide-primary': theme.primary,
     '--slide-accent': theme.accent,
   }
 
+  let body = null
+  switch (slide.layout) {
+    case 'title':
+      body = <TitleSlide slide={slide} theme={theme} />
+      break
+    case 'section':
+      body = <SectionSlide slide={slide} />
+      break
+    case 'statement':
+      body = <StatementSlide slide={slide} />
+      break
+    case 'bullets':
+      body = <BulletsSlide slide={slide} />
+      break
+    case 'steps':
+      body = <StepsSlide slide={slide} />
+      break
+    case 'comparison':
+      body = <ComparisonSlide slide={slide} />
+      break
+    case 'stats':
+      body = <StatsSlide slide={slide} />
+      break
+    case 'quote':
+      body = <QuoteSlide slide={slide} />
+      break
+    case 'two-column':
+      body = <TwoColumnSlide slide={slide} />
+      break
+    case 'content':
+      body = <ContentSlide slide={slide} />
+      break
+    default:
+      body = isHero ? (
+        <TitleSlide slide={slide} theme={theme} />
+      ) : (
+        <ContentSlide slide={slide} />
+      )
+  }
+
   return (
-    <div className={`slide layout-${slide.layout}`} style={style}>
+    <div
+      className={`slide layout-${slide.layout} ${
+        isHero ? 'is-hero' : ''
+      } ${isSection ? 'is-section' : ''} ${
+        isStatement ? 'is-statement' : ''
+      }`}
+      style={style}
+    >
       <div className="slide-grain" aria-hidden />
       <div className="slide-glow" aria-hidden />
+      {isSection ? <div className="slide-glow alt" aria-hidden /> : null}
 
-      <div className="slide-body-wrap">
-        {isTitle ? (
-          <div className="slide-title-block">
-            <div className="slide-eyebrow">{theme.name}</div>
-            <h1 className="slide-h1">{slide.title}</h1>
-            {slide.body ? <p className="slide-lead">{slide.body}</p> : null}
-          </div>
-        ) : (
-          <>
-            <h2 className="slide-h2">{slide.title}</h2>
-
-            {slide.layout === 'two-column' ? (
-              <div className="cols">
-                {slide.body ? <p className="slide-prose">{slide.body}</p> : null}
-                {slide.bullets?.length ? (
-                  <ul className="slide-bullets">
-                    {slide.bullets.map((b, i) => (
-                      <li key={i}>{b}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            ) : slide.layout === 'bullets' ? (
-              <ul className="slide-bullets big">
-                {(slide.bullets || []).map((b, i) => (
-                  <li key={i}>{b}</li>
-                ))}
-              </ul>
-            ) : slide.layout === 'stats' ? (
-              <div className="stats">
-                {(slide.stats || []).map((s, i) => (
-                  <div key={i} className="stat">
-                    <div className="stat-value">{s.value}</div>
-                    <div className="stat-label">{s.label}</div>
-                  </div>
-                ))}
-              </div>
-            ) : slide.layout === 'quote' && slide.quote ? (
-              <blockquote className="quote">
-                <p>“{slide.quote.text}”</p>
-                {slide.quote.attribution ? (
-                  <footer>— {slide.quote.attribution}</footer>
-                ) : null}
-              </blockquote>
-            ) : (
-              <>
-                {slide.body ? <p className="slide-prose">{slide.body}</p> : null}
-                {slide.bullets?.length ? (
-                  <ul className="slide-bullets">
-                    {slide.bullets.map((b, i) => (
-                      <li key={i}>{b}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </>
-            )}
-          </>
-        )}
-      </div>
+      <div className="slide-body-wrap">{body}</div>
 
       <div className="slide-footer">
         <span>{index + 1} / {total}</span>
@@ -89,7 +252,7 @@ function GeneratingSlide({ theme, expectedCount, slidesSoFar }) {
     '--slide-accent': theme.accent,
   }
   return (
-    <div className="slide layout-title generating" style={style}>
+    <div className="slide layout-title is-hero generating" style={style}>
       <div className="slide-grain" aria-hidden />
       <div className="slide-glow" aria-hidden />
       <div className="slide-body-wrap">
@@ -122,8 +285,6 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
   const slideCount = deck.slides.length
   const expectedCount = deck.expectedCount || slideCount
 
-  // Auto-advance to the newest slide as it streams in (unless the user has
-  // taken control by clicking a thumbnail / pressing arrows).
   useEffect(() => {
     const prev = prevSlideCountRef.current
     if (slideCount > prev) {
@@ -132,7 +293,6 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
       }
     }
     if (!isStreaming) {
-      // Reset to slide 1 when streaming finishes, if user hasn't scrubbed.
       if (!userNavigatedRef.current) setActive(0)
     }
     prevSlideCountRef.current = slideCount
@@ -169,7 +329,6 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     onDeckChange?.({ ...deck, slides: nextSlides })
   }
 
-  // Status text in top bar
   let statusText = ''
   if (isStreaming) {
     statusText = `Generating ${slideCount}/${expectedCount}…`
@@ -181,7 +340,6 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     statusText = 'Save failed'
   }
 
-  // Build the thumbnail list, including placeholder slots while streaming.
   const thumbItems = []
   for (let i = 0; i < Math.max(slideCount, isStreaming ? expectedCount : 0); i++) {
     thumbItems.push(deck.slides[i] || null)

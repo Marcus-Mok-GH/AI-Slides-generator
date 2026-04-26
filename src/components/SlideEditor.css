@@ -136,6 +136,21 @@
   font-weight: 600;
 }
 
+.cmp-edit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.cmp-edit-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+}
+
 .row-x {
   width: 28px;
   height: 28px;

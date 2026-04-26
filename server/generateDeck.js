@@ -5,17 +5,29 @@ const ORBITRON_BASE = 'https://orbitron--pastelsjuice8t.replit.app/api'
 /**
  * Best-fit model picks for this app:
  * - Full deck content generation: claude-sonnet-4.6
- *     "Latest Sonnet generation — balanced intelligence and speed."
- *     Excellent at structured JSON output, theme cohesion, and tight prose.
  * - Single-slide regeneration: gpt-5-mini
- *     "Fast and cheap GPT-5 variant. Production workhorse for most chat
- *      and tool-use workloads."
- *     Smaller scope per call → favor speed and cost over peak reasoning.
  */
 const DECK_MODEL = 'claude-sonnet-4.6'
 const SLIDE_MODEL = 'gpt-5-mini'
 
-const LAYOUTS = ['title', 'content', 'two-column', 'bullets', 'quote', 'stats']
+/**
+ * Slide layouts. Each one is a different visual primitive — picked deliberately
+ * by the model based on the kind of point being made. Designed to follow the
+ * "one idea per slide" principle from real-world presentation design (Gamma,
+ * Tome, Beautiful.ai, Duarte/Reynolds).
+ */
+const LAYOUTS = [
+  'title',       // Hero / cover
+  'section',     // Section divider — huge label, no body
+  'statement',   // One big sentence — the central insight
+  'bullets',     // 3-5 punchy bullets with icons
+  'steps',       // Numbered process flow (3-5 steps)
+  'comparison',  // Side-by-side A / B
+  'stats',       // 3-4 KPI cards
+  'quote',       // Pull quote
+  'two-column',  // Prose + bullets
+  'content',     // Title + short subhead (use sparingly)
+]
 
 const FORMAT_DESCRIPTIONS = {
   presentation: 'a slide-based presentation deck',
@@ -34,77 +46,130 @@ function buildDeckSystemPrompt({ format, length, tone, language }) {
   const formatDesc = FORMAT_DESCRIPTIONS[format] || FORMAT_DESCRIPTIONS.presentation
   const cardCount = parseLength(length)
 
-  return `You are an expert presentation designer that drafts ${formatDesc}.
+  return `You are a senior presentation designer (think Gamma, Tome, Duarte) who
+drafts ${formatDesc}. You design real slides, not text dumps. Slides are
+SCANNED, not read.
 
 Return ONLY valid JSON (no prose, no code fences). Match this exact schema:
 
 {
-  "title": "Deck title (short, punchy)",
-  "subtitle": "One-sentence subtitle that frames the deck",
+  "title": "Deck title (≤ 6 words, punchy)",
+  "subtitle": "One sentence (≤ 14 words) that frames the deck",
   "theme": {
     "name": "Short theme name e.g. 'Aurora', 'Mono', 'Sunrise'",
     "primary": "#hex",
-    "accent": "#hex",
+    "accent":  "#hex",
     "background": "#hex"
   },
   "slides": [
     {
-      "title": "Slide title",
+      "title": "Slide title (≤ 6 words)",
       "layout": "one of: ${LAYOUTS.join(' | ')}",
-      "body": "Optional paragraph for layouts that need prose",
-      "bullets": ["Optional", "list", "of bullets"],
-      "stats": [{"label":"...","value":"..."}],
-      "quote": {"text": "...", "attribution": "..."},
-      "speakerNotes": "1-2 sentences of speaker notes"
+      "body": "Optional ≤ 18-word subhead. Never a paragraph.",
+      "bullets":   ["Optional 3-5 items, each ≤ 6 words"],
+      "steps":     [{"label":"Step name (≤ 4 words)","detail":"≤ 10 words"}],
+      "comparison":{
+        "leftLabel":"e.g. Before","leftItems":["≤ 6 words","≤ 6 words","≤ 6 words"],
+        "rightLabel":"e.g. After","rightItems":["≤ 6 words","≤ 6 words","≤ 6 words"]
+      },
+      "stats":     [{"label":"≤ 3 words","value":"e.g. 92% or $1.2B or 4.4 km/s"}],
+      "quote":     {"text":"≤ 22 words","attribution":"Name, role"},
+      "sectionLabel":"For 'section' layout: a 1-3 word section eyebrow",
+      "speakerNotes":"1 sentence (≤ 22 words) — the talking point a speaker says"
     }
   ]
 }
 
-Rules:
-- Generate exactly ${cardCount} slides.
-- The first slide MUST use layout "title" and contain the deck title and subtitle.
-- The last slide should be a closing / call-to-action / thank-you card.
-- Choose appropriate layouts per slide; do not repeat the same layout more than 3 times in a row.
-- Bullets: 3-5 short items (max 10 words each).
-- "stats" layout: provide 3-4 entries in the "stats" array.
-- "quote" layout: fill the "quote" object.
-- "two-column" layout: provide both "body" and "bullets".
-- Tone: ${tone}.
-- Output language: ${language}.
-- Keep titles under 8 words. Keep body under 60 words per slide.
-- Pick a cohesive color theme that matches the topic and tone. Use real hex colors.
+DESIGN LAW — follow strictly:
+
+1. ONE IDEA PER SLIDE. If you have two ideas, make two slides.
+
+2. WORD BUDGETS (hard caps):
+   - Title: ≤ 6 words.
+   - Body / subhead: ≤ 18 words. NEVER write a paragraph.
+   - Bullets: 3-5 items, each ≤ 6 words. Apply the 5/5/5 rule.
+   - Steps: 3-5 entries; "label" ≤ 4 words; "detail" ≤ 10 words.
+   - Comparison: 3 items per side, each ≤ 6 words.
+   - Stats: 3-4 entries; "label" ≤ 3 words; "value" is the headline number.
+   - Quote: ≤ 22 words.
+   - Speaker notes: 1 sentence, ≤ 22 words.
+
+3. LAYOUT DIVERSITY (mandatory):
+   - First slide MUST be "title".
+   - Last slide MUST be "statement" (a closing call-to-action) OR "quote".
+   - Use AT LEAST 4 different non-title layouts across the deck.
+   - Never repeat the same layout in 3 consecutive slides.
+   - Prefer "statement" for headline insights — make at least 1 if the deck has
+     5+ slides. Prefer "steps" for processes, "comparison" for contrasts,
+     "stats" for numbers, "quote" for evidence/voice.
+   - For decks with 8+ slides, insert at least 1 "section" divider to chapter
+     the deck. The section divider has only "title" + "sectionLabel" — no body.
+   - Use "two-column" sparingly (max once); never use "content" more than once.
+
+4. FILL ONLY WHAT THE LAYOUT NEEDS. Leave other fields empty / unset:
+   - title         → title (subtitle is the deck.subtitle, slide.body holds it)
+   - section       → title + sectionLabel
+   - statement     → title (the bold sentence) + optional 1-line body
+   - bullets       → title + bullets[3-5]
+   - steps         → title + steps[3-5]
+   - comparison    → title + comparison{leftLabel,leftItems,rightLabel,rightItems}
+   - stats         → title + stats[3-4]
+   - quote         → title + quote{text,attribution}
+   - two-column    → title + body (≤ 18 words) + bullets[3-5]
+   - content       → title + body (≤ 18 words)
+
+5. WRITING:
+   - Tone: ${tone}.
+   - Output language: ${language}.
+   - Active voice. Concrete nouns. No filler ("In this slide…", "We will discuss…").
+   - Numbers and verbs > adjectives. Show, don't narrate.
+   - Generate exactly ${cardCount} slides.
+
+6. THEME:
+   - Pick a cohesive palette that matches the topic and tone.
+   - "background" should be a deep, low-saturation color (works for white text).
+   - "primary" and "accent" should be vivid and harmonize with each other.
 
 Return strictly valid JSON. Do not wrap in markdown.`
 }
 
 function buildSlideSystemPrompt({ layout, tone, language }) {
   return `You rewrite a single slide inside an existing deck. Keep the deck's
-overall tone and direction consistent.
+overall tone consistent. Slides are SCANNED, not read.
 
 Return ONLY valid JSON (no prose, no code fences) for ONE slide, matching:
 
 {
-  "title": "Slide title",
+  "title": "Slide title (≤ 6 words)",
   "layout": "${layout}",
-  "body": "...",
-  "bullets": ["..."],
-  "stats": [{"label":"...","value":"..."}],
-  "quote": {"text":"...","attribution":"..."},
-  "speakerNotes": "..."
+  "body": "Optional ≤ 18-word subhead",
+  "bullets":   ["≤ 6 words each"],
+  "steps":     [{"label":"≤ 4 words","detail":"≤ 10 words"}],
+  "comparison":{"leftLabel":"...","leftItems":["..."],"rightLabel":"...","rightItems":["..."]},
+  "stats":     [{"label":"≤ 3 words","value":"..."}],
+  "quote":     {"text":"≤ 22 words","attribution":"..."},
+  "sectionLabel":"...",
+  "speakerNotes":"1 sentence (≤ 22 words)"
 }
 
 Rules:
-- Use the layout "${layout}" exactly. Fill only the fields that layout needs:
-    - "title": fill "title", "body" (subtitle).
-    - "content": fill "title", "body" (and optionally "bullets").
-    - "two-column": fill "title", "body" AND "bullets".
-    - "bullets": fill "title" and 3-5 punchy "bullets".
-    - "stats": fill "title" and 3-4 entries in "stats".
-    - "quote": fill "title" and "quote" {text, attribution}.
-- Keep title under 8 words. Body under 60 words. Bullets max 10 words each.
+- Use the layout "${layout}" exactly. Fill only the fields that layout needs.
+- Layout → required fields:
+    title       → title, body (acts as subtitle)
+    section     → title, sectionLabel
+    statement   → title (the bold sentence), optional 1-line body
+    bullets     → title, bullets[3-5] (≤ 6 words each)
+    steps       → title, steps[3-5]
+    comparison  → title, comparison{leftLabel,leftItems[3], rightLabel,rightItems[3]}
+    stats       → title, stats[3-4]
+    quote       → title, quote{text,attribution}
+    two-column  → title, body, bullets[3-5]
+    content     → title, body (≤ 18 words)
+- Word caps are hard. Apply the 5/5/5 rule.
+- Active voice. Concrete nouns. No filler.
 - Tone: ${tone}.
 - Output language: ${language}.
-- Always include a one-sentence "speakerNotes".
+- Always include a one-sentence "speakerNotes" (≤ 22 words).
 Return strictly valid JSON. No markdown.`
 }
 
@@ -169,15 +234,36 @@ function extractJson(text) {
 }
 
 function normalizeSlide(s, fallbackIndex = 0) {
+  const layout = LAYOUTS.includes(s?.layout)
+    ? s.layout
+    : fallbackIndex === 0
+      ? 'title'
+      : 'statement'
+
   return {
     title: String(s?.title || `Slide ${fallbackIndex + 1}`),
-    layout: LAYOUTS.includes(s?.layout)
-      ? s.layout
-      : fallbackIndex === 0
-        ? 'title'
-        : 'content',
+    layout,
     body: s?.body ? String(s.body) : '',
     bullets: Array.isArray(s?.bullets) ? s.bullets.map(String) : [],
+    steps: Array.isArray(s?.steps)
+      ? s.steps.map((x) => ({
+          label: String(x?.label || ''),
+          detail: String(x?.detail || ''),
+        }))
+      : [],
+    comparison:
+      s?.comparison && typeof s.comparison === 'object'
+        ? {
+            leftLabel: String(s.comparison.leftLabel || 'Before'),
+            leftItems: Array.isArray(s.comparison.leftItems)
+              ? s.comparison.leftItems.map(String)
+              : [],
+            rightLabel: String(s.comparison.rightLabel || 'After'),
+            rightItems: Array.isArray(s.comparison.rightItems)
+              ? s.comparison.rightItems.map(String)
+              : [],
+          }
+        : null,
     stats: Array.isArray(s?.stats)
       ? s.stats.map((x) => ({
           label: String(x?.label || ''),
@@ -191,6 +277,7 @@ function normalizeSlide(s, fallbackIndex = 0) {
             attribution: String(s.quote.attribution || ''),
           }
         : null,
+    sectionLabel: s?.sectionLabel ? String(s.sectionLabel) : '',
     speakerNotes: s?.speakerNotes ? String(s.speakerNotes) : '',
   }
 }
@@ -234,12 +321,6 @@ export async function generateDeck(ctx) {
 /**
  * Streaming variant. Calls Orbitron with the same prompt as generateDeck but
  * forwards meta + each completed slide as it parses out of the model's stream.
- *
- * `handlers`:
- *   onMeta({ title, subtitle, theme })  // once
- *   onSlide({ slide, index })           // per slide
- *
- * Returns the final, normalized deck (so the caller can persist it).
  */
 export async function streamGenerateDeck(ctx, handlers = {}) {
   const system = buildDeckSystemPrompt(ctx)
@@ -288,7 +369,6 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
     if (done) break
     pending += decoder.decode(value, { stream: true })
 
-    // Orbitron sends SSE-style "data: {...}\n" lines
     const lines = pending.split('\n')
     pending = lines.pop() || ''
 
@@ -307,7 +387,6 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
           emit(parser.feed(obj.delta))
         }
       } catch (e) {
-        // ignore non-JSON keepalive lines but propagate real errors
         if (e?.message && !/Unexpected token|in JSON at/.test(e.message)) {
           throw e
         }
@@ -356,7 +435,7 @@ ${JSON.stringify(target, null, 2)}
 ${
   instruction
     ? `Apply this user instruction:\n"""${instruction}"""\n`
-    : 'Improve clarity, sharpness, and impact while keeping the topic the same.'
+    : 'Sharpen it — cut filler, make it scannable, hit the word caps.'
 }
 
 Return JSON for the rewritten slide only.`
