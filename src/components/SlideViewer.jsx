@@ -192,7 +192,14 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
   return (
     <div className="viewer">
       <header className="viewer-bar">
-        <button className="vbar-btn" onClick={onBack}>← Back to create</button>
+        <button
+          className="vbar-btn vbar-back"
+          onClick={onBack}
+          aria-label="Back to create"
+        >
+          <span className="vbar-back-icon">←</span>
+          <span className="vbar-back-label">Back to create</span>
+        </button>
         <div className="vbar-title">
           <span className="vbar-deck">{deck.title}</span>
           <span className="vbar-meta">
@@ -213,10 +220,15 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
             disabled={isStreaming}
             title={isStreaming ? 'Editing unlocks when generation completes' : ''}
           >
-            {editing ? '✓ Editing' : '✎ Edit'}
+            <span className="vbar-edit-full">{editing ? '✓ Editing' : '✎ Edit'}</span>
+            <span className="vbar-edit-mini" aria-hidden>{editing ? '✓' : '✎'}</span>
           </button>
-          <button className="vbar-btn ghost" disabled={isStreaming}>Share</button>
-          <button className="vbar-btn" disabled={isStreaming}>Export</button>
+          <button className="vbar-btn ghost vbar-only-wide" disabled={isStreaming}>
+            Share
+          </button>
+          <button className="vbar-btn vbar-only-wide" disabled={isStreaming}>
+            Export
+          </button>
         </div>
       </header>
 
@@ -248,6 +260,26 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
             ))}
           </ol>
         </aside>
+
+        {/* Mobile-only horizontal slide rail */}
+        <div className="thumb-strip" role="tablist" aria-label="Slides">
+          {thumbItems.map((s, i) => (
+            <button
+              key={i}
+              type="button"
+              role="tab"
+              aria-selected={i === active}
+              className={`strip-thumb ${i === active ? 'is-active' : ''} ${s ? '' : 'is-pending'}`}
+              onClick={() => s && userJump(i)}
+              disabled={!s}
+            >
+              <span className="strip-num">{i + 1}</span>
+              <span className="strip-title">
+                {s ? s.title : <span className="shimmer-line" />}
+              </span>
+            </button>
+          ))}
+        </div>
 
         <main className="stage">
           <div className="stage-frame">
@@ -302,6 +334,14 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
             deck={deck}
             slideIndex={active}
             onChangeSlide={updateSlide}
+            onClose={() => setEditing(false)}
+          />
+        )}
+        {editing && !isStreaming && slide && (
+          <button
+            className="editor-backdrop"
+            aria-label="Close editor"
+            onClick={() => setEditing(false)}
           />
         )}
       </div>

@@ -35,6 +35,19 @@
   gap: 14px;
 }
 
+@media (max-width: 720px) {
+  .row {
+    margin-bottom: 32px;
+  }
+  .template-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .template-name {
+    font-size: 13px;
+  }
+}
+
 .template-card {
   background: transparent;
   border: none;

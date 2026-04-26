@@ -3,6 +3,11 @@ import './TopBar.css'
 export default function TopBar() {
   return (
     <header className="topbar">
+      <div className="topbar-brand" aria-hidden>
+        <div className="topbar-brand-mark">S</div>
+        <span className="topbar-brand-name">Slide<span>AI</span></span>
+      </div>
+
       <div className="search">
         <span className="search-icon" aria-hidden>⌕</span>
         <input

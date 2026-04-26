@@ -273,9 +273,57 @@
   background: var(--accent-soft);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 720px) {
+  .hero {
+    margin-bottom: 36px;
+  }
+  .hero-head {
+    margin-bottom: 22px;
+  }
+  .hero-sub {
+    font-size: 14px;
+  }
+  .format-tabs {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .format-tab {
+    padding: 12px 12px;
+  }
+  .format-hint {
+    display: none;
+  }
+  .prompt-card {
+    padding: 14px;
+    border-radius: var(--radius-md);
+  }
+  .prompt-input {
+    font-size: 16px; /* iOS no-zoom */
+    padding: 12px 14px;
+  }
+  .prompt-controls {
+    gap: 12px;
+  }
+  .control-group.grow {
+    flex-basis: 100%;
+  }
+  .seg-btn {
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+  .select {
+    padding: 9px 10px;
+    font-size: 14px;
+  }
   .generate-btn {
     margin-left: 0;
     width: 100%;
+    padding: 14px 22px;
+    font-size: 15px;
+  }
+  .chip,
+  .sugg-chip {
+    padding: 8px 12px;
+    font-size: 13px;
   }
 }

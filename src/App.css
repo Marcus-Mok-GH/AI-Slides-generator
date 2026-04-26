@@ -28,8 +28,11 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 720px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
   .content {
-    padding: 16px 16px 48px;
+    padding: 20px 16px 96px;
   }
 }

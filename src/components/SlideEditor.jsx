@@ -95,7 +95,7 @@ function StatsEditor({ stats, onChange }) {
   )
 }
 
-export default function SlideEditor({ deck, slideIndex, onChangeSlide }) {
+export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }) {
   const slide = deck.slides[slideIndex]
   const [instruction, setInstruction] = useState('')
   const [regenerating, setRegenerating] = useState(false)
@@ -126,8 +126,20 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide }) {
   return (
     <aside className="editor">
       <div className="editor-head">
-        <span className="editor-eyebrow">Editing slide {slideIndex + 1}</span>
-        <h3 className="editor-title">Card properties</h3>
+        <div className="editor-head-text">
+          <span className="editor-eyebrow">Editing slide {slideIndex + 1}</span>
+          <h3 className="editor-title">Card properties</h3>
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            className="editor-close"
+            onClick={onClose}
+            aria-label="Close editor"
+          >
+            ×
+          </button>
+        )}
       </div>
 
       <div className="ed-section">

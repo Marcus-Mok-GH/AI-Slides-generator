@@ -172,3 +172,9 @@
     font-size: 18px;
   }
 }
+
+@media (max-width: 720px) {
+  .sidebar {
+    display: none;
+  }
+}

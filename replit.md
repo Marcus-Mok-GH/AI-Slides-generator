@@ -177,6 +177,28 @@ launches the Express server) and proxies `/api` plus serving the built `dist`.
 A simple option is to extend `server/index.js` to also serve `dist` as static
 files in production.
 
+## Mobile / responsive
+The app is fully usable on phones. Key breakpoints:
+
+- **≤1024px** — sidebar collapses to 72px icon rail.
+- **≤900px** — viewer's left thumbnail rail is replaced with a horizontal,
+  scroll-snapping pill strip above the stage. The right-hand `SlideEditor`
+  panel becomes a slide-up bottom sheet (animated, with grab handle and
+  backdrop) instead of being hidden. Slide typography (`slide-h1`, `slide-h2`,
+  bullets) scales down and `cols` collapses to a single column.
+- **≤720px** — sidebar is hidden entirely; the brand mark moves into the
+  top bar so the user still sees the app name. `CreateHero` format tabs
+  switch to a 2x2 grid, all form inputs use 16px font (so iOS Safari does
+  not zoom on focus), and `RecentGallery` / `TemplateRow` go to 2 columns.
+  The viewer's top bar collapses to: back arrow only, deck title, status
+  pill, edit toggle (icon only).
+- **≤420px** — galleries become a single column, stats grid in slides
+  becomes single-column, the streaming status pill is hidden in the viewer
+  bar to save space.
+
+Touch targets are ≥36px throughout. The editor drawer respects
+`env(safe-area-inset-bottom)` for iOS home-indicator clearance.
+
 ## Next Steps
 - Add per-slide image generation via `gpt-image-1`.
 - Export to PPTX / PDF.

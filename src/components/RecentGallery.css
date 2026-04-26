@@ -27,6 +27,27 @@
   gap: 18px;
 }
 
+@media (max-width: 720px) {
+  .deck-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .deck-thumb-inner {
+    inset: 12px;
+  }
+  .deck-headline {
+    font-size: 13px;
+  }
+  .deck-subline {
+    display: none;
+  }
+}
+@media (max-width: 420px) {
+  .deck-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .deck-card {
   display: flex;
   flex-direction: column;
