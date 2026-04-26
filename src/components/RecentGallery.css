@@ -48,6 +48,15 @@
   box-shadow: var(--shadow-md);
 }
 
+.deck-thumb {
+  background: transparent;
+  border: 1px solid var(--border);
+  width: 100%;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
 .deck-thumb-inner {
   position: absolute;
   inset: 18px;
@@ -55,17 +64,89 @@
   flex-direction: column;
   gap: 6px;
 }
+.deck-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
 .deck-headline {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.25;
+  color: white;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35);
+}
+.deck-subline {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.35;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
 }
 .deck-sub {
   font-size: 11px;
   color: rgba(0, 0, 0, 0.5);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.empty {
+  border: 1px dashed var(--border-strong);
+  border-radius: 14px;
+  padding: 40px 20px;
+  text-align: center;
+  background: var(--surface);
+}
+.empty-art {
+  font-size: 26px;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.empty-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+.empty-sub {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.deck-menu-wrap {
+  position: relative;
+}
+
+.deck-menu {
+  position: absolute;
+  right: 0;
+  top: 28px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+  overflow: hidden;
+  z-index: 5;
+}
+.deck-menu button {
+  background: transparent;
+  border: none;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text);
+}
+.deck-menu button:hover {
+  background: var(--surface-2);
+}
+.deck-menu button.danger {
+  color: #b91c1c;
+}
+.deck-menu button.danger:hover {
+  background: #fef2f2;
 }
 
 .deck-pill {

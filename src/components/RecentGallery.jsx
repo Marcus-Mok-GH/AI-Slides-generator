@@ -1,37 +1,80 @@
+import { useState } from 'react'
 import './RecentGallery.css'
 
-const decks = [
-  {
-    title: 'Acme Series A — pitch v3',
-    edited: 'Edited 2 hours ago',
-    cards: 14,
-    bg: 'linear-gradient(135deg,#0f172a,#1e293b)',
-    accent: '#7c5cff',
-  },
-  {
-    title: 'Q2 product roadmap review',
-    edited: 'Edited yesterday',
-    cards: 9,
-    bg: 'linear-gradient(135deg,#fef3c7,#fde68a)',
-    accent: '#92400e',
-  },
-  {
-    title: 'Brand refresh — internal proposal',
-    edited: 'Edited 3 days ago',
-    cards: 18,
-    bg: 'linear-gradient(135deg,#fce7f3,#fbcfe8)',
-    accent: '#9d174d',
-  },
-  {
-    title: 'Onboarding handbook (engineering)',
-    edited: 'Edited last week',
-    cards: 22,
-    bg: 'linear-gradient(135deg,#dbeafe,#bfdbfe)',
-    accent: '#1e3a8a',
-  },
-]
+function timeAgo(iso) {
+  if (!iso) return ''
+  const then = new Date(iso).getTime()
+  const diff = (Date.now() - then) / 1000
+  if (diff < 60) return 'Just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d ago`
+  return new Date(iso).toLocaleDateString()
+}
 
-export default function RecentGallery() {
+function DeckCard({ deck, onOpen, onDelete }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const theme = deck.theme || {}
+  const bg =
+    theme.background ||
+    `linear-gradient(135deg, ${theme.primary || '#7c5cff'}, ${theme.accent || '#ff6ea0'})`
+  const accent = theme.accent || theme.primary || '#7c5cff'
+
+  return (
+    <article className="deck-card">
+      <button
+        className="deck-thumb"
+        style={{ background: bg }}
+        onClick={() => onOpen(deck.id)}
+        aria-label={`Open ${deck.title}`}
+      >
+        <div className="deck-thumb-inner">
+          <div className="deck-eyebrow" style={{ color: accent }}>
+            {theme.name || 'Deck'}
+          </div>
+          <div className="deck-headline">{deck.title}</div>
+          {deck.subtitle ? (
+            <div className="deck-subline">{deck.subtitle}</div>
+          ) : null}
+        </div>
+        <div className="deck-pill">{deck.slideCount} cards</div>
+      </button>
+      <div className="deck-meta">
+        <div className="deck-title-row">
+          <span className="deck-title">{deck.title}</span>
+          <div className="deck-menu-wrap">
+            <button
+              className="deck-more"
+              aria-label="More options"
+              onClick={(e) => {
+                e.stopPropagation()
+                setMenuOpen((v) => !v)
+              }}
+            >
+              ⋯
+            </button>
+            {menuOpen && (
+              <div className="deck-menu" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => { setMenuOpen(false); onOpen(deck.id) }}>
+                  Open
+                </button>
+                <button
+                  className="danger"
+                  onClick={() => { setMenuOpen(false); onDelete(deck.id) }}
+                >
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        <span className="deck-edited">Edited {timeAgo(deck.updatedAt)}</span>
+      </div>
+    </article>
+  )
+}
+
+export default function RecentGallery({ decks = [], onOpen, onDelete }) {
   return (
     <section className="row">
       <div className="row-head">
@@ -42,28 +85,26 @@ export default function RecentGallery() {
         </div>
       </div>
 
-      <div className="deck-grid">
-        {decks.map((d) => (
-          <article key={d.title} className="deck-card">
-            <div className="deck-thumb" style={{ background: d.bg }}>
-              <div className="deck-thumb-inner">
-                <div className="deck-headline" style={{ color: d.accent }}>
-                  {d.title}
-                </div>
-                <div className="deck-sub">Slide preview</div>
-              </div>
-              <div className="deck-pill">{d.cards} cards</div>
-            </div>
-            <div className="deck-meta">
-              <div className="deck-title-row">
-                <span className="deck-title">{d.title}</span>
-                <button className="deck-more" aria-label="More options">⋯</button>
-              </div>
-              <span className="deck-edited">{d.edited}</span>
-            </div>
-          </article>
-        ))}
-      </div>
+      {decks.length === 0 ? (
+        <div className="empty">
+          <div className="empty-art">✦</div>
+          <div className="empty-title">No decks yet</div>
+          <p className="empty-sub">
+            Generate your first deck above and it will appear here.
+          </p>
+        </div>
+      ) : (
+        <div className="deck-grid">
+          {decks.map((d) => (
+            <DeckCard
+              key={d.id}
+              deck={d}
+              onOpen={onOpen}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      )}
     </section>
   )
 }

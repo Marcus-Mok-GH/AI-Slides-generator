@@ -30,7 +30,8 @@ key server-side and never exposes it to the browser.
 ├── vite.config.js              # Vite + /api proxy to localhost:3001
 ├── server/
 │   ├── index.js                # Express app, routes, port 3001
-│   └── generateDeck.js         # Orbitron call + JSON parsing/normalization
+│   ├── generateDeck.js         # Orbitron call + JSON parsing/normalization
+│   └── db.js                   # Postgres pool + decks CRUD (pg)
 └── src/
     ├── main.jsx
     ├── App.jsx                 # Switches between Create view and Viewer
@@ -85,6 +86,33 @@ cohesive.
 ### `GET /api/health`
 Returns `{ ok: true, hasKey: boolean }`.
 
+### Deck persistence
+- `GET /api/decks` → `{ decks: [{ id, title, subtitle, slideCount, theme, updatedAt }] }`
+- `GET /api/decks/:id` → `{ deck }` (full deck JSON)
+- `POST /api/decks` body `{ deck }` → `{ id, updatedAt }` (upserts; generates an
+  id if the deck has none)
+- `DELETE /api/decks/:id` → `{ ok: true }`
+
+Storage is the Replit-managed PostgreSQL database (env `DATABASE_URL`). Schema:
+
+```sql
+CREATE TABLE decks (
+  id          TEXT PRIMARY KEY,
+  title       TEXT NOT NULL,
+  subtitle    TEXT NOT NULL DEFAULT '',
+  slide_count INTEGER NOT NULL,
+  theme       JSONB NOT NULL,
+  data        JSONB NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX decks_updated_at_idx ON decks (updated_at DESC);
+```
+
+The frontend debounces autosave (~700ms) on any deck change in the viewer so
+new decks and inline edits land in the DB without an explicit Save button.
+The Recent decks gallery refreshes after each save and supports Open / Delete.
+
 ## Editor flow
 - Generated decks land in the **Slide Viewer** with editing on by default.
 - The right-side **Slide Editor** panel exposes:
@@ -92,8 +120,8 @@ Returns `{ ok: true, hasKey: boolean }`.
   - Inline editable title, body, bullets, stats, quote, speaker notes
   - AI **Regenerate this slide** with optional instruction (calls
     `gpt-5-mini` via `/api/regenerate-slide`)
-- Edits are local-only until the user navigates away (no persistence yet — see
-  Next Steps).
+- Edits autosave to Postgres (debounced) so the deck appears in Recent decks
+  and can be reopened later.
 
 ## Required secrets
 - `ORBITRON_API_KEY` — Orbitron gateway API key.
@@ -111,7 +139,7 @@ A simple option is to extend `server/index.js` to also serve `dist` as static
 files in production.
 
 ## Next Steps
-- Persist generated decks (Replit DB or Postgres) so users can reopen them.
 - Add per-slide image generation via `gpt-image-1`.
 - Export to PPTX / PDF.
 - Switch deployment target to a Node server and serve `dist` from Express.
+- Multi-user support (currently all decks are global to the workspace).

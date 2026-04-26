@@ -1,5 +1,6 @@
 import express from 'express'
 import { generateDeck, regenerateSlide } from './generateDeck.js'
+import { listDecks, getDeck, saveDeck, deleteDeck } from './db.js'
 
 const app = express()
 app.use(express.json({ limit: '1mb' }))
@@ -42,6 +43,51 @@ app.post('/api/generate-deck', async (req, res) => {
     res.status(500).json({
       error: err?.message || 'Failed to generate deck',
     })
+  }
+})
+
+app.get('/api/decks', async (_req, res) => {
+  try {
+    const decks = await listDecks()
+    res.json({ decks })
+  } catch (err) {
+    console.error('[list decks] error:', err)
+    res.status(500).json({ error: err?.message || 'Failed to list decks' })
+  }
+})
+
+app.get('/api/decks/:id', async (req, res) => {
+  try {
+    const deck = await getDeck(req.params.id)
+    if (!deck) return res.status(404).json({ error: 'Deck not found' })
+    res.json({ deck })
+  } catch (err) {
+    console.error('[get deck] error:', err)
+    res.status(500).json({ error: err?.message || 'Failed to load deck' })
+  }
+})
+
+app.post('/api/decks', async (req, res) => {
+  try {
+    const { deck } = req.body || {}
+    if (!deck || !Array.isArray(deck.slides)) {
+      return res.status(400).json({ error: 'Missing or invalid deck' })
+    }
+    const result = await saveDeck(deck)
+    res.json({ id: result.id, updatedAt: result.updatedAt })
+  } catch (err) {
+    console.error('[save deck] error:', err)
+    res.status(500).json({ error: err?.message || 'Failed to save deck' })
+  }
+})
+
+app.delete('/api/decks/:id', async (req, res) => {
+  try {
+    await deleteDeck(req.params.id)
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[delete deck] error:', err)
+    res.status(500).json({ error: err?.message || 'Failed to delete deck' })
   }
 })
 
