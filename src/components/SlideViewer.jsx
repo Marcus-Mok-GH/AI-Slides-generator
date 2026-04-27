@@ -27,20 +27,53 @@ function SidePanelImage({ image }) {
   )
 }
 
+/**
+ * Renders inline text plus a blinking caret when `caret` is true. Used to
+ * give the currently-streaming text field a "still typing" indicator.
+ */
+function TypingText({ text, caret }) {
+  return (
+    <>
+      {text}
+      {caret ? <span className="typing-caret" aria-hidden>▌</span> : null}
+    </>
+  )
+}
+
+/**
+ * For a partial slide, decide which field is currently being written so we
+ * only show ONE caret at a time (on the last non-empty field). The model
+ * writes title → body → bullets, so the caret rides whichever is newest.
+ */
+function activeTypingField(slide) {
+  if (!slide?.partial) return null
+  if (slide.bullets?.length) return 'bullets'
+  if (slide.body) return 'body'
+  return 'title'
+}
+
 function TitleSlide({ slide, theme }) {
+  const typingOn = activeTypingField(slide)
   return (
     <>
       <HeroBackground image={slide.image} />
       <div className="slide-title-block">
         <div className="slide-eyebrow">{theme.name || 'Deck'}</div>
-        <h1 className="slide-h1">{slide.title}</h1>
-        {slide.body ? <p className="slide-lead">{slide.body}</p> : null}
+        <h1 className="slide-h1">
+          <TypingText text={slide.title} caret={typingOn === 'title'} />
+        </h1>
+        {slide.body ? (
+          <p className="slide-lead">
+            <TypingText text={slide.body} caret={typingOn === 'body'} />
+          </p>
+        ) : null}
       </div>
     </>
   )
 }
 
 function SectionSlide({ slide }) {
+  const typingOn = activeTypingField(slide)
   return (
     <>
       <HeroBackground image={slide.image} />
@@ -49,21 +82,28 @@ function SectionSlide({ slide }) {
         <div className="slide-section-eyebrow">
           {slide.sectionLabel || 'Section'}
         </div>
-        <h2 className="slide-section-title">{slide.title}</h2>
+        <h2 className="slide-section-title">
+          <TypingText text={slide.title} caret={typingOn === 'title'} />
+        </h2>
       </div>
     </>
   )
 }
 
 function StatementSlide({ slide }) {
+  const typingOn = activeTypingField(slide)
   return (
     <>
       <HeroBackground image={slide.image} />
       <div className="slide-statement">
         <div className="statement-quote-mark" aria-hidden>“</div>
-        <h2 className="statement-text">{slide.title}</h2>
+        <h2 className="statement-text">
+          <TypingText text={slide.title} caret={typingOn === 'title'} />
+        </h2>
         {slide.body ? (
-          <p className="statement-sub">{slide.body}</p>
+          <p className="statement-sub">
+            <TypingText text={slide.body} caret={typingOn === 'body'} />
+          </p>
         ) : null}
       </div>
     </>
@@ -73,15 +113,24 @@ function StatementSlide({ slide }) {
 function BulletsSlide({ slide }) {
   const items = slide.bullets || []
   const hasImg = !!slide.image?.url
+  const typingOn = activeTypingField(slide)
+  const lastIdx = items.length - 1
   return (
     <div className={`split ${hasImg ? 'has-image' : ''}`}>
       <div className="split-text">
-        <h2 className="slide-h2">{slide.title}</h2>
+        <h2 className="slide-h2">
+          <TypingText text={slide.title} caret={typingOn === 'title'} />
+        </h2>
         <ul className="bullets-grid">
           {items.map((b, i) => (
             <li key={i} className="bullet-card">
               <span className="bullet-dot" aria-hidden />
-              <span className="bullet-text">{b}</span>
+              <span className="bullet-text">
+                <TypingText
+                  text={b}
+                  caret={typingOn === 'bullets' && i === lastIdx}
+                />
+              </span>
             </li>
           ))}
         </ul>
@@ -95,9 +144,12 @@ function StepsSlide({ slide }) {
   const steps = (slide.steps || []).filter(
     (s) => s && (s.label || s.detail),
   )
+  const typingOn = activeTypingField(slide)
   return (
     <>
-      <h2 className="slide-h2">{slide.title}</h2>
+      <h2 className="slide-h2">
+        <TypingText text={slide.title} caret={typingOn === 'title'} />
+      </h2>
       <ol className="steps">
         {steps.map((s, i) => (
           <li key={i} className="step">
@@ -123,9 +175,12 @@ function ComparisonSlide({ slide }) {
     rightLabel: '',
     rightItems: [],
   }
+  const typingOn = activeTypingField(slide)
   return (
     <>
-      <h2 className="slide-h2">{slide.title}</h2>
+      <h2 className="slide-h2">
+        <TypingText text={slide.title} caret={typingOn === 'title'} />
+      </h2>
       <div className="cmp">
         <div className="cmp-col cmp-left">
           <div className="cmp-label">{cmp.leftLabel || 'Before'}</div>
@@ -153,10 +208,13 @@ function ComparisonSlide({ slide }) {
 
 function StatsSlide({ slide }) {
   const hasImg = !!slide.image?.url
+  const typingOn = activeTypingField(slide)
   return (
     <div className={`split ${hasImg ? 'has-image' : ''}`}>
       <div className="split-text">
-        <h2 className="slide-h2">{slide.title}</h2>
+        <h2 className="slide-h2">
+          <TypingText text={slide.title} caret={typingOn === 'title'} />
+        </h2>
         <div className="stats">
           {(slide.stats || []).map((s, i) => (
             <div key={i} className="stat">
@@ -174,10 +232,15 @@ function StatsSlide({ slide }) {
 function QuoteSlide({ slide }) {
   const q = slide.quote || { text: '', attribution: '' }
   const hasImg = !!slide.image?.url
+  const typingOn = activeTypingField(slide)
   return (
     <div className={`split ${hasImg ? 'has-image' : ''}`}>
       <div className="split-text">
-        {slide.title ? <div className="quote-eyebrow">{slide.title}</div> : null}
+        {slide.title ? (
+          <div className="quote-eyebrow">
+            <TypingText text={slide.title} caret={typingOn === 'title'} />
+          </div>
+        ) : null}
         <blockquote className="quote">
           <p>“{q.text}”</p>
           {q.attribution ? <footer>— {q.attribution}</footer> : null}
@@ -189,17 +252,30 @@ function QuoteSlide({ slide }) {
 }
 
 function TwoColumnSlide({ slide }) {
+  const typingOn = activeTypingField(slide)
+  const lastIdx = (slide.bullets?.length || 0) - 1
   return (
     <>
-      <h2 className="slide-h2">{slide.title}</h2>
+      <h2 className="slide-h2">
+        <TypingText text={slide.title} caret={typingOn === 'title'} />
+      </h2>
       <div className="cols">
-        {slide.body ? <p className="slide-prose">{slide.body}</p> : null}
+        {slide.body ? (
+          <p className="slide-prose">
+            <TypingText text={slide.body} caret={typingOn === 'body'} />
+          </p>
+        ) : null}
         {slide.bullets?.length ? (
           <ul className="bullets-grid compact">
             {slide.bullets.map((b, i) => (
               <li key={i} className="bullet-card">
                 <span className="bullet-dot" aria-hidden />
-                <span className="bullet-text">{b}</span>
+                <span className="bullet-text">
+                  <TypingText
+                    text={b}
+                    caret={typingOn === 'bullets' && i === lastIdx}
+                  />
+                </span>
               </li>
             ))}
           </ul>
@@ -211,11 +287,18 @@ function TwoColumnSlide({ slide }) {
 
 function ContentSlide({ slide }) {
   const hasImg = !!slide.image?.url
+  const typingOn = activeTypingField(slide)
   return (
     <div className={`split ${hasImg ? 'has-image' : ''}`}>
       <div className="split-text">
-        <h2 className="slide-h2">{slide.title}</h2>
-        {slide.body ? <p className="slide-prose lead">{slide.body}</p> : null}
+        <h2 className="slide-h2">
+          <TypingText text={slide.title} caret={typingOn === 'title'} />
+        </h2>
+        {slide.body ? (
+          <p className="slide-prose lead">
+            <TypingText text={slide.body} caret={typingOn === 'body'} />
+          </p>
+        ) : null}
       </div>
       {hasImg && <SidePanelImage image={slide.image} />}
     </div>
@@ -282,7 +365,9 @@ function Slide({ slide, theme, index, total }) {
         isHero ? 'is-hero' : ''
       } ${isSection ? 'is-section' : ''} ${
         isStatement ? 'is-statement' : ''
-      } ${hasFullBleed ? 'has-bg-image' : ''}`}
+      } ${hasFullBleed ? 'has-bg-image' : ''} ${
+        slide.partial ? 'is-typing' : ''
+      }`}
       style={style}
     >
       <div className="slide-grain" aria-hidden />

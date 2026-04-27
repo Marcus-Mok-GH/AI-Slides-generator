@@ -127,6 +127,34 @@
   to { opacity: 0; }
 }
 
+/* Inline typing caret used at the end of a slide's currently-streaming text. */
+.typing-caret {
+  display: inline-block;
+  width: 0.42em;
+  margin-left: 0.08em;
+  color: var(--slide-accent, var(--accent, #7c5cff));
+  animation: caret-blink 0.9s steps(2, start) infinite;
+  vertical-align: baseline;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+/* "Drafting…" badge tucked under the slide footer while a slide is streaming
+   in. Calm, low-noise — the actual text that's growing is the real signal. */
+.slide.is-typing .slide-footer::before {
+  content: "● drafting…";
+  display: inline-block;
+  margin-right: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--slide-accent, var(--accent, #7c5cff));
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  animation: dot-pulse 1.2s ease-in-out infinite;
+}
+
 .vbar-progress {
   position: absolute;
   left: 0;

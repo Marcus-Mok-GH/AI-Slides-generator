@@ -40,6 +40,28 @@ function extractCompletedStringField(snippet, key) {
   }
 }
 
+/**
+ * Match an in-flight (still-being-written) string value. The pattern is
+ * anchored to the END of the snippet, so it only matches when the buffer
+ * currently ends inside the string (no closing quote yet) — perfect for
+ * showing text growing word-by-word in the UI.
+ */
+function extractInProgressStringField(snippet, key) {
+  const re = new RegExp(
+    `"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)$`,
+  )
+  const m = re.exec(snippet)
+  if (!m) return null
+  // Drop a trailing lone backslash so JSON.parse doesn't choke mid-escape.
+  let raw = m[1]
+  if (raw.endsWith('\\')) raw = raw.slice(0, -1)
+  try {
+    return JSON.parse(`"${raw}"`)
+  } catch {
+    return null
+  }
+}
+
 function extractCompletedBulletsArray(snippet) {
   // Find "bullets": [ ... ] where the array is fully closed (no nested arrays).
   const re = /"bullets"\s*:\s*(\[[^\[\]]*\])/
@@ -50,6 +72,52 @@ function extractCompletedBulletsArray(snippet) {
     if (Array.isArray(arr)) return arr.map(String)
   } catch {}
   return null
+}
+
+/**
+ * Match an in-flight bullets array — the opener `[` has appeared but the
+ * closing `]` has not. Returns whatever bullets are completed so far PLUS
+ * the in-progress trailing bullet if the model is mid-string.
+ */
+function extractInProgressBulletsArray(snippet) {
+  const re = /"bullets"\s*:\s*\[([^\[\]]*)$/
+  const m = re.exec(snippet)
+  if (!m) return null
+  const inner = m[1]
+  const items = []
+
+  // Pull all fully-quoted (closed) items.
+  const itemRe = /"((?:[^"\\]|\\.)*)"/g
+  let mm
+  while ((mm = itemRe.exec(inner))) {
+    try {
+      items.push(JSON.parse(`"${mm[1]}"`))
+    } catch {}
+  }
+
+  // Walk once to count unescaped quotes and remember the last one. An odd
+  // count means the model has just opened an in-flight bullet that has no
+  // closing quote yet — that's the one we want to surface as it grows.
+  let quoteCount = 0
+  let lastUnescapedQuote = -1
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i]
+    if (c === '\\') { i++; continue }
+    if (c === '"') {
+      quoteCount++
+      lastUnescapedQuote = i
+    }
+  }
+  if (quoteCount % 2 === 1 && lastUnescapedQuote >= 0) {
+    let raw = inner.slice(lastUnescapedQuote + 1)
+    if (raw.endsWith('\\')) raw = raw.slice(0, -1)
+    try {
+      const item = JSON.parse(`"${raw}"`)
+      if (item.length > 0) items.push(item)
+    } catch {}
+  }
+
+  return items.length ? items : null
 }
 
 export class DeckStreamParser {
@@ -153,8 +221,10 @@ export class DeckStreamParser {
       }
     }
 
-    // 4) If we're mid-slide, try to emit a partial event with whatever
-    //    string fields and bullets array have closed so far.
+    // 4) If we're mid-slide, emit a partial with everything written so far —
+    //    completed fields AND any in-flight string the model is currently
+    //    typing. The in-progress extractor wins when it matches (the field
+    //    is mid-stream); otherwise we fall back to the completed value.
     if (
       this.state === 'inArray' &&
       this.elementStart >= 0 &&
@@ -164,19 +234,28 @@ export class DeckStreamParser {
       const snippet = this.buf.slice(this.elementStart, this.cursor)
       const partial = {}
       for (const key of PARTIAL_STRING_FIELDS) {
-        const v = extractCompletedStringField(snippet, key)
-        if (v !== null) partial[key] = v
+        const inFlight = extractInProgressStringField(snippet, key)
+        if (inFlight !== null) {
+          partial[key] = inFlight
+          continue
+        }
+        const done = extractCompletedStringField(snippet, key)
+        if (done !== null) partial[key] = done
       }
-      const bullets = extractCompletedBulletsArray(snippet)
-      if (bullets) partial.bullets = bullets
+      const inFlightBullets = extractInProgressBulletsArray(snippet)
+      const completedBullets =
+        inFlightBullets || extractCompletedBulletsArray(snippet)
+      if (completedBullets) partial.bullets = completedBullets
 
       if (Object.keys(partial).length > 0) {
         const prev = this.partialState[slideIdx] || {}
-        const changed =
-          Object.keys(partial).some((k) => partial[k] !== prev[k]) ||
-          (partial.bullets &&
-            JSON.stringify(partial.bullets) !== JSON.stringify(prev.bullets))
-        if (changed) {
+        const stringChanged = Object.keys(partial).some(
+          (k) => k !== 'bullets' && partial[k] !== prev[k],
+        )
+        const bulletsChanged =
+          partial.bullets &&
+          JSON.stringify(partial.bullets) !== JSON.stringify(prev.bullets)
+        if (stringChanged || bulletsChanged) {
           this.partialState[slideIdx] = { ...prev, ...partial }
           events.push({
             type: 'partial',
