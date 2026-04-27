@@ -90,13 +90,21 @@ export default function App() {
   }, [isAuthenticated, refreshDecks])
 
   // After a successful login redirect, restore the deck URL the user was on
-  // before they were sent to /api/login.
+  // before they were sent to /api/login. Sign-in breaks out of the workspace
+  // iframe, so returnTo is stashed in localStorage (sessionStorage doesn't
+  // survive a top-level navigation). We still check sessionStorage as a
+  // fallback for the non-iframe case.
   useEffect(() => {
     if (!isAuthenticated) return
     let returnTo = null
     try {
-      returnTo = sessionStorage.getItem('slideai:returnTo')
-      if (returnTo) sessionStorage.removeItem('slideai:returnTo')
+      returnTo =
+        localStorage.getItem('slideai:returnTo') ||
+        sessionStorage.getItem('slideai:returnTo')
+      if (returnTo) {
+        localStorage.removeItem('slideai:returnTo')
+        sessionStorage.removeItem('slideai:returnTo')
+      }
     } catch {
       /* ignore */
     }
@@ -114,9 +122,14 @@ export default function App() {
     if (!isAuthenticated || pendingHandled.current) return
     let pending = null
     try {
-      const raw = sessionStorage.getItem('slideai:pendingPrompt')
+      // Sign-in stores the prompt in localStorage so it survives the
+      // top-level navigation; check sessionStorage too for older sessions.
+      const raw =
+        localStorage.getItem('slideai:pendingPrompt') ||
+        sessionStorage.getItem('slideai:pendingPrompt')
       if (raw) {
         pending = JSON.parse(raw)
+        localStorage.removeItem('slideai:pendingPrompt')
         sessionStorage.removeItem('slideai:pendingPrompt')
       }
     } catch {

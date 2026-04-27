@@ -319,7 +319,9 @@ function PromptShowcase({ onSignIn }) {
   function handleStart() {
     if (prompt.trim()) {
       try {
-        sessionStorage.setItem('slideai:pendingPrompt', JSON.stringify({
+        // localStorage (not sessionStorage) so the prompt survives the
+        // top-level navigation that the sign-in flow performs.
+        localStorage.setItem('slideai:pendingPrompt', JSON.stringify({
           prompt: prompt.trim(),
           format,
           length,

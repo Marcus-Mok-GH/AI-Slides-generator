@@ -49,19 +49,43 @@ export default function useAuth() {
 
   const signIn = useCallback(() => {
     // Preserve the current URL so we land back on the deck after login.
+    // We use localStorage (not sessionStorage) because the OAuth flow runs at
+    // the top window — sessionStorage isn't shared with the iframe's tab.
     const returnTo = window.location.pathname + window.location.search
     if (returnTo && returnTo !== '/') {
       try {
-        sessionStorage.setItem('slideai:returnTo', returnTo)
+        localStorage.setItem('slideai:returnTo', returnTo)
       } catch {
         /* ignore quota errors */
       }
     }
-    window.location.href = '/api/login'
+    // Break out of the Replit Workspace preview iframe so the OAuth flow
+    // happens at the top level. Inside the iframe the Replit OIDC consent
+    // popup closes itself after auth and the parent tab never updates,
+    // which looks like "the tab just closed" to the user.
+    const loginUrl = window.location.origin + '/api/login'
+    try {
+      if (window.top && window.top !== window.self) {
+        window.top.location.href = loginUrl
+        return
+      }
+    } catch {
+      /* cross-origin top — fall through to normal navigation */
+    }
+    window.location.href = loginUrl
   }, [])
 
   const signOut = useCallback(() => {
-    window.location.href = '/api/logout'
+    const logoutUrl = window.location.origin + '/api/logout'
+    try {
+      if (window.top && window.top !== window.self) {
+        window.top.location.href = logoutUrl
+        return
+      }
+    } catch {
+      /* cross-origin top — fall through to normal navigation */
+    }
+    window.location.href = logoutUrl
   }, [])
 
   return {
