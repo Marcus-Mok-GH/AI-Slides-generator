@@ -43,23 +43,43 @@ function useFitScale(containerRef) {
    a full-bleed background; others as a side panel.
    ---------------------------------------------------------------- */
 
-function HeroBackground({ image }) {
-  if (!image?.url) return null
-  return (
-    <div className="slide-bg-image" aria-hidden>
-      <img src={image.url} alt="" />
-      <div className="slide-bg-tint" />
-    </div>
-  )
+function HeroBackground({ image, status }) {
+  if (image?.url) {
+    return (
+      <div className="slide-bg-image" aria-hidden>
+        <img src={image.url} alt="" />
+        <div className="slide-bg-tint" />
+      </div>
+    )
+  }
+  if (status === 'pending') {
+    return (
+      <div className="slide-bg-image is-loading" aria-hidden>
+        <div className="img-shimmer" />
+        <div className="slide-bg-tint" />
+      </div>
+    )
+  }
+  return null
 }
 
-function SidePanelImage({ image }) {
-  if (!image?.url) return null
-  return (
-    <div className="slide-side-image" aria-hidden>
-      <img src={image.url} alt="" />
-    </div>
-  )
+function SidePanelImage({ image, status }) {
+  if (image?.url) {
+    return (
+      <div className="slide-side-image" aria-hidden>
+        <img src={image.url} alt="" />
+      </div>
+    )
+  }
+  if (status === 'pending') {
+    return (
+      <div className="slide-side-image is-loading" aria-hidden>
+        <div className="img-shimmer" />
+        <div className="img-shimmer-label">Generating image…</div>
+      </div>
+    )
+  }
+  return null
 }
 
 /**
@@ -91,7 +111,7 @@ function TitleSlide({ slide, theme }) {
   const typingOn = activeTypingField(slide)
   return (
     <>
-      <HeroBackground image={slide.image} />
+      <HeroBackground image={slide.image} status={slide.imageStatus} />
       <div className="slide-title-block">
         <div className="slide-eyebrow">{theme.name || 'Deck'}</div>
         <h1 className="slide-h1">
@@ -111,7 +131,7 @@ function SectionSlide({ slide }) {
   const typingOn = activeTypingField(slide)
   return (
     <>
-      <HeroBackground image={slide.image} />
+      <HeroBackground image={slide.image} status={slide.imageStatus} />
       <div className="slide-section">
         <div className="slide-section-rule" aria-hidden />
         <div className="slide-section-eyebrow">
@@ -129,7 +149,7 @@ function StatementSlide({ slide }) {
   const typingOn = activeTypingField(slide)
   return (
     <>
-      <HeroBackground image={slide.image} />
+      <HeroBackground image={slide.image} status={slide.imageStatus} />
       <div className="slide-statement">
         <div className="statement-quote-mark" aria-hidden>“</div>
         <h2 className="statement-text">
@@ -151,7 +171,7 @@ function BulletsSlide({ slide }) {
   const typingOn = activeTypingField(slide)
   const lastIdx = items.length - 1
   return (
-    <div className={`split ${hasImg ? 'has-image' : ''}`}>
+    <div className={`split ${hasImg || slide.imageStatus === 'pending' ? 'has-image' : ''}`}>
       <div className="split-text">
         <h2 className="slide-h2">
           <TypingText text={slide.title} caret={typingOn === 'title'} />
@@ -170,7 +190,9 @@ function BulletsSlide({ slide }) {
           ))}
         </ul>
       </div>
-      {hasImg && <SidePanelImage image={slide.image} />}
+      {(hasImg || slide.imageStatus === 'pending') && (
+        <SidePanelImage image={slide.image} status={slide.imageStatus} />
+      )}
     </div>
   )
 }
@@ -245,7 +267,7 @@ function StatsSlide({ slide }) {
   const hasImg = !!slide.image?.url
   const typingOn = activeTypingField(slide)
   return (
-    <div className={`split ${hasImg ? 'has-image' : ''}`}>
+    <div className={`split ${hasImg || slide.imageStatus === 'pending' ? 'has-image' : ''}`}>
       <div className="split-text">
         <h2 className="slide-h2">
           <TypingText text={slide.title} caret={typingOn === 'title'} />
@@ -259,7 +281,9 @@ function StatsSlide({ slide }) {
           ))}
         </div>
       </div>
-      {hasImg && <SidePanelImage image={slide.image} />}
+      {(hasImg || slide.imageStatus === 'pending') && (
+        <SidePanelImage image={slide.image} status={slide.imageStatus} />
+      )}
     </div>
   )
 }
@@ -269,7 +293,7 @@ function QuoteSlide({ slide }) {
   const hasImg = !!slide.image?.url
   const typingOn = activeTypingField(slide)
   return (
-    <div className={`split ${hasImg ? 'has-image' : ''}`}>
+    <div className={`split ${hasImg || slide.imageStatus === 'pending' ? 'has-image' : ''}`}>
       <div className="split-text">
         {slide.title ? (
           <div className="quote-eyebrow">
@@ -281,7 +305,9 @@ function QuoteSlide({ slide }) {
           {q.attribution ? <footer>— {q.attribution}</footer> : null}
         </blockquote>
       </div>
-      {hasImg && <SidePanelImage image={slide.image} />}
+      {(hasImg || slide.imageStatus === 'pending') && (
+        <SidePanelImage image={slide.image} status={slide.imageStatus} />
+      )}
     </div>
   )
 }
@@ -324,7 +350,7 @@ function ContentSlide({ slide }) {
   const hasImg = !!slide.image?.url
   const typingOn = activeTypingField(slide)
   return (
-    <div className={`split ${hasImg ? 'has-image' : ''}`}>
+    <div className={`split ${hasImg || slide.imageStatus === 'pending' ? 'has-image' : ''}`}>
       <div className="split-text">
         <h2 className="slide-h2">
           <TypingText text={slide.title} caret={typingOn === 'title'} />
@@ -335,7 +361,9 @@ function ContentSlide({ slide }) {
           </p>
         ) : null}
       </div>
-      {hasImg && <SidePanelImage image={slide.image} />}
+      {(hasImg || slide.imageStatus === 'pending') && (
+        <SidePanelImage image={slide.image} status={slide.imageStatus} />
+      )}
     </div>
   )
 }

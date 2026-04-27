@@ -254,9 +254,11 @@ export default function App() {
         length: payload.length,
         tone: payload.tone,
         language: payload.language,
+        mode: payload.mode || 'default',
         generatedAt: new Date().toISOString(),
       },
       streaming: true,
+      imagesGenerating: true,
       expectedCount,
     })
 
@@ -298,12 +300,53 @@ export default function App() {
           setDeck((prev) => {
             if (!prev) return prev
             const slides = prev.slides.slice()
-            slides[index] = slide
+            // Preserve any imageStatus already set for this index.
+            const existing = slides[index] || {}
+            slides[index] = {
+              ...slide,
+              imageStatus: existing.imageStatus || slide.imageStatus || '',
+            }
+            return { ...prev, slides }
+          })
+        },
+        onSlideImagePending: ({ index }) => {
+          setDeck((prev) => {
+            if (!prev) return prev
+            const slides = prev.slides.slice()
+            const existing = slides[index] || { partial: true }
+            slides[index] = { ...existing, imageStatus: 'pending' }
+            return { ...prev, slides }
+          })
+        },
+        onSlideImage: ({ index, image }) => {
+          setDeck((prev) => {
+            if (!prev) return prev
+            const slides = prev.slides.slice()
+            const existing = slides[index] || {}
+            slides[index] = {
+              ...existing,
+              image,
+              imagePrompt: existing.imagePrompt || image?.prompt || '',
+              imageStatus: 'ready',
+            }
+            return { ...prev, slides }
+          })
+        },
+        onSlideImageFailed: ({ index }) => {
+          setDeck((prev) => {
+            if (!prev) return prev
+            const slides = prev.slides.slice()
+            const existing = slides[index] || {}
+            slides[index] = { ...existing, imageStatus: 'failed' }
             return { ...prev, slides }
           })
         },
         onDone: (finalDeck) => {
-          setDeck({ ...finalDeck, streaming: false })
+          setDeck({
+            ...finalDeck,
+            streaming: false,
+            imagesGenerating: false,
+          })
           setStatus('idle')
           refreshDecks()
         },

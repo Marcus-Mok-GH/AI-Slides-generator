@@ -411,3 +411,80 @@
     font-size: 13px;
   }
 }
+
+/* ============================================================
+   Mode segmented cards — Concise / Default / Detailed.
+   Sits between the prompt textarea and the prompt-controls row.
+   ============================================================ */
+
+.mode-row {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  align-items: stretch;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.mode-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted, #6b7280);
+  align-self: center;
+}
+
+.mode-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background 0.15s ease, transform 0.05s ease;
+}
+
+.mode-card:hover {
+  border-color: var(--accent, #3358ff);
+}
+
+.mode-card.is-on {
+  border-color: var(--accent, #3358ff);
+  background: color-mix(in srgb, var(--accent, #3358ff) 6%, #fff);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #3358ff) 14%, transparent);
+}
+
+.mode-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text, #0a0a23);
+}
+
+.mode-card-hint {
+  font-size: 11.5px;
+  color: var(--text-muted, #6b7280);
+  line-height: 1.3;
+}
+
+@media (max-width: 720px) {
+  .mode-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .mode-cards {
+    grid-template-columns: 1fr;
+  }
+  .mode-card-hint {
+    font-size: 12px;
+  }
+}

@@ -36,15 +36,58 @@ const FORMAT_DESCRIPTIONS = {
   social: 'a social-media carousel with short, punchy cards',
 }
 
+/**
+ * Content-depth modes for presentations. Each mode tweaks the word budgets
+ * and per-slide richness so the same prompt can produce a punchy keynote
+ * deck or a more detailed sales-pitch deck.
+ */
+const MODE_RULES = {
+  concise: `MODE: CONCISE — strip every slide to the bone.
+   - Lean toward "statement", "title", "stats", and "quote" layouts.
+   - Bullet slides: max 3 bullets, each ≤ 4 words. Body ≤ 10 words.
+   - Speaker notes: a single short cue, ≤ 14 words.
+   - Skip "two-column" and "content" entirely.
+   - On-screen prose feels like newspaper headlines, not paragraphs.`,
+  default: `MODE: DEFAULT — balanced presentation (see word caps above).
+   - On-screen word budgets exactly as stated. Don't go over.
+   - Speaker notes: 1 sentence, ≤ 22 words — the talking point.`,
+  detailed: `MODE: DETAILED — a deck someone can actually deliver on stage.
+   The on-screen text MUST still be scannable (don't blow past visible word
+   caps), but speaker notes become a REAL spoken script, not a label.
+
+   On-slide content (what the audience sees):
+   - Bullets: up to 6 items, each ≤ 8 words.
+   - Body / subhead: ≤ 24 words.
+   - Stats: 3-4 entries; "label" may be ≤ 4 words with light context.
+   - Comparison: 3-4 items per side.
+
+   Speaker notes (what the presenter SAYS, not what the audience sees):
+   - 3 to 5 sentences, roughly 60-110 words.
+   - Written as natural spoken English, first person ("Here's what we found…",
+     "Notice that…", "Let me show you…"). Not a bullet list.
+   - Open with a hook or transition from the previous slide.
+   - Explain what's on the slide, give the supporting evidence / story / data
+     the audience won't see, and end with the takeaway or a bridge to the
+     next slide.
+   - Concrete examples, real numbers, vivid analogies — the colour the
+     visible slide can't carry on its own.
+   - DO NOT just restate the bullets. Add the substance behind them.
+
+   On-slide word caps still apply per visible item — DO NOT write paragraphs
+   into "title", "body", "bullets", or "stats" fields. The depth lives in
+   speakerNotes.`,
+}
+
 function parseLength(length) {
   const m = String(length).match(/(\d+)/)
   if (m) return Math.max(3, Math.min(20, parseInt(m[1], 10)))
   return 8
 }
 
-function buildDeckSystemPrompt({ format, length, tone, language }) {
+function buildDeckSystemPrompt({ format, length, tone, language, mode = 'default' }) {
   const formatDesc = FORMAT_DESCRIPTIONS[format] || FORMAT_DESCRIPTIONS.presentation
   const cardCount = parseLength(length)
+  const modeBlock = MODE_RULES[mode] || MODE_RULES.default
 
   return `You are a senior presentation designer (think Gamma, Tome, Duarte) who
 drafts ${formatDesc}. You design real slides, not text dumps. Slides are
@@ -118,12 +161,13 @@ DESIGN LAW — follow strictly:
    - quote         → title + quote{text,attribution}
    - two-column    → title + body (≤ 18 words) + bullets[3-5]
    - content       → title + body (≤ 18 words)
-   ALSO ALWAYS include "imagePrompt" for every non-section/non-comparison slide
-   when an image would help the slide land. Skip "imagePrompt" for:
-   - "comparison" (the layout has no room for imagery)
-   - "steps"      (the layout has no room for imagery)
-   For all other layouts, write a vivid 1-sentence editorial photograph
-   description tied to the slide content. NO text/logos/words in the image.
+
+   ALWAYS include "imagePrompt" for EVERY slide EXCEPT "steps" and
+   "comparison" (which have no room for imagery). The image is the
+   visual hook of the slide — make it vivid and specific.
+   Write a 1-sentence editorial photograph description tied to the slide
+   content: concrete subject, mood, lighting, environment.
+   NO text, NO logos, NO words inside the image.
 
 5. WRITING:
    - Tone: ${tone}.
@@ -132,7 +176,9 @@ DESIGN LAW — follow strictly:
    - Numbers and verbs > adjectives. Show, don't narrate.
    - Generate exactly ${cardCount} slides.
 
-6. THEME:
+6. ${modeBlock}
+
+7. THEME:
    - Pick a cohesive palette that matches the topic and tone.
    - "background" should be a deep, low-saturation color (works for white text).
    - "primary" and "accent" should be vivid and harmonize with each other.
@@ -321,6 +367,7 @@ function normalizeDeck(raw, ctx) {
       length: ctx.length,
       tone: ctx.tone,
       language: ctx.language,
+      mode: ctx.mode || 'default',
       generatedAt: new Date().toISOString(),
     },
   }

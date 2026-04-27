@@ -16,6 +16,24 @@ const formats = [
 const lengths = ['4 cards', '8 cards', '12 cards', '16 cards']
 const tones = ['Professional', 'Casual', 'Playful', 'Bold']
 
+const MODES = [
+  {
+    id: 'concise',
+    label: 'Concise',
+    hint: 'Headlines only — under 10 words a slide.',
+  },
+  {
+    id: 'default',
+    label: 'Default',
+    hint: 'Balanced. Scannable slides + a 1-line speaker note.',
+  },
+  {
+    id: 'detailed',
+    label: 'Detailed',
+    hint: 'Real presentation — full speaker script per slide.',
+  },
+]
+
 const suggestions = [
   'A pitch deck for a B2B SaaS analytics tool',
   'Onboarding deck for new engineering hires',
@@ -48,6 +66,7 @@ const CreateHero = forwardRef(function CreateHero(
   const [length, setLength] = useState('8 cards')
   const [tone, setTone] = useState('Professional')
   const [language, setLanguage] = useState('English')
+  const [mode, setMode] = useState('default')
   const [chipBusy, setChipBusy] = useState('') // 'paste' | 'file' | 'url' | ''
   const [chipError, setChipError] = useState('')
   const isLoading = status === 'loading'
@@ -89,6 +108,9 @@ const CreateHero = forwardRef(function CreateHero(
       length,
       tone,
       language,
+      // Mode is presentation-specific. For other formats it's ignored
+      // server-side, but we still send the current value for symmetry.
+      mode: format === 'presentation' ? mode : 'default',
     })
   }
 
@@ -250,6 +272,27 @@ const CreateHero = forwardRef(function CreateHero(
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="e.g. A 10-slide investor pitch for an AI-powered legal research startup, focused on traction and the team."
         />
+
+        {format === 'presentation' ? (
+          <div className="mode-row" role="radiogroup" aria-label="Content depth">
+            <span className="mode-label">Mode</span>
+            <div className="mode-cards">
+              {MODES.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === m.id}
+                  className={`mode-card ${mode === m.id ? 'is-on' : ''}`}
+                  onClick={() => setMode(m.id)}
+                >
+                  <span className="mode-card-name">{m.label}</span>
+                  <span className="mode-card-hint">{m.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div className="prompt-controls">
           <div className="control-group">

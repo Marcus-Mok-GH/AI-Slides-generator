@@ -111,6 +111,11 @@ export async function streamGenerateDeck(payload, handlers = {}) {
       if (event === 'meta') handlers.onMeta?.(parsed)
       else if (event === 'partial') handlers.onPartial?.(parsed)
       else if (event === 'slide') handlers.onSlide?.(parsed)
+      else if (event === 'slide-image-pending')
+        handlers.onSlideImagePending?.(parsed)
+      else if (event === 'slide-image') handlers.onSlideImage?.(parsed)
+      else if (event === 'slide-image-failed')
+        handlers.onSlideImageFailed?.(parsed)
       else if (event === 'done') handlers.onDone?.(parsed.deck)
       else if (event === 'error') {
         handlers.onError?.(parsed.error || 'Failed to generate')

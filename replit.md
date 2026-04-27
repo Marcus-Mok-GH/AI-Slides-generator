@@ -289,8 +289,32 @@ The app is fully usable on phones. Key breakpoints:
 Touch targets are ≥36px throughout. The editor drawer respects
 `env(safe-area-inset-bottom)` for iOS home-indicator clearance.
 
+## Content modes & auto-imagery (presentations)
+- The Create form has a **Mode** selector (Concise / Default / Detailed),
+  shown only for the `presentation` format. The chosen mode is sent in
+  the `/api/generate-deck/stream` payload as `mode` and recorded in
+  `deck.meta.mode`. `server/generateDeck.js` injects a `MODE_RULES[mode]`
+  block into the system prompt:
+    - **concise** — headline-only slides, ≤10 words on screen, 1-line note.
+    - **default** — current behavior (3–5 short bullets, 1-line note).
+    - **detailed** — on-screen content stays scannable, but `speakerNotes`
+      becomes a real spoken script (3–5 sentences, ~60–110 words, first
+      person, hook → evidence → takeaway). Use this for an actual
+      stage-ready presentation.
+- Per-slide AI imagery: while streaming, every layout in
+  `AUTO_IMAGE_LAYOUTS` (everything except `steps` and `comparison`) gets
+  an image auto-generated via the Fireworks Flux proxy
+  (`generateSlideImageData` in `server/index.js`). The stream emits
+  `slide-image-pending` immediately and `slide-image` (or
+  `slide-image-failed`) when ready. The viewer (`HeroBackground` /
+  `SidePanelImage`) renders an animated shimmer placeholder while
+  `slide.imageStatus === 'pending'` and swaps in the real image once
+  it arrives. Aspect ratio is `1:1` for split layouts (bullets, stats,
+  quote, two-column, content) and `16:9` for full-bleed (title, section,
+  statement). The same `generateSlideImageData` helper backs the manual
+  "Generate image" button in `SlideEditor` via `/api/generate-slide-image`.
+
 ## Next Steps
-- Add per-slide image generation via `gpt-image-1`.
 - Export to PPTX / PDF.
 - Switch deployment target to a Node server and serve `dist` from Express.
 - Optional: deck sharing (read-only public links that bypass auth via a

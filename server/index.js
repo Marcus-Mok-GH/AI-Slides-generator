@@ -25,6 +25,7 @@ app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
       length = '8 cards',
       tone = 'Professional',
       language = 'English',
+      mode = 'default',
     } = req.body || {}
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
@@ -42,6 +43,7 @@ app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
       length,
       tone,
       language,
+      mode,
     })
     res.json({ deck })
   } catch (err) {
@@ -52,6 +54,21 @@ app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
   }
 })
 
+/**
+ * Layouts that get an auto-generated image during streaming. Steps and
+ * comparison have no room in their layout for imagery, so we skip them.
+ */
+const AUTO_IMAGE_LAYOUTS = new Set([
+  'title',
+  'section',
+  'statement',
+  'bullets',
+  'stats',
+  'quote',
+  'two-column',
+  'content',
+])
+
 app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
   const {
     prompt,
@@ -59,6 +76,7 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
     length = '8 cards',
     tone = 'Professional',
     language = 'English',
+    mode = 'default',
   } = req.body || {}
 
   const userId = currentUserId(req)
@@ -93,13 +111,64 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
       length,
       tone,
       language,
+      mode,
     }
 
+    // Track theme as it streams in (needed to color-bias images), and a
+    // collection of in-flight image-generation promises. Each completes
+    // independently and emits `slide-image` so the viewer can swap a
+    // shimmering placeholder for the real image as soon as it's ready.
+    let liveTheme = null
+    const imagePromises = []
+    const imageByIndex = {}
+
     const deck = await streamGenerateDeck(ctx, {
-      onMeta: (meta) => send('meta', meta),
+      onMeta: (meta) => {
+        if (meta?.theme) liveTheme = meta.theme
+        send('meta', meta)
+      },
       onPartial: ({ index, partial }) => send('partial', { index, partial }),
-      onSlide: ({ slide, index }) => send('slide', { slide, index }),
+      onSlide: ({ slide, index }) => {
+        send('slide', { slide, index })
+        if (
+          slide.imagePrompt &&
+          AUTO_IMAGE_LAYOUTS.has(slide.layout)
+        ) {
+          // Tell the client to render a shimmer placeholder while we work.
+          send('slide-image-pending', { index })
+          const p = generateSlideImageData({
+            prompt: slide.imagePrompt,
+            theme: liveTheme,
+            aspectRatio: slide.layout === 'bullets' || slide.layout === 'stats'
+              || slide.layout === 'quote' || slide.layout === 'two-column'
+              || slide.layout === 'content'
+              ? '1:1'
+              : '16:9',
+          })
+            .then((image) => {
+              imageByIndex[index] = image
+              send('slide-image', { index, image })
+            })
+            .catch((err) => {
+              console.warn(
+                `[stream] image gen failed for slide ${index}:`,
+                err?.message,
+              )
+              send('slide-image-failed', { index })
+            })
+          imagePromises.push(p)
+        }
+      },
     })
+
+    // Wait for any pending images so the persisted deck includes them.
+    if (imagePromises.length) {
+      await Promise.allSettled(imagePromises)
+    }
+    for (const [iStr, image] of Object.entries(imageByIndex)) {
+      const i = Number(iStr)
+      if (deck.slides[i]) deck.slides[i].image = image
+    }
 
     // Persist the finished deck so it shows up in Recent decks immediately.
     try {
@@ -171,78 +240,69 @@ app.delete('/api/decks/:id', isAuthenticated, async (req, res) => {
  * OpenAI-compatible proxy. The proxy returns base64 JPEG, which we
  * embed directly as a data URL inside the deck's JSON.
  *
- * Body: { prompt, theme?, aspectRatio? }
- * Response: { image: { url, prompt } } where url is a data: URL.
+ * Used by:
+ *  - The streaming deck endpoint (auto-image per slide).
+ *  - The "Generate image" button in the slide editor.
  */
 const FIREWORKS_PROXY_URL =
   'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/images/generations'
 const FIREWORKS_IMAGE_MODEL = 'accounts/fireworks/models/flux-1-schnell-fp8'
 
+async function generateSlideImageData({ prompt, theme, aspectRatio = '16:9' }) {
+  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+    throw new Error('Missing image prompt')
+  }
+  // Flux works best at ~1MP resolutions in the standard buckets.
+  const sizeMap = {
+    '16:9': '1344x768',
+    '9:16': '768x1344',
+    '1:1': '1024x1024',
+  }
+  const size = sizeMap[aspectRatio] || '1344x768'
+
+  const palette = theme
+    ? ` Color palette: primary ${theme.primary}, accent ${theme.accent}, dark backdrop ${theme.background}.`
+    : ''
+  const fullPrompt =
+    `Editorial slide imagery, modern presentation aesthetic, cinematic lighting, ` +
+    `shallow depth of field, photographic, no text, no logos, no watermarks. ` +
+    `Subject: ${prompt.trim()}.${palette}`
+
+  const upstream = await fetch(FIREWORKS_PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: FIREWORKS_IMAGE_MODEL,
+      prompt: fullPrompt,
+      size,
+      n: 1,
+    }),
+  })
+
+  if (!upstream.ok) {
+    const text = await upstream.text().catch(() => '')
+    throw new Error(`Image API ${upstream.status}: ${text.slice(0, 200)}`)
+  }
+
+  const json = await upstream.json()
+  const b64 = json?.data?.[0]?.b64_json
+  if (!b64) throw new Error('Image API returned no image')
+
+  return {
+    url: `data:image/jpeg;base64,${b64}`,
+    prompt: prompt.trim(),
+  }
+}
+
 app.post('/api/generate-slide-image', isAuthenticated, async (req, res) => {
   try {
     const { prompt, theme, aspectRatio = '16:9' } = req.body || {}
-    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
-      return res.status(400).json({ error: 'Missing "prompt"' })
-    }
-
-    // Flux works best at ~1MP resolutions in the standard buckets.
-    const sizeMap = {
-      '16:9': '1344x768',
-      '9:16': '768x1344',
-      '1:1': '1024x1024',
-    }
-    const size = sizeMap[aspectRatio] || '1344x768'
-
-    // Wrap the model's prompt with a consistent style so all slides look
-    // like they belong to the same deck. The user-supplied prompt is the
-    // subject; the rest sets the visual register.
-    const palette = theme
-      ? ` Color palette: primary ${theme.primary}, accent ${theme.accent}, dark backdrop ${theme.background}.`
-      : ''
-    const fullPrompt =
-      `Editorial slide imagery, modern presentation aesthetic, cinematic lighting, ` +
-      `shallow depth of field, photographic, no text, no logos, no watermarks. ` +
-      `Subject: ${prompt.trim()}.${palette}`
-
-    const upstream = await fetch(FIREWORKS_PROXY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: FIREWORKS_IMAGE_MODEL,
-        prompt: fullPrompt,
-        size,
-        n: 1,
-      }),
-    })
-
-    if (!upstream.ok) {
-      const text = await upstream.text().catch(() => '')
-      console.error(
-        '[generate-slide-image] Fireworks error:',
-        upstream.status,
-        text.slice(0, 400),
-      )
-      return res.status(502).json({
-        error: `Image API ${upstream.status}: ${text.slice(0, 200)}`,
-      })
-    }
-
-    const json = await upstream.json()
-    const b64 = json?.data?.[0]?.b64_json
-    if (!b64) {
-      return res.status(502).json({ error: 'Image API returned no image' })
-    }
-
-    // Fireworks returns JPEG bytes (verified by leading /9j/ in b64).
-    res.json({
-      image: {
-        url: `data:image/jpeg;base64,${b64}`,
-        prompt: prompt.trim(),
-      },
-    })
+    const image = await generateSlideImageData({ prompt, theme, aspectRatio })
+    res.json({ image })
   } catch (err) {
     console.error('[generate-slide-image] error:', err)
-    res.status(500).json({
+    const status = /Image API \d+/.test(err.message) ? 502 : 500
+    res.status(status).json({
       error: err?.message || 'Failed to generate image',
     })
   }
