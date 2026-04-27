@@ -7,8 +7,9 @@ import connectPg from 'connect-pg-simple'
 import { pool, upsertUser } from './db.js'
 
 /**
- * Replit Auth (OpenID Connect) for Express. Adapted from the official
- * Replit Auth blueprint into plain JavaScript and our existing `pg` Pool.
+ * Replit Auth (OpenID Connect) for Express, mirroring the official
+ * `javascript_log_in_with_replit` blueprint in plain JavaScript and our
+ * existing `pg` Pool.
  *
  * Wires:
  *   - GET  /api/login     → start OAuth
@@ -19,11 +20,8 @@ import { pool, upsertUser } from './db.js'
  * Sessions are stored in the `sessions` table (created in db.js).
  */
 
-if (!process.env.REPL_ID) {
-  console.warn('[auth] REPL_ID is not set — Replit Auth will not work.')
-}
-if (!process.env.SESSION_SECRET) {
-  console.warn('[auth] SESSION_SECRET is not set — sessions will be insecure.')
+if (!process.env.REPLIT_DOMAINS) {
+  throw new Error('Environment variable REPLIT_DOMAINS not provided')
 }
 
 const getOidcConfig = memoize(
@@ -95,31 +93,41 @@ export async function setupAuth(app) {
     verified(null, user)
   }
 
-  // Strategies are registered lazily per hostname (Replit dev domains differ
-  // from production custom domains — we want all of them to work).
-  const registered = new Set()
-  const ensureStrategy = (hostname) => {
-    const name = `replitauth:${hostname}`
-    if (registered.has(name)) return
+  // Pre-register one Passport strategy per domain in REPLIT_DOMAINS. The
+  // Replit OIDC provider only accepts redirect URIs whose host is one of
+  // those domains — registering anything else here would produce
+  // `invalid_redirect_uri` at sign-in time.
+  const allowedDomains = process.env.REPLIT_DOMAINS.split(',')
+    .map((d) => d.trim())
+    .filter(Boolean)
+
+  for (const domain of allowedDomains) {
     passport.use(
       new Strategy(
         {
-          name,
+          name: `replitauth:${domain}`,
           config,
           scope: 'openid email profile offline_access',
-          callbackURL: `https://${hostname}/api/callback`,
+          callbackURL: `https://${domain}/api/callback`,
         },
         verify,
       ),
     )
-    registered.add(name)
   }
 
   passport.serializeUser((user, cb) => cb(null, user))
   passport.deserializeUser((user, cb) => cb(null, user))
 
+  // If the request comes in on a host that isn't registered (e.g. a
+  // workspace preview proxy), bounce the user to the canonical domain
+  // before starting the OAuth dance so we always hand the OIDC provider
+  // a redirect URI it has on file.
+  const canonicalDomain = allowedDomains[0]
+
   app.get('/api/login', (req, res, next) => {
-    ensureStrategy(req.hostname)
+    if (!allowedDomains.includes(req.hostname)) {
+      return res.redirect(`https://${canonicalDomain}/api/login`)
+    }
     passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: 'login consent',
       scope: ['openid', 'email', 'profile', 'offline_access'],
@@ -127,7 +135,9 @@ export async function setupAuth(app) {
   })
 
   app.get('/api/callback', (req, res, next) => {
-    ensureStrategy(req.hostname)
+    if (!allowedDomains.includes(req.hostname)) {
+      return res.redirect(`https://${canonicalDomain}/api/callback${req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''}`)
+    }
     passport.authenticate(`replitauth:${req.hostname}`, {
       successReturnToOrRedirect: '/',
       failureRedirect: '/api/login',
