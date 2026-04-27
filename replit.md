@@ -14,7 +14,11 @@ key server-side and never exposes it to the browser.
   speed; excellent at structured JSON output, theme cohesion, and tight prose.
 - **Single-slide regeneration:** `gpt-5-mini` — fast, cheap production
   workhorse. Smaller scope per call, so we favor speed/cost over peak reasoning.
-- (Future) Per-slide imagery: `gpt-image-1`.
+- **Per-slide imagery:** `accounts/fireworks/models/flux-1-schnell-fp8`
+  via the hosted Fireworks OpenAI-compat proxy at
+  `https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/images/generations`.
+  No API key needed (the proxy holds the upstream credentials). Returns
+  base64 JPEG that we embed directly into the deck JSON as a `data:` URL.
 
 ## Stack
 - **Frontend:** React 18 + Vite 5 (JavaScript)

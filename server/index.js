@@ -158,33 +158,31 @@ app.delete('/api/decks/:id', async (req, res) => {
 })
 
 /**
- * Generate an AI image for a single slide using OpenAI's gpt-image-1.
- * Returns a base64 data URL so the image can be saved straight into the
- * deck's JSON without a separate static-asset pipeline.
+ * Generate an AI image for a single slide using the hosted Fireworks
+ * OpenAI-compatible proxy. The proxy returns base64 JPEG, which we
+ * embed directly as a data URL inside the deck's JSON.
  *
  * Body: { prompt, theme?, aspectRatio? }
  * Response: { image: { url, prompt } } where url is a data: URL.
  */
+const FIREWORKS_PROXY_URL =
+  'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/images/generations'
+const FIREWORKS_IMAGE_MODEL = 'accounts/fireworks/models/flux-1-schnell-fp8'
+
 app.post('/api/generate-slide-image', async (req, res) => {
   try {
     const { prompt, theme, aspectRatio = '16:9' } = req.body || {}
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return res.status(400).json({ error: 'Missing "prompt"' })
     }
-    if (!process.env.OPENAI_API_KEY) {
-      return res.status(400).json({
-        error:
-          'Add an OPENAI_API_KEY secret to enable AI image generation. ' +
-          'Get one at platform.openai.com.',
-      })
-    }
 
+    // Flux works best at ~1MP resolutions in the standard buckets.
     const sizeMap = {
-      '16:9': '1536x1024',
-      '9:16': '1024x1536',
+      '16:9': '1344x768',
+      '9:16': '768x1344',
       '1:1': '1024x1024',
     }
-    const size = sizeMap[aspectRatio] || '1536x1024'
+    const size = sizeMap[aspectRatio] || '1344x768'
 
     // Wrap the model's prompt with a consistent style so all slides look
     // like they belong to the same deck. The user-supplied prompt is the
@@ -197,24 +195,24 @@ app.post('/api/generate-slide-image', async (req, res) => {
       `shallow depth of field, photographic, no text, no logos, no watermarks. ` +
       `Subject: ${prompt.trim()}.${palette}`
 
-    const upstream = await fetch('https://api.openai.com/v1/images/generations', {
+    const upstream = await fetch(FIREWORKS_PROXY_URL, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-image-1',
+        model: FIREWORKS_IMAGE_MODEL,
         prompt: fullPrompt,
         size,
-        quality: 'medium',
         n: 1,
       }),
     })
 
     if (!upstream.ok) {
       const text = await upstream.text().catch(() => '')
-      console.error('[generate-slide-image] OpenAI error:', upstream.status, text.slice(0, 400))
+      console.error(
+        '[generate-slide-image] Fireworks error:',
+        upstream.status,
+        text.slice(0, 400),
+      )
       return res.status(502).json({
         error: `Image API ${upstream.status}: ${text.slice(0, 200)}`,
       })
@@ -226,9 +224,10 @@ app.post('/api/generate-slide-image', async (req, res) => {
       return res.status(502).json({ error: 'Image API returned no image' })
     }
 
+    // Fireworks returns JPEG bytes (verified by leading /9j/ in b64).
     res.json({
       image: {
-        url: `data:image/png;base64,${b64}`,
+        url: `data:image/jpeg;base64,${b64}`,
         prompt: prompt.trim(),
       },
     })

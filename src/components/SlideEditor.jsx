@@ -217,8 +217,8 @@ function ImageSection({ slide, deck, onChange }) {
       </button>
       {err ? <div className="regen-error">⚠ {err}</div> : null}
       <p className="regen-hint">
-        Uses gpt-image-1 (~10–20s, ~$0.04). Editorial photo style applied
-        automatically. Requires an OPENAI_API_KEY secret.
+        Uses Flux schnell via the Fireworks proxy (~3–6s per image).
+        Editorial photo style is applied automatically.
       </p>
     </div>
   )
