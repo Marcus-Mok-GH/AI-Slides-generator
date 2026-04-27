@@ -1,7 +1,7 @@
 .sidebar {
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 84%, var(--bg));
   border-right: 1px solid var(--border);
-  padding: 20px 14px 20px;
+  padding: 18px 12px 18px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -51,7 +51,7 @@
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 6px;
 }
 
 .nav-item {
@@ -59,7 +59,7 @@
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
@@ -75,7 +75,7 @@
 .nav-item:hover {
   background: var(--hover-overlay);
   color: var(--text);
-  transform: translateX(2px);
+  transform: none;
 }
 .nav-item.is-active {
   background: var(--accent-soft);
@@ -96,17 +96,17 @@
 }
 
 .nav-item.is-primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  background: var(--accent);
   color: white;
   font-weight: 600;
   margin-bottom: 8px;
-  box-shadow: 0 4px 16px rgba(124, 92, 255, 0.3);
+  box-shadow: var(--shadow-sm);
   border: none;
 }
 .nav-item.is-primary:hover {
-  background: linear-gradient(135deg, var(--accent-hover), var(--accent-light));
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(124, 92, 255, 0.4);
+  background: var(--accent-hover);
+  transform: none;
+  box-shadow: var(--shadow-md);
 }
 .nav-item.is-primary:active {
   transform: translateY(0);
@@ -182,7 +182,7 @@
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text-muted);
@@ -199,7 +199,7 @@
   background: var(--hover-overlay);
   color: var(--text);
   border-color: var(--border-strong);
-  transform: translateX(2px);
+  transform: none;
 }
 .theme-toggle-icon {
   width: 22px;
