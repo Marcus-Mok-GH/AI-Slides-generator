@@ -61,11 +61,47 @@ key server-side and never exposes it to the browser.
         ├── CreateHero.jsx/css      # Prompt + format/length/tone/lang controls
         ├── TemplateRow.jsx/css     # Template gallery
         ├── RecentGallery.jsx/css   # Recent decks grid
-        ├── SlideViewer.jsx/css     # Stage + thumbnails + notes + edit toggle
-        └── SlideEditor.jsx/css     # Right-side properties panel for the
-                                    # active slide (layout swap, inline edits,
-                                    # AI regenerate)
+        ├── SlideViewer.jsx/css     # Stage + thumbnails + notes + export menu
+        ├── SlideEditor.jsx/css     # Right-side properties panel for the
+        │                           # active slide (layout swap, inline edits,
+        │                           # AI regenerate)
+        ├── HtmlSlide.jsx           # Renders AI-generated slide HTML/CSS in a
+        │                           # sandboxed 1280x720 iframe; injects
+        │                           # <div data-chart="N"> placeholders with
+        │                           # rendered SVG charts.
+        ├── lib/charts.js           # Tiny dependency-free SVG renderer for
+        │                           # bar / line / pie charts using theme colors
+        └── lib/exportDeck.js       # PDF + PPTX exporters — render each slide
+                                    # to a PNG via html2canvas then stitch
+                                    # via jsPDF / pptxgenjs.
 ```
+
+## Slide format spec
+Every generated slide carries:
+- **Structured data** — `title`, `body`, `bullets`, `steps`, `comparison`,
+  `stats`, `quote`, `sectionLabel`, `imagePrompt`, `image`, `speakerNotes`.
+- **Charts** — optional `charts: [{ type: 'bar'|'line'|'pie', title, data:
+  [{label, value}] }]`. Rendered as inline SVG inside the slide HTML wherever
+  the AI placed `<div data-chart="N"></div>` placeholders.
+- **HTML / CSS** — `html` (one root `<div class="slide">`) and `css`
+  (selectors targeting `.slide`). Rendered inside a sandboxed iframe sized to
+  the canonical 1280x720 canvas. The frame injects `--bg`, `--primary`,
+  `--accent`, `--fg` CSS variables from the deck theme, plus the hero image
+  background, so the AI never has to embed `<img>` tags or external assets.
+- **Theme** — deck-level `theme: { name, primary, accent, background }`.
+
+The legacy structured-layout React renderer remains as a fallback for slides
+without `html` (e.g. partials still streaming) and as the source of slide
+chrome (footer, page count).
+
+## Export
+The "Export ▾" menu in the viewer offers three formats:
+- **PDF** — page-per-slide, native 1280x720, via `html2canvas` snapshots
+  composed by `jspdf`.
+- **PPTX** — 16:9 widescreen via `pptxgenjs`. Each slide is a full-bleed
+  bitmap of the rendered HTML, with `speakerNotes` attached as PPTX notes.
+  Opens cleanly in Google Slides and PowerPoint.
+- **JSON** — raw deck data for programmatic use.
 
 ## API
 ### `POST /api/generate-deck/stream`  ← used by the UI

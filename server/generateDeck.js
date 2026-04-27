@@ -117,9 +117,12 @@ Return ONLY valid JSON (no prose, no code fences). Match this exact schema:
       },
       "stats":     [{"label":"≤ 3 words","value":"e.g. 92% or $1.2B or 4.4 km/s"}],
       "quote":     {"text":"≤ 22 words","attribution":"Name, role"},
+      "charts":    [{"type":"bar | line | pie","title":"≤ 4 words","data":[{"label":"≤ 3 words","value": 42}]}],
       "sectionLabel":"For 'section' layout: a 1-3 word section eyebrow",
       "imagePrompt":"1-sentence editorial photo description for this slide — concrete, evocative, NO text/logos/words in image. Used as bg for hero/section/statement and side panel for bullets/stats/quote/content.",
-      "speakerNotes":"1 sentence (≤ 22 words) — the talking point a speaker says"
+      "speakerNotes":"1 sentence (≤ 22 words) — the talking point a speaker says",
+      "html": "Self-contained HTML for the slide body — see HTML/CSS RULES.",
+      "css":  "Slide-scoped CSS — see HTML/CSS RULES."
     }
   ]
 }
@@ -183,6 +186,37 @@ DESIGN LAW — follow strictly:
    - "background" should be a deep, low-saturation color (works for white text).
    - "primary" and "accent" should be vivid and harmonize with each other.
 
+8. CHARTS (only when meaningful):
+   - Add a "charts" array ONLY when the slide is genuinely about quantitative
+     data the audience needs to see (trends, distributions, comparisons of
+     numbers). Most slides have NO charts — leave the array empty or omit it.
+   - Each chart: { "type": "bar" | "line" | "pie", "title": "≤ 4 words",
+     "data": [ { "label": "≤ 3 words", "value": <number> }, ... ] }.
+   - 3-6 data points. Values must be plain numbers (no "%" or "$" — keep
+     formatting clean).
+   - Charts auto-render inside the slide HTML wherever you place a
+     <div data-chart="0"></div> placeholder (index = chart's array position).
+   - Pair charts naturally with "stats", "comparison", or "two-column" layouts.
+
+9. HTML / CSS PER SLIDE — generate real, self-contained slide markup:
+   - Each slide MUST include "html" and "css" fields.
+   - The slide will render in a sandboxed 1280×720 frame. The frame already
+     injects these CSS variables: --bg, --primary, --accent, --fg (#fff).
+     Use them: e.g. background: var(--bg); color: var(--accent).
+   - "html": ONE root <div class="slide"> containing the full layout. Use
+     semantic markup — h1, h2, p, ul/li, blockquote, etc. NO <html>,
+     <head>, <body>, <script>, <link>, or <style> tags. NO external assets.
+   - "css": Plain CSS targeting selectors INSIDE .slide (e.g. ".slide h1 { ... }").
+     Do NOT use @import or url() to external resources.
+   - Keep the design typographic and confident: large headlines, generous
+     whitespace, restrained palette using the theme variables. The slide
+     canvas is exactly 1280×720 — do not assume scrolling.
+   - Charts: include <div data-chart="N"></div> where N is the index in the
+     "charts" array (0-based). The renderer fills it in.
+   - Hero image (slide.image.url) is rendered automatically by the host
+     frame as a background panel; do NOT embed <img> tags yourself.
+   - Speaker notes are NOT shown on the slide — never include them in HTML.
+
 Return strictly valid JSON. Do not wrap in markdown.`
 }
 
@@ -201,9 +235,12 @@ Return ONLY valid JSON (no prose, no code fences) for ONE slide, matching:
   "comparison":{"leftLabel":"...","leftItems":["..."],"rightLabel":"...","rightItems":["..."]},
   "stats":     [{"label":"≤ 3 words","value":"..."}],
   "quote":     {"text":"≤ 22 words","attribution":"..."},
+  "charts":    [{"type":"bar | line | pie","title":"≤ 4 words","data":[{"label":"≤ 3 words","value": 42}]}],
   "sectionLabel":"...",
   "imagePrompt":"1-sentence editorial photo description (no text in image)",
-  "speakerNotes":"1 sentence (≤ 22 words)"
+  "speakerNotes":"1 sentence (≤ 22 words)",
+  "html":"Self-contained <div class='slide'> markup — no <html>/<head>/<body>/<style>/<script> tags. Use --bg, --primary, --accent, --fg CSS vars. Place <div data-chart='N'></div> where each chart should appear. No <img> tags (host frame paints the hero image).",
+  "css":"Slide-scoped CSS targeting .slide selectors. No @import or external url()."
 }
 
 Rules:
@@ -341,6 +378,24 @@ function normalizeSlide(s, fallbackIndex = 0) {
           }
         : null,
     speakerNotes: s?.speakerNotes ? String(s.speakerNotes) : '',
+    charts: Array.isArray(s?.charts)
+      ? s.charts
+          .map((c) => ({
+            type: ['bar', 'line', 'pie'].includes(c?.type) ? c.type : 'bar',
+            title: c?.title ? String(c.title) : '',
+            data: Array.isArray(c?.data)
+              ? c.data
+                  .map((d) => ({
+                    label: String(d?.label ?? ''),
+                    value: Number(d?.value),
+                  }))
+                  .filter((d) => Number.isFinite(d.value))
+              : [],
+          }))
+          .filter((c) => c.data.length > 0)
+      : [],
+    html: s?.html ? String(s.html) : '',
+    css: s?.css ? String(s.css) : '',
   }
 }
 

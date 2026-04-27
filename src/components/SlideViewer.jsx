@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import SlideEditor from './SlideEditor.jsx'
+import HtmlSlide from './HtmlSlide.jsx'
+import { exportDeckToPdf, exportDeckToPptx } from '../lib/exportDeck.js'
 import './SlideViewer.css'
 
 /* ----------------------------------------------------------------
@@ -379,6 +381,24 @@ function Slide({ slide, theme, index, total }) {
     '--slide-accent': theme.accent,
   }
 
+  // Prefer the AI-generated HTML/CSS layout when present (and the slide is
+  // not still being streamed). Falls back to the structured-layout renderer
+  // if html is missing — that path also runs while the slide is partial so
+  // the user sees text growing in instead of an empty frame.
+  if (slide.html && !slide.partial) {
+    return (
+      <div
+        className={`slide html-slide ${slide.partial ? 'is-typing' : ''}`}
+        style={style}
+      >
+        <HtmlSlide slide={slide} theme={theme} />
+        <div className="slide-footer">
+          <span>{index + 1} / {total}</span>
+        </div>
+      </div>
+    )
+  }
+
   let body = null
   switch (slide.layout) {
     case 'title':
@@ -521,7 +541,30 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     }
   }
 
-  function handleExport() {
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportBusy, setExportBusy] = useState('') // '' | 'pdf' | 'pptx' | 'json'
+  const exportMenuRef = useRef(null)
+
+  useEffect(() => {
+    if (!exportOpen) return
+    const onDoc = (e) => {
+      if (!exportMenuRef.current?.contains(e.target)) setExportOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [exportOpen])
+
+  function safeFileName() {
+    return (
+      (deck.title || 'deck')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'deck'
+    )
+  }
+
+  function handleExportJson() {
+    setExportOpen(false)
     if (isStreaming) return
     const exportable = {
       id: deck.id,
@@ -537,18 +580,50 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    const safeName =
-      (deck.title || 'deck')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '') || 'deck'
+    const name = safeFileName()
     a.href = url
-    a.download = `${safeName}.json`
+    a.download = `${name}.json`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     setTimeout(() => URL.revokeObjectURL(url), 1000)
-    showToast(`Exported ${safeName}.json`)
+    showToast(`Exported ${name}.json`)
+  }
+
+  async function handleExportPdf() {
+    setExportOpen(false)
+    if (isStreaming || exportBusy) return
+    setExportBusy('pdf')
+    try {
+      await exportDeckToPdf(deck, {
+        onProgress: ({ index, total }) =>
+          showToast(`Rendering slide ${index + 1} of ${total}…`),
+      })
+      showToast('PDF downloaded')
+    } catch (err) {
+      console.error('[export pdf]', err)
+      showToast('PDF export failed')
+    } finally {
+      setExportBusy('')
+    }
+  }
+
+  async function handleExportPptx() {
+    setExportOpen(false)
+    if (isStreaming || exportBusy) return
+    setExportBusy('pptx')
+    try {
+      await exportDeckToPptx(deck, {
+        onProgress: ({ index, total }) =>
+          showToast(`Rendering slide ${index + 1} of ${total}…`),
+      })
+      showToast('PPTX downloaded — open in Google Slides or PowerPoint')
+    } catch (err) {
+      console.error('[export pptx]', err)
+      showToast('PPTX export failed')
+    } finally {
+      setExportBusy('')
+    }
   }
 
   const isStreaming = !!deck.streaming
@@ -690,15 +765,54 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
           >
             Share
           </button>
-          <button
-            type="button"
-            className="vbar-btn vbar-only-wide"
-            disabled={isStreaming}
-            onClick={handleExport}
-            title={isStreaming ? 'Available when generation completes' : 'Download deck as JSON'}
-          >
-            Export
-          </button>
+          <div className="export-menu-wrap" ref={exportMenuRef}>
+            <button
+              type="button"
+              className="vbar-btn vbar-only-wide"
+              disabled={isStreaming || !!exportBusy}
+              onClick={() => setExportOpen((v) => !v)}
+              title={isStreaming ? 'Available when generation completes' : 'Download deck'}
+              aria-haspopup="menu"
+              aria-expanded={exportOpen}
+            >
+              {exportBusy === 'pdf'
+                ? 'Building PDF…'
+                : exportBusy === 'pptx'
+                  ? 'Building PPTX…'
+                  : 'Export ▾'}
+            </button>
+            {exportOpen && !isStreaming && !exportBusy && (
+              <div className="export-menu" role="menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="export-menu-item"
+                  onClick={handleExportPdf}
+                >
+                  <span className="emi-title">PDF</span>
+                  <span className="emi-sub">Print or share, page-per-slide</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="export-menu-item"
+                  onClick={handleExportPptx}
+                >
+                  <span className="emi-title">PPTX</span>
+                  <span className="emi-sub">Open in Google Slides or PowerPoint</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="export-menu-item"
+                  onClick={handleExportJson}
+                >
+                  <span className="emi-title">JSON</span>
+                  <span className="emi-sub">Raw deck data</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
