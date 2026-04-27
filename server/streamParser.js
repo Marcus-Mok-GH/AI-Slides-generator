@@ -2,17 +2,56 @@
  * Incremental JSON deck parser.
  *
  * Feeds streaming text from the model and emits events:
- *   { type: 'meta', meta: { title, subtitle, theme } }   (once)
- *   { type: 'slide', slide: {...}, index: n }            (per completed slide)
+ *   { type: 'meta',    meta: { title, subtitle, theme } }   (once)
+ *   { type: 'partial', index, partial: { title?, layout?, body?, bullets?, sectionLabel?, imagePrompt? } }
+ *                                                            (during in-progress slide)
+ *   { type: 'slide',   slide: {...}, index: n }              (per completed slide)
  *
  * Strategy: scan character-by-character (string-aware) to find the
  *   "slides": [ ... ]
  * array opener, then track {} depth to know when each top-level slide object
- * closes. Each closed object is JSON.parse'd in isolation.
+ * closes. Each closed object is JSON.parse'd in isolation. While a slide is
+ * still open, we regex-extract any newly-completed string fields and emit
+ * partial events so the UI can show the slide title as it's being written.
  *
  * Top-level meta (title/subtitle/theme) is extracted by trying to parse the
  * prefix that comes BEFORE the "slides" key as a self-contained JSON object.
  */
+
+const PARTIAL_STRING_FIELDS = [
+  'title',
+  'layout',
+  'body',
+  'sectionLabel',
+  'imagePrompt',
+]
+
+function extractCompletedStringField(snippet, key) {
+  // Match: "key" : "value-without-unescaped-quote"
+  const re = new RegExp(
+    `"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`,
+  )
+  const m = re.exec(snippet)
+  if (!m) return null
+  try {
+    return JSON.parse(`"${m[1]}"`)
+  } catch {
+    return null
+  }
+}
+
+function extractCompletedBulletsArray(snippet) {
+  // Find "bullets": [ ... ] where the array is fully closed (no nested arrays).
+  const re = /"bullets"\s*:\s*(\[[^\[\]]*\])/
+  const m = re.exec(snippet)
+  if (!m) return null
+  try {
+    const arr = JSON.parse(m[1])
+    if (Array.isArray(arr)) return arr.map(String)
+  } catch {}
+  return null
+}
+
 export class DeckStreamParser {
   constructor() {
     this.buf = ''
@@ -24,6 +63,7 @@ export class DeckStreamParser {
     this.escape = false
     this.metaSent = false
     this.slidesEmitted = 0
+    this.partialState = {} // index -> last emitted partial obj
   }
 
   feed(chunk) {
@@ -95,6 +135,8 @@ export class DeckStreamParser {
                 const slide = JSON.parse(json)
                 const index = this.slidesEmitted
                 this.slidesEmitted++
+                // Clear any partial state for this slide — full slide will replace it
+                delete this.partialState[index]
                 events.push({ type: 'slide', slide, index })
               } catch {
                 // shouldn't happen for well-balanced object; ignore
@@ -108,6 +150,40 @@ export class DeckStreamParser {
           }
         }
         this.cursor++
+      }
+    }
+
+    // 4) If we're mid-slide, try to emit a partial event with whatever
+    //    string fields and bullets array have closed so far.
+    if (
+      this.state === 'inArray' &&
+      this.elementStart >= 0 &&
+      this.depth >= 1
+    ) {
+      const slideIdx = this.slidesEmitted
+      const snippet = this.buf.slice(this.elementStart, this.cursor)
+      const partial = {}
+      for (const key of PARTIAL_STRING_FIELDS) {
+        const v = extractCompletedStringField(snippet, key)
+        if (v !== null) partial[key] = v
+      }
+      const bullets = extractCompletedBulletsArray(snippet)
+      if (bullets) partial.bullets = bullets
+
+      if (Object.keys(partial).length > 0) {
+        const prev = this.partialState[slideIdx] || {}
+        const changed =
+          Object.keys(partial).some((k) => partial[k] !== prev[k]) ||
+          (partial.bullets &&
+            JSON.stringify(partial.bullets) !== JSON.stringify(prev.bullets))
+        if (changed) {
+          this.partialState[slideIdx] = { ...prev, ...partial }
+          events.push({
+            type: 'partial',
+            index: slideIdx,
+            partial: this.partialState[slideIdx],
+          })
+        }
       }
     }
 

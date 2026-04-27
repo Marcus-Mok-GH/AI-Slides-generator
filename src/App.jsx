@@ -12,6 +12,7 @@ import {
   deleteDeck as deleteDeckApi,
   listDecks,
 } from './lib/api.js'
+import useTheme from './lib/useTheme.js'
 import './App.css'
 
 const DEFAULT_THEME = {
@@ -35,6 +36,7 @@ export default function App() {
   const [savingState, setSavingState] = useState('idle') // idle | saving | saved | error
   const [searchQuery, setSearchQuery] = useState('')
   const [activeNav, setActiveNav] = useState('new')
+  const { isDark, toggle: toggleTheme } = useTheme()
   const saveTimer = useRef(null)
   const heroRef = useRef(null)
 
@@ -110,6 +112,27 @@ export default function App() {
               subtitle: subtitle || prev.subtitle,
               theme: { ...prev.theme, ...(theme || {}) },
             }
+          })
+        },
+        onPartial: ({ index, partial }) => {
+          setDeck((prev) => {
+            if (!prev) return prev
+            const slides = prev.slides.slice()
+            const existing = slides[index] || {}
+            // If the slide already arrived as a full slide, ignore late partials.
+            if (existing && !existing.partial && existing.title) return prev
+            slides[index] = {
+              partial: true,
+              title: partial.title || existing.title || '',
+              layout: partial.layout || existing.layout || '',
+              body: partial.body || existing.body || '',
+              bullets: partial.bullets || existing.bullets || [],
+              sectionLabel:
+                partial.sectionLabel || existing.sectionLabel || '',
+              imagePrompt:
+                partial.imagePrompt || existing.imagePrompt || '',
+            }
+            return { ...prev, slides }
           })
         },
         onSlide: ({ slide, index }) => {
@@ -204,12 +227,14 @@ export default function App() {
 
   return (
     <div className="layout">
-      <Sidebar activeNav={activeNav} onNavigate={handleNavigate} />
+      <Sidebar activeNav={activeNav} onNavigate={handleNavigate} isDark={isDark} onToggleTheme={toggleTheme} />
       <div className="main">
         <TopBar
           search={searchQuery}
           onSearchChange={setSearchQuery}
           deckCount={savedDecks.length}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
         />
         <div className="content">
           <CreateHero

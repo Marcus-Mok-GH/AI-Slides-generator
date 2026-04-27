@@ -11,7 +11,7 @@ const nav = [
 
 const folders = ['Pitch decks', 'Marketing', 'Internal', 'Drafts']
 
-export default function Sidebar({ activeNav = 'new', onNavigate }) {
+export default function Sidebar({ activeNav = 'new', onNavigate, isDark, onToggleTheme }) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -58,6 +58,21 @@ export default function Sidebar({ activeNav = 'new', onNavigate }) {
           ))}
         </ul>
       </div>
+
+      <button
+        type="button"
+        className="theme-toggle"
+        onClick={onToggleTheme}
+        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        title={isDark ? 'Light mode' : 'Dark mode'}
+      >
+        <span className="theme-toggle-icon" aria-hidden>
+          {isDark ? '☀' : '☾'}
+        </span>
+        <span className="theme-toggle-label">
+          {isDark ? 'Light mode' : 'Dark mode'}
+        </span>
+      </button>
 
       <div className="upgrade">
         <div className="upgrade-title">Upgrade to Pro</div>

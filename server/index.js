@@ -89,6 +89,7 @@ app.post('/api/generate-deck/stream', async (req, res) => {
 
     const deck = await streamGenerateDeck(ctx, {
       onMeta: (meta) => send('meta', meta),
+      onPartial: ({ index, partial }) => send('partial', { index, partial }),
       onSlide: ({ slide, index }) => send('slide', { slide, index }),
     })
 

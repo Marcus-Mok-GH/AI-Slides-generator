@@ -62,12 +62,17 @@ key server-side and never exposes it to the browser.
 Same body as `/api/generate-deck`. Returns a `text/event-stream` SSE response
 with these events:
 
-- `meta`  → `{ title, subtitle, theme }` — sent once after the model has
+- `meta`    → `{ title, subtitle, theme }` — sent once after the model has
   emitted enough JSON to parse the deck header.
-- `slide` → `{ slide, index }` — sent each time a complete slide object closes
-  inside the streamed `slides: [ ... ]` array. The slide is server-normalized.
-- `done`  → `{ deck }` — the full normalized + persisted deck (with `id`).
-- `error` → `{ error }` — fatal error, stream ends.
+- `partial` → `{ index, partial: { title?, layout?, body?, bullets?, sectionLabel?, imagePrompt? } }`
+  — sent every time a string field (or the bullets array) finishes inside the
+  in-progress slide. Lets the UI show the slide title typing in live, then the
+  body/bullets filling in, before the slide's closing `}` arrives.
+- `slide`   → `{ slide, index }` — sent each time a complete slide object closes
+  inside the streamed `slides: [ ... ]` array. The slide is server-normalized
+  and replaces any partial in that slot.
+- `done`    → `{ deck }` — the full normalized + persisted deck (with `id`).
+- `error`   → `{ error }` — fatal error, stream ends.
 
 The server keeps the connection alive with `: ping` comments every 15s and
 sets `X-Accel-Buffering: no` to defeat reverse-proxy buffering. Vite's dev

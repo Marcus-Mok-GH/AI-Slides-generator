@@ -23,6 +23,8 @@ export default function TopBar({
   search = '',
   onSearchChange,
   deckCount = 0,
+  isDark,
+  onToggleTheme,
 }) {
   const [openMenu, setOpenMenu] = useState(null) // 'whatsnew' | 'notif' | 'avatar' | null
   const wrapRef = useRef(null)
@@ -145,6 +147,16 @@ export default function TopBar({
             </div>
           )}
         </div>
+
+        <button
+          type="button"
+          className={`ghost-btn icon-only theme-toggle-topbar`}
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={isDark ? 'Light mode' : 'Dark mode'}
+          onClick={onToggleTheme}
+        >
+          {isDark ? '☀' : '☾'}
+        </button>
 
         <div className="tb-pop-wrap">
           <button

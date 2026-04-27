@@ -100,7 +100,7 @@
   font-weight: 500;
 }
 .ghost-btn:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--hover-overlay);
   color: var(--text);
 }
 .ghost-btn.icon-only {
@@ -160,7 +160,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 18px 40px rgba(15, 15, 26, 0.18);
+  box-shadow: var(--shadow-lg);
   padding: 12px;
   z-index: 30;
   animation: tb-pop-in 140ms ease-out;
@@ -252,6 +252,10 @@
 }
 .tb-pop-item:hover {
   background: var(--surface-2);
+}
+
+.theme-toggle-topbar {
+  font-size: 16px;
 }
 
 .avatar {

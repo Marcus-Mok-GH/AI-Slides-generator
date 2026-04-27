@@ -373,6 +373,8 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
     for (const ev of events) {
       if (ev.type === 'meta') {
         handlers.onMeta?.(ev.meta)
+      } else if (ev.type === 'partial') {
+        handlers.onPartial?.({ index: ev.index, partial: ev.partial })
       } else if (ev.type === 'slide') {
         const normalized = normalizeSlide(ev.slide, ev.index)
         handlers.onSlide?.({ slide: normalized, index: ev.index })

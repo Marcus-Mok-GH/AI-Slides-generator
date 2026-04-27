@@ -332,7 +332,7 @@ function GeneratingSlide({ theme, expectedCount, slidesSoFar }) {
 
 export default function SlideViewer({ deck, savingState, onDeckChange, onBack }) {
   const [active, setActive] = useState(0)
-  const [editing, setEditing] = useState(true)
+  const [editing, setEditing] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
   const [toast, setToast] = useState('')
   const userNavigatedRef = useRef(false)
@@ -449,9 +449,23 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     onDeckChange?.({ ...deck, slides: nextSlides })
   }
 
+  // Count of slides that are fully complete (not partials).
+  const completedCount = deck.slides.reduce(
+    (n, s) => n + (s && !s.partial ? 1 : 0),
+    0,
+  )
+  const inProgressIndex =
+    isStreaming && completedCount < expectedCount ? completedCount : -1
+  const progressPct = isStreaming
+    ? Math.min(100, Math.round((completedCount / Math.max(expectedCount, 1)) * 100))
+    : 100
+
   let statusText = ''
   if (isStreaming) {
-    statusText = `Generating ${slideCount}/${expectedCount}…`
+    statusText =
+      completedCount === 0
+        ? 'Drafting slide 1…'
+        : `Drafting slide ${Math.min(completedCount + 1, expectedCount)} of ${expectedCount}`
   } else if (savingState === 'saving') {
     statusText = 'Saving…'
   } else if (savingState === 'saved') {
@@ -465,7 +479,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     thumbItems.push(deck.slides[i] || null)
   }
 
-  const showGenerating = !slide
+  const showGenerating = !slide || (slide.partial && !slide.title)
   const hasNotes = !!slide?.speakerNotes
 
   return (
@@ -482,7 +496,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
         <div className="vbar-title">
           <span className="vbar-deck">{deck.title}</span>
           <span className="vbar-meta">
-            · {slideCount}{isStreaming ? `/${expectedCount}` : ''} slides ·{' '}
+            · {isStreaming ? `${completedCount}/${expectedCount}` : slideCount} slides ·{' '}
             {deck.theme?.name || 'Aurora'} theme
           </span>
           {statusText ? (
@@ -492,6 +506,21 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
             </span>
           ) : null}
         </div>
+        {isStreaming ? (
+          <div
+            className="vbar-progress"
+            role="progressbar"
+            aria-valuenow={progressPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Deck generation progress"
+          >
+            <div
+              className="vbar-progress-fill"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        ) : null}
         <div className="vbar-actions">
           <button
             className={`vbar-btn ${editing ? 'primary' : ''}`}
@@ -527,31 +556,42 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
         <aside className="viewer-side">
           <div className="side-title">Slides</div>
           <ol className="thumb-list">
-            {thumbItems.map((s, i) => (
-              <li
-                key={i}
-                className={`thumb ${i === active ? 'is-active' : ''} ${s ? '' : 'is-pending'}`}
-                onClick={() => s && userJump(i)}
-              >
-                <div className="thumb-num">{i + 1}</div>
-                <div className="thumb-text">
-                  {s ? (
-                    <>
-                      <div className="thumb-title">{s.title}</div>
-                      <div className="thumb-layout">
-                        {s.layout}
-                        {s.image?.url ? ' · img' : ''}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="thumb-title shimmer-line" />
-                      <div className="thumb-layout shimmer-line short" />
-                    </>
-                  )}
-                </div>
-              </li>
-            ))}
+            {thumbItems.map((s, i) => {
+              const isPartial = s?.partial
+              const isInProgress = i === inProgressIndex
+              return (
+                <li
+                  key={i}
+                  className={`thumb ${i === active ? 'is-active' : ''} ${
+                    s ? '' : 'is-pending'
+                  } ${isPartial ? 'is-partial' : ''} ${
+                    isInProgress ? 'is-in-progress' : ''
+                  }`}
+                  onClick={() => s && userJump(i)}
+                >
+                  <div className="thumb-num">{i + 1}</div>
+                  <div className="thumb-text">
+                    {s && s.title ? (
+                      <>
+                        <div className="thumb-title">
+                          {s.title}
+                          {isPartial ? <span className="caret-blink">▌</span> : null}
+                        </div>
+                        <div className="thumb-layout">
+                          {s.layout || (isPartial ? 'writing…' : '')}
+                          {s.image?.url ? ' · img' : ''}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="thumb-title shimmer-line" />
+                        <div className="thumb-layout shimmer-line short" />
+                      </>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
           </ol>
         </aside>
 

@@ -85,7 +85,7 @@
 .ed-textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
-  background: white;
+  background: var(--on-surface);
 }
 
 .ed-textarea {
@@ -162,9 +162,9 @@
   flex-shrink: 0;
 }
 .row-x:hover {
-  background: #fee2e2;
-  color: #b91c1c;
-  border-color: #fecaca;
+  background: var(--error-bg);
+  color: var(--error-text);
+  border-color: var(--error-border);
 }
 
 .add-row {
@@ -225,9 +225,9 @@
   margin-top: 8px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: #fff1f1;
-  border: 1px solid #fecaca;
-  color: #b91c1c;
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  color: var(--error-text);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -280,8 +280,8 @@
   cursor: pointer;
 }
 .img-clear:hover {
-  background: white;
-  color: #b91c1c;
+  background: var(--on-surface);
+  color: var(--error-text);
 }
 .img-empty {
   width: 100%;

@@ -13,7 +13,7 @@ const formats = [
   { id: 'social', icon: '◉', label: 'Social', hint: 'Posts & carousels' },
 ]
 
-const lengths = ['4 cards', '8 cards', '12 cards', 'Custom']
+const lengths = ['4 cards', '8 cards', '12 cards', '16 cards']
 const tones = ['Professional', 'Casual', 'Playful', 'Bold']
 
 const suggestions = [

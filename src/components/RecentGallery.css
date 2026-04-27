@@ -16,7 +16,7 @@
   font-size: 13px;
 }
 .vt-btn.is-on {
-  background: white;
+  background: var(--on-surface);
   color: var(--text);
   box-shadow: var(--shadow-sm);
 }
@@ -201,7 +201,7 @@
   position: absolute;
   right: 0;
   top: 28px;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: var(--shadow-lg);
@@ -223,10 +223,10 @@
   background: var(--surface-2);
 }
 .deck-menu button.danger {
-  color: #b91c1c;
+  color: var(--error-text);
 }
 .deck-menu button.danger:hover {
-  background: #fef2f2;
+  background: var(--error-bg);
 }
 
 .deck-pill {
@@ -275,7 +275,7 @@
   border-radius: 6px;
 }
 .deck-more:hover {
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--hover-overlay);
   color: var(--text);
 }
 

@@ -78,6 +78,7 @@ export async function streamGenerateDeck(payload, handlers = {}) {
         continue
       }
       if (event === 'meta') handlers.onMeta?.(parsed)
+      else if (event === 'partial') handlers.onPartial?.(parsed)
       else if (event === 'slide') handlers.onSlide?.(parsed)
       else if (event === 'done') handlers.onDone?.(parsed.deck)
       else if (event === 'error') {
