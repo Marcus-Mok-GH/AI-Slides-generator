@@ -177,42 +177,60 @@
   transform: scale(1.2);
 }
 
-.theme-toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
+.theme-switch {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 3px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface-2);
+}
+.theme-switch-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 4px;
+  border-radius: calc(var(--radius-sm) - 3px);
+  border: none;
+  background: transparent;
   color: var(--text-muted);
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
+  font-size: 11px;
   font-weight: 500;
+  cursor: pointer;
+  min-width: 0;
   transition: background-color var(--duration-fast) ease,
     color var(--duration-fast) ease,
-    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-base) ease,
     transform var(--duration-fast) var(--ease-out-back);
 }
-.theme-toggle:hover {
+.theme-switch-option:hover:not(.is-active) {
   background: var(--hover-overlay);
   color: var(--text);
-  border-color: var(--border-strong);
-  transform: none;
 }
-.theme-toggle-icon {
-  width: 22px;
+.theme-switch-option.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+.theme-switch-option.is-active .theme-switch-icon {
+  color: var(--accent);
+}
+.theme-switch-icon {
   display: inline-grid;
   place-items: center;
-  font-size: 15px;
+  font-size: 13px;
   transition: transform var(--duration-fast) var(--ease-out-back);
 }
-.theme-toggle:hover .theme-toggle-icon {
-  transform: rotate(15deg) scale(1.1);
+.theme-switch-option:hover .theme-switch-icon {
+  transform: scale(1.15);
 }
-.theme-toggle-label {
+.theme-switch-label {
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .upgrade {
@@ -284,12 +302,15 @@
   .section-title,
   .folder,
   .upgrade,
-  .theme-toggle-label {
+  .theme-switch-label {
     display: none;
   }
-  .theme-toggle {
-    justify-content: center;
-    padding: 10px 6px;
+  .theme-switch {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .theme-switch-option {
+    padding: 8px 4px;
   }
   .nav-item {
     justify-content: center;

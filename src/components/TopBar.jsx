@@ -36,12 +36,20 @@ function userDisplayName(user) {
   return user.email || 'Signed in'
 }
 
+const THEME_ICONS = { light: '☀', dark: '☾', system: '🖥' }
+const THEME_NEXT = { light: 'dark', dark: 'system', system: 'light' }
+const THEME_LABELS = {
+  light: 'Light mode',
+  dark: 'Dark mode',
+  system: 'System theme',
+}
+
 export default function TopBar({
   search = '',
   onSearchChange,
   deckCount = 0,
-  isDark,
-  onToggleTheme,
+  themeMode = 'system',
+  onCycleTheme,
   user = null,
   onSignOut,
 }) {
@@ -180,12 +188,12 @@ export default function TopBar({
 
         <button
           type="button"
-          className={`ghost-btn icon-only theme-toggle-topbar`}
-          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          title={isDark ? 'Light mode' : 'Dark mode'}
-          onClick={onToggleTheme}
+          className={`ghost-btn icon-only theme-toggle-topbar theme-toggle-${themeMode}`}
+          aria-label={`Theme: ${THEME_LABELS[themeMode]}`}
+          title={`${THEME_LABELS[themeMode]} — click to switch to ${THEME_LABELS[THEME_NEXT[themeMode]]}`}
+          onClick={onCycleTheme}
         >
-          {isDark ? '☀' : '☾'}
+          {THEME_ICONS[themeMode]}
         </button>
 
         <div className="tb-pop-wrap">

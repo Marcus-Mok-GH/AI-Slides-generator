@@ -64,7 +64,7 @@ export default function App() {
   const [routeLoading, setRouteLoading] = useState(
     () => deckIdFromLocation() !== null,
   )
-  const { isDark, toggle: toggleTheme } = useTheme()
+  const { mode: themeMode, setMode: setThemeMode, cycle: cycleTheme } = useTheme()
   const saveTimer = useRef(null)
   const heroRef = useRef(null)
 
@@ -464,14 +464,19 @@ export default function App() {
 
   return (
     <div className="layout">
-      <Sidebar activeNav={activeNav} onNavigate={handleNavigate} isDark={isDark} onToggleTheme={toggleTheme} />
+      <Sidebar
+        activeNav={activeNav}
+        onNavigate={handleNavigate}
+        themeMode={themeMode}
+        onSetThemeMode={setThemeMode}
+      />
       <div className="main">
         <TopBar
           search={searchQuery}
           onSearchChange={setSearchQuery}
           deckCount={savedDecks.length}
-          isDark={isDark}
-          onToggleTheme={toggleTheme}
+          themeMode={themeMode}
+          onCycleTheme={cycleTheme}
           user={user}
           onSignOut={signOut}
         />

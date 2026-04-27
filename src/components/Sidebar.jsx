@@ -11,7 +11,18 @@ const nav = [
 
 const folders = ['Pitch decks', 'Marketing', 'Internal', 'Drafts']
 
-export default function Sidebar({ activeNav = 'new', onNavigate, isDark, onToggleTheme }) {
+const THEME_OPTIONS = [
+  { id: 'light', icon: '☀', label: 'Light' },
+  { id: 'dark', icon: '☾', label: 'Dark' },
+  { id: 'system', icon: '🖥', label: 'System' },
+]
+
+export default function Sidebar({
+  activeNav = 'new',
+  onNavigate,
+  themeMode = 'system',
+  onSetThemeMode,
+}) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -59,20 +70,33 @@ export default function Sidebar({ activeNav = 'new', onNavigate, isDark, onToggl
         </ul>
       </div>
 
-      <button
-        type="button"
-        className="theme-toggle"
-        onClick={onToggleTheme}
-        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-        title={isDark ? 'Light mode' : 'Dark mode'}
+      <div
+        className="theme-switch"
+        role="radiogroup"
+        aria-label="Color theme"
       >
-        <span className="theme-toggle-icon" aria-hidden>
-          {isDark ? '☀' : '☾'}
-        </span>
-        <span className="theme-toggle-label">
-          {isDark ? 'Light mode' : 'Dark mode'}
-        </span>
-      </button>
+        {THEME_OPTIONS.map((opt) => {
+          const isActive = themeMode === opt.id
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              role="radio"
+              aria-checked={isActive}
+              className={`theme-switch-option ${
+                isActive ? 'is-active' : ''
+              }`}
+              onClick={() => onSetThemeMode?.(opt.id)}
+              title={`${opt.label} theme`}
+            >
+              <span className="theme-switch-icon" aria-hidden>
+                {opt.icon}
+              </span>
+              <span className="theme-switch-label">{opt.label}</span>
+            </button>
+          )
+        })}
+      </div>
 
       <div className="upgrade">
         <div className="upgrade-title">Upgrade to Pro</div>
