@@ -28,6 +28,25 @@ function parseLength(length) {
   return 8
 }
 
+/**
+ * Read the current location and decide which deck (if any) the URL is asking
+ * for. We support `/slide/{id}` (canonical) and `?deck={id}` (legacy share
+ * links). Returns the id or null.
+ */
+function deckIdFromLocation() {
+  if (typeof window === 'undefined') return null
+  const pathMatch = window.location.pathname.match(/^\/slide\/([^/?#]+)$/)
+  if (pathMatch) {
+    try {
+      return decodeURIComponent(pathMatch[1])
+    } catch {
+      return pathMatch[1]
+    }
+  }
+  const legacy = new URLSearchParams(window.location.search).get('deck')
+  return legacy || null
+}
+
 export default function App() {
   const [deck, setDeck] = useState(null)
   const [status, setStatus] = useState('idle') // idle | streaming | error
@@ -36,6 +55,11 @@ export default function App() {
   const [savingState, setSavingState] = useState('idle') // idle | saving | saved | error
   const [searchQuery, setSearchQuery] = useState('')
   const [activeNav, setActiveNav] = useState('new')
+  // True on first paint if the URL points at a specific deck — keeps us from
+  // flashing the create page while we fetch it.
+  const [routeLoading, setRouteLoading] = useState(
+    () => deckIdFromLocation() !== null,
+  )
   const { isDark, toggle: toggleTheme } = useTheme()
   const saveTimer = useRef(null)
   const heroRef = useRef(null)
@@ -52,6 +76,76 @@ export default function App() {
   useEffect(() => {
     refreshDecks()
   }, [refreshDecks])
+
+  // ---------- URL routing ----------
+  // Each deck lives at /slide/{id}. Loading that URL directly opens the deck;
+  // closing the deck returns the URL to "/". Browser back/forward also work.
+
+  // Honor the URL on first paint and whenever the user hits back/forward.
+  useEffect(() => {
+    let cancelled = false
+
+    const syncFromUrl = async () => {
+      const id = deckIdFromLocation()
+      if (!id) {
+        setDeck((prev) => (prev ? null : prev))
+        setRouteLoading(false)
+        return
+      }
+      // If the same deck is already open, do nothing.
+      if (deck?.id === id) {
+        setRouteLoading(false)
+        return
+      }
+      setRouteLoading(true)
+      try {
+        const loaded = await loadDeck(id)
+        if (cancelled) return
+        if (loaded) {
+          setDeck(loaded)
+          // Normalize legacy `?deck=` URLs to the canonical path.
+          if (window.location.pathname !== `/slide/${encodeURIComponent(id)}`) {
+            window.history.replaceState(
+              { deckId: id },
+              '',
+              `/slide/${encodeURIComponent(id)}`,
+            )
+          }
+        } else {
+          // ID in URL but no such deck — clear the path so the user lands on
+          // the create page instead of a phantom "loading" state.
+          window.history.replaceState({}, '', '/')
+        }
+      } catch (e) {
+        console.warn('Failed to load deck from URL:', e)
+      } finally {
+        if (!cancelled) setRouteLoading(false)
+      }
+    }
+
+    syncFromUrl()
+    const onPop = () => syncFromUrl()
+    window.addEventListener('popstate', onPop)
+    return () => {
+      cancelled = true
+      window.removeEventListener('popstate', onPop)
+    }
+    // We intentionally read the freshest `deck.id` inside the effect, so this
+    // doesn't need to re-run on every deck change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Whenever the open deck's id changes (newly generated, opened from gallery,
+  // or closed), reflect that in the URL bar. We hold off while routeLoading is
+  // true so the initial `/slide/{id}` URL isn't briefly overwritten with "/"
+  // before syncFromUrl has had a chance to load the deck.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (routeLoading) return
+    const targetPath = deck?.id ? `/slide/${encodeURIComponent(deck.id)}` : '/'
+    if (window.location.pathname === targetPath) return
+    window.history.pushState({ deckId: deck?.id || null }, '', targetPath)
+  }, [deck?.id, routeLoading])
 
   // Debounced auto-save whenever an open deck changes — but skip while the
   // deck is still streaming (the server persists it on stream completion).
@@ -222,6 +316,15 @@ export default function App() {
           refreshDecks()
         }}
       />
+    )
+  }
+
+  if (routeLoading) {
+    return (
+      <div className="route-loading">
+        <div className="route-loading-spinner" aria-hidden />
+        <div className="route-loading-text">Loading deck…</div>
+      </div>
     )
   }
 

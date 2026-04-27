@@ -433,7 +433,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     if (isStreaming) return
     const link =
       deck.id && typeof window !== 'undefined'
-        ? `${window.location.origin}/?deck=${encodeURIComponent(deck.id)}`
+        ? `${window.location.origin}/slide/${encodeURIComponent(deck.id)}`
         : window.location.href
     const shareData = {
       title: deck.title || 'Deck',
