@@ -60,7 +60,14 @@ function DeckCard({ deck, onOpen, onDelete }) {
                 </button>
                 <button
                   className="danger"
-                  onClick={() => { setMenuOpen(false); onDelete(deck.id) }}
+                  onClick={() => {
+                    setMenuOpen(false)
+                    if (
+                      window.confirm(`Delete "${deck.title}"? This can't be undone.`)
+                    ) {
+                      onDelete(deck.id)
+                    }
+                  }}
                 >
                   Delete
                 </button>
@@ -74,27 +81,66 @@ function DeckCard({ deck, onOpen, onDelete }) {
   )
 }
 
-export default function RecentGallery({ decks = [], onOpen, onDelete }) {
+export default function RecentGallery({
+  decks = [],
+  totalCount,
+  query = '',
+  onOpen,
+  onDelete,
+}) {
+  const [view, setView] = useState('grid') // 'grid' | 'list'
+  const totalIsKnown = typeof totalCount === 'number'
+  const isFiltering = query.trim().length > 0
+  const showingEmptyDueToFilter = isFiltering && decks.length === 0
+
   return (
-    <section className="row">
+    <section className="row" id="recent-decks">
       <div className="row-head">
-        <h2 className="row-title">Recent decks</h2>
-        <div className="view-toggle">
-          <button className="vt-btn is-on" aria-label="Grid view">▦</button>
-          <button className="vt-btn" aria-label="List view">≡</button>
+        <h2 className="row-title">
+          {isFiltering
+            ? `Search results${
+                totalIsKnown ? ` (${decks.length} of ${totalCount})` : ''
+              }`
+            : 'Recent decks'}
+        </h2>
+        <div className="view-toggle" role="tablist" aria-label="View mode">
+          <button
+            type="button"
+            className={`vt-btn ${view === 'grid' ? 'is-on' : ''}`}
+            aria-label="Grid view"
+            aria-pressed={view === 'grid'}
+            onClick={() => setView('grid')}
+          >
+            ▦
+          </button>
+          <button
+            type="button"
+            className={`vt-btn ${view === 'list' ? 'is-on' : ''}`}
+            aria-label="List view"
+            aria-pressed={view === 'list'}
+            onClick={() => setView('list')}
+          >
+            ≡
+          </button>
         </div>
       </div>
 
       {decks.length === 0 ? (
         <div className="empty">
           <div className="empty-art">✦</div>
-          <div className="empty-title">No decks yet</div>
+          <div className="empty-title">
+            {showingEmptyDueToFilter
+              ? `No decks match "${query.trim()}"`
+              : 'No decks yet'}
+          </div>
           <p className="empty-sub">
-            Generate your first deck above and it will appear here.
+            {showingEmptyDueToFilter
+              ? 'Try a different search term, or clear the search to see all decks.'
+              : 'Generate your first deck above and it will appear here.'}
           </p>
         </div>
       ) : (
-        <div className="deck-grid">
+        <div className={view === 'list' ? 'deck-list' : 'deck-grid'}>
           {decks.map((d) => (
             <DeckCard
               key={d.id}

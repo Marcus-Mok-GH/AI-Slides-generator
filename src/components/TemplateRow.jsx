@@ -9,16 +9,31 @@ const templates = [
   { name: 'Case study', tag: 'Marketing', grad: 'linear-gradient(135deg,#3b82f6,#7c5cff)' },
 ]
 
-export default function TemplateRow() {
+export default function TemplateRow({ onSelect }) {
+  function pick(name) {
+    onSelect?.(name)
+  }
   return (
-    <section className="row">
+    <section className="row" id="templates-row">
       <div className="row-head">
         <h2 className="row-title">Start from a template</h2>
-        <button className="row-link">Browse all →</button>
+        <button
+          type="button"
+          className="row-link"
+          onClick={() => pick('Pitch deck')}
+        >
+          Browse all →
+        </button>
       </div>
       <div className="template-grid">
         {templates.map((t) => (
-          <button key={t.name} className="template-card">
+          <button
+            key={t.name}
+            type="button"
+            className="template-card"
+            onClick={() => pick(t.name)}
+            aria-label={`Use ${t.name} template`}
+          >
             <div className="template-thumb" style={{ background: t.grad }}>
               <div className="template-mock">
                 <span className="m-line w70" />

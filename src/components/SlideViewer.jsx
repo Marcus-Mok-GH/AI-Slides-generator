@@ -334,8 +334,72 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
   const [active, setActive] = useState(0)
   const [editing, setEditing] = useState(true)
   const [showNotes, setShowNotes] = useState(false)
+  const [toast, setToast] = useState('')
   const userNavigatedRef = useRef(false)
   const prevSlideCountRef = useRef(deck.slides.length)
+
+  function showToast(msg) {
+    setToast(msg)
+    window.clearTimeout(showToast._t)
+    showToast._t = window.setTimeout(() => setToast(''), 2400)
+  }
+
+  async function handleShare() {
+    if (isStreaming) return
+    const link =
+      deck.id && typeof window !== 'undefined'
+        ? `${window.location.origin}/?deck=${encodeURIComponent(deck.id)}`
+        : window.location.href
+    const shareData = {
+      title: deck.title || 'Deck',
+      text: deck.subtitle || `Check out this deck: ${deck.title}`,
+      url: link,
+    }
+    try {
+      if (navigator.share && navigator.canShare?.(shareData)) {
+        await navigator.share(shareData)
+        return
+      }
+    } catch {
+      /* user cancelled — fall through to clipboard */
+    }
+    try {
+      await navigator.clipboard.writeText(link)
+      showToast('Share link copied to clipboard')
+    } catch {
+      window.prompt('Copy this link:', link)
+    }
+  }
+
+  function handleExport() {
+    if (isStreaming) return
+    const exportable = {
+      id: deck.id,
+      title: deck.title,
+      subtitle: deck.subtitle,
+      theme: deck.theme,
+      slides: deck.slides,
+      meta: deck.meta,
+      exportedAt: new Date().toISOString(),
+    }
+    const blob = new Blob([JSON.stringify(exportable, null, 2)], {
+      type: 'application/json',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    const safeName =
+      (deck.title || 'deck')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'deck'
+    a.href = url
+    a.download = `${safeName}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    showToast(`Exported ${safeName}.json`)
+  }
 
   const isStreaming = !!deck.streaming
   const slideCount = deck.slides.length
@@ -438,10 +502,22 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
             <span className="vbar-edit-full">{editing ? '✓ Editing' : '✎ Edit'}</span>
             <span className="vbar-edit-mini" aria-hidden>{editing ? '✓' : '✎'}</span>
           </button>
-          <button className="vbar-btn ghost vbar-only-wide" disabled={isStreaming}>
+          <button
+            type="button"
+            className="vbar-btn ghost vbar-only-wide"
+            disabled={isStreaming}
+            onClick={handleShare}
+            title={isStreaming ? 'Available when generation completes' : 'Copy a shareable link'}
+          >
             Share
           </button>
-          <button className="vbar-btn vbar-only-wide" disabled={isStreaming}>
+          <button
+            type="button"
+            className="vbar-btn vbar-only-wide"
+            disabled={isStreaming}
+            onClick={handleExport}
+            title={isStreaming ? 'Available when generation completes' : 'Download deck as JSON'}
+          >
             Export
           </button>
         </div>
@@ -586,6 +662,12 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
           />
         )}
       </div>
+
+      {toast ? (
+        <div className="vbar-toast" role="status" aria-live="polite">
+          {toast}
+        </div>
+      ) : null}
     </div>
   )
 }

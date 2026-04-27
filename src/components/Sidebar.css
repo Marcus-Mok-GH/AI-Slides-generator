@@ -63,6 +63,11 @@
 .nav-item:hover {
   background: rgba(0, 0, 0, 0.04);
 }
+.nav-item.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
 
 .nav-item.is-primary {
   background: var(--accent);

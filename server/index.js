@@ -239,6 +239,75 @@ app.post('/api/generate-slide-image', async (req, res) => {
   }
 })
 
+/**
+ * Fetch a public URL and return a plain-text excerpt the user can drop
+ * into the deck prompt. Used by the "From URL" chip on the Create page.
+ *
+ * Body: { url }
+ * Response: { url, title, text }
+ */
+app.post('/api/fetch-url', async (req, res) => {
+  try {
+    const { url } = req.body || {}
+    if (!url || typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
+      return res
+        .status(400)
+        .json({ error: 'Provide a full http(s):// URL' })
+    }
+    const upstream = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (compatible; SlideAI/1.0; +https://replit.com)',
+        Accept: 'text/html,application/xhtml+xml',
+      },
+      // Avoid hanging the server forever on huge resources.
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!upstream.ok) {
+      return res
+        .status(502)
+        .json({ error: `Upstream returned ${upstream.status}` })
+    }
+    const html = await upstream.text()
+    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i)
+    const title = titleMatch ? decodeEntities(titleMatch[1]).trim() : ''
+    const text = decodeEntities(
+      html
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+        .replace(/<header[\s\S]*?<\/header>/gi, ' ')
+        .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
+        .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
+        .replace(/<[^>]+>/g, ' '),
+    )
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 8000)
+    res.json({ url, title, text })
+  } catch (err) {
+    console.error('[fetch-url] error:', err)
+    res.status(500).json({
+      error: err?.name === 'TimeoutError'
+        ? 'Request timed out'
+        : err?.message || 'Failed to fetch URL',
+    })
+  }
+})
+
+function decodeEntities(s) {
+  return String(s)
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(parseInt(d, 10)))
+}
+
 app.post('/api/regenerate-slide', async (req, res) => {
   try {
     const { deck, slideIndex, instruction } = req.body || {}

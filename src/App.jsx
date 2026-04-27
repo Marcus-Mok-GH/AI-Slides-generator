@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Sidebar from './components/Sidebar.jsx'
 import TopBar from './components/TopBar.jsx'
 import CreateHero from './components/CreateHero.jsx'
@@ -33,7 +33,10 @@ export default function App() {
   const [error, setError] = useState('')
   const [savedDecks, setSavedDecks] = useState([])
   const [savingState, setSavingState] = useState('idle') // idle | saving | saved | error
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeNav, setActiveNav] = useState('new')
   const saveTimer = useRef(null)
+  const heroRef = useRef(null)
 
   const refreshDecks = useCallback(async () => {
     try {
@@ -153,6 +156,38 @@ export default function App() {
     }
   }
 
+  // Sidebar nav: each entry either scrolls to a section or runs an action.
+  const handleNavigate = useCallback((id) => {
+    setActiveNav(id)
+    const scrollTargets = {
+      home: 'create-hero',
+      inspiration: 'create-hero',
+      templates: 'templates-row',
+      'my-deck': 'recent-decks',
+      trash: 'recent-decks',
+    }
+    const targetId = scrollTargets[id]
+    if (targetId) {
+      const el = document.getElementById(targetId)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    if (id === 'new' || id === 'home' || id === 'inspiration') {
+      // small delay so the scroll-into-view animation can begin first
+      setTimeout(() => heroRef.current?.focusPrompt?.(), 80)
+    }
+  }, [])
+
+  // Filter saved decks by the topbar search query.
+  const filteredDecks = useMemo(() => {
+    if (!searchQuery.trim()) return savedDecks
+    const q = searchQuery.trim().toLowerCase()
+    return savedDecks.filter((d) =>
+      [d.title, d.subtitle, d.theme?.name]
+        .filter(Boolean)
+        .some((s) => String(s).toLowerCase().includes(q)),
+    )
+  }, [savedDecks, searchQuery])
+
   if (deck) {
     return (
       <SlideViewer
@@ -169,18 +204,29 @@ export default function App() {
 
   return (
     <div className="layout">
-      <Sidebar />
+      <Sidebar activeNav={activeNav} onNavigate={handleNavigate} />
       <div className="main">
-        <TopBar />
+        <TopBar
+          search={searchQuery}
+          onSearchChange={setSearchQuery}
+          deckCount={savedDecks.length}
+        />
         <div className="content">
           <CreateHero
+            ref={heroRef}
             onGenerate={handleGenerate}
             status={status}
             error={error}
           />
-          <TemplateRow />
+          <TemplateRow
+            onSelect={(template) => {
+              heroRef.current?.applyTemplate?.(template)
+            }}
+          />
           <RecentGallery
-            decks={savedDecks}
+            decks={filteredDecks}
+            totalCount={savedDecks.length}
+            query={searchQuery}
             onOpen={handleOpenDeck}
             onDelete={handleDeleteDeck}
           />

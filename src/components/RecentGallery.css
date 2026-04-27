@@ -27,6 +27,65 @@
   gap: 18px;
 }
 
+.deck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.deck-list .deck-card {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 14px 8px 8px;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.deck-list .deck-card:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+.deck-list .deck-thumb {
+  width: 132px;
+  flex-shrink: 0;
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  border: none;
+  box-shadow: none;
+}
+.deck-list .deck-card:hover .deck-thumb {
+  transform: none;
+  box-shadow: none;
+}
+.deck-list .deck-thumb-inner {
+  inset: 10px;
+  gap: 2px;
+}
+.deck-list .deck-headline {
+  font-size: 13px;
+}
+.deck-list .deck-subline,
+.deck-list .deck-pill {
+  display: none;
+}
+.deck-list .deck-meta {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+}
+.deck-list .deck-title-row {
+  align-items: center;
+}
+.deck-list .deck-title {
+  font-size: 14px;
+}
+@media (max-width: 720px) {
+  .deck-list .deck-thumb {
+    width: 92px;
+  }
+}
+
 @media (max-width: 720px) {
   .deck-grid {
     grid-template-columns: 1fr 1fr;
