@@ -19,6 +19,7 @@
   --green: #2ecc71;
   --hover-overlay: rgba(0, 0, 0, 0.04);
   --on-surface: white;
+  --accent-light: #9a7bff;
   --error-bg: #fff1f1;
   --error-border: #fecaca;
   --error-text: #b91c1c;
@@ -48,7 +49,8 @@
   --orange: #ffad75;
   --green: #3dd68c;
   --hover-overlay: rgba(255, 255, 255, 0.06);
-  --on-surface: var(--surface-2);
+  --on-surface: var(--surface);
+  --accent-light: #b09eff;
   --error-bg: #2d1215;
   --error-border: #5c2124;
   --error-text: #fca5a5;

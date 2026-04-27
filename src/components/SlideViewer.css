@@ -82,7 +82,7 @@
 }
 .vbar-status.is-streaming {
   color: white;
-  background: linear-gradient(135deg, #7c5cff, #ff6ea0);
+  background: linear-gradient(135deg, var(--accent), var(--pink));
   font-weight: 600;
 }
 .dot-pulse {
