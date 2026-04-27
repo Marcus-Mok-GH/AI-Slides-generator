@@ -755,6 +755,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
               }}
             >
               <Slide
+                key={active}
                 slide={slide}
                 theme={deck.theme}
                 index={active}

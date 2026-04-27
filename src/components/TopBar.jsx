@@ -46,8 +46,19 @@ export default function TopBar({
   onSignOut,
 }) {
   const [openMenu, setOpenMenu] = useState(null) // 'whatsnew' | 'notif' | 'avatar' | null
+  const [scrolled, setScrolled] = useState(false)
   const wrapRef = useRef(null)
   const inputRef = useRef(null)
+
+  // Scroll shadow
+  useEffect(() => {
+    function onScroll() {
+      setScrolled(window.scrollY > 4)
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   // Close menus on outside click
   useEffect(() => {
@@ -77,7 +88,7 @@ export default function TopBar({
   }
 
   return (
-    <header className="topbar" ref={wrapRef}>
+    <header className={`topbar ${scrolled ? 'scrolled' : ''}`} ref={wrapRef}>
       <div className="topbar-brand" aria-hidden>
         <div className="topbar-brand-mark">S</div>
         <span className="topbar-brand-name">Slide<span>AI</span></span>

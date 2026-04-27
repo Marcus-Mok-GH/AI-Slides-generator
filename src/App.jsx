@@ -390,7 +390,7 @@ export default function App() {
           user={user}
           onSignOut={signOut}
         />
-        <div className="content">
+        <div className="content stagger-children">
           <CreateHero
             ref={heroRef}
             onGenerate={handleGenerate}

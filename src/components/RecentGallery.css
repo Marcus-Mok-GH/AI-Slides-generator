@@ -2,18 +2,26 @@
   display: inline-flex;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 3px;
   gap: 2px;
 }
 .vt-btn {
-  width: 30px;
-  height: 26px;
+  width: 32px;
+  height: 28px;
   border: none;
   background: transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text-muted);
   font-size: 13px;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease,
+    color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-out-back);
+}
+.vt-btn:hover {
+  transform: scale(1.08);
 }
 .vt-btn.is-on {
   background: var(--on-surface);
@@ -24,7 +32,7 @@
 .deck-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 18px;
+  gap: 20px;
 }
 
 .deck-list {
@@ -38,19 +46,24 @@
   gap: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 8px 14px 8px 8px;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-out-back),
+    box-shadow var(--duration-base) ease;
 }
 .deck-list .deck-card:hover {
   background: var(--surface-2);
   border-color: var(--border-strong);
+  transform: translateX(4px);
+  box-shadow: var(--shadow-sm);
 }
 .deck-list .deck-thumb {
   width: 132px;
   flex-shrink: 0;
   aspect-ratio: 16 / 10;
-  border-radius: 8px;
+  border-radius: 10px;
   border: none;
   box-shadow: none;
 }
@@ -89,10 +102,10 @@
 @media (max-width: 720px) {
   .deck-grid {
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    gap: 14px;
   }
   .deck-thumb-inner {
-    inset: 12px;
+    inset: 14px;
   }
   .deck-headline {
     font-size: 13px;
@@ -112,20 +125,25 @@
   flex-direction: column;
   gap: 10px;
   cursor: pointer;
+  animation: fadeInUp 450ms var(--ease-out-expo) both;
 }
 
 .deck-thumb {
   position: relative;
   aspect-ratio: 16 / 10;
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition: transform var(--duration-base) var(--ease-out-expo),
+    box-shadow var(--duration-base) ease;
 }
 .deck-card:hover .deck-thumb {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: var(--shadow-lg);
+}
+.deck-card:active .deck-thumb {
+  transform: translateY(-1px) scale(1);
 }
 
 .deck-thumb {
@@ -173,22 +191,24 @@
 
 .empty {
   border: 1px dashed var(--border-strong);
-  border-radius: 14px;
-  padding: 40px 20px;
+  border-radius: 16px;
+  padding: 48px 24px;
   text-align: center;
   background: var(--surface);
+  animation: fadeInUp 400ms var(--ease-out-expo);
 }
 .empty-art {
-  font-size: 26px;
+  font-size: 28px;
   color: var(--accent);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  animation: scaleIn 500ms var(--ease-out-back) 100ms both;
 }
 .empty-title {
   font-weight: 600;
   font-size: 15px;
 }
 .empty-sub {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   color: var(--text-muted);
   font-size: 13px;
 }
@@ -200,27 +220,34 @@
 .deck-menu {
   position: absolute;
   right: 0;
-  top: 28px;
+  top: 30px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: var(--shadow-lg);
+  border-radius: 12px;
+  box-shadow: var(--shadow-xl);
   display: flex;
   flex-direction: column;
-  min-width: 120px;
+  min-width: 140px;
   overflow: hidden;
   z-index: 5;
+  animation: tb-pop-in 200ms var(--ease-out-expo) forwards;
+  transform-origin: top right;
 }
 .deck-menu button {
   background: transparent;
   border: none;
-  padding: 8px 12px;
+  padding: 10px 14px;
   text-align: left;
   font-size: 13px;
   color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-out-back);
 }
 .deck-menu button:hover {
   background: var(--surface-2);
+  transform: translateX(2px);
 }
 .deck-menu button.danger {
   color: var(--error-text);
@@ -233,20 +260,25 @@
   position: absolute;
   bottom: 12px;
   right: 12px;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.88);
   color: var(--text);
   font-size: 11px;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 999px;
   font-weight: 600;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: transform var(--duration-fast) var(--ease-out-back);
+}
+.deck-card:hover .deck-pill {
+  transform: scale(1.05);
 }
 
 .deck-meta {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 0 2px;
+  gap: 3px;
+  padding: 0 3px;
 }
 
 .deck-title-row {
@@ -262,6 +294,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text);
 }
 
 .deck-more {
@@ -270,16 +303,24 @@
   color: var(--text-soft);
   font-size: 18px;
   line-height: 1;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease,
+    color var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-out-back);
 }
 .deck-more:hover {
   background: var(--hover-overlay);
   color: var(--text);
+  transform: scale(1.1);
 }
 
 .deck-edited {
   font-size: 12px;
   color: var(--text-soft);
+  font-weight: 500;
 }

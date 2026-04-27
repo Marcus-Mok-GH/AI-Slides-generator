@@ -28,6 +28,11 @@
   max-width: 1280px;
   width: 100%;
   margin: 0 auto;
+  animation: fadeInDown 600ms var(--ease-out-expo) forwards;
+}
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .landing-brand {
   display: flex;
@@ -38,13 +43,20 @@
 .landing-brand-mark {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 10px;
   background: linear-gradient(135deg, #7c5cff, #ff6ea0);
   color: #fff;
   display: grid;
   place-items: center;
   font-weight: 700;
   letter-spacing: 0.5px;
+  box-shadow: 0 4px 14px rgba(124, 92, 255, 0.35);
+  transition: transform var(--duration-fast) var(--ease-out-back),
+    box-shadow var(--duration-base) ease;
+}
+.landing-brand:hover .landing-brand-mark {
+  transform: scale(1.08) rotate(-3deg);
+  box-shadow: 0 6px 20px rgba(124, 92, 255, 0.45);
 }
 .landing-brand-name {
   font-size: 18px;
@@ -60,19 +72,22 @@
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: inherit;
-  padding: 10px 18px;
+  padding: 10px 20px;
   border-radius: 999px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+  transition: background 200ms ease, border-color 200ms ease,
+    transform 150ms var(--ease-out-back), box-shadow 200ms ease;
 }
 .landing-signin:hover {
   background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(124, 92, 255, 0.15);
 }
 .landing-signin:active {
-  transform: translateY(1px);
+  transform: translateY(0);
 }
 
 /* ---------- hero ---------- */
@@ -87,16 +102,24 @@
   margin: 0 auto;
   padding: 60px 40px 80px;
 }
+.landing-copy {
+  animation: fadeInUp 700ms var(--ease-out-expo) 100ms both;
+}
 .landing-eyebrow {
   display: inline-block;
   font-size: 12px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.55);
-  padding: 6px 12px;
+  padding: 6px 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   margin-bottom: 24px;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.landing-eyebrow:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 16px rgba(124, 92, 255, 0.12);
 }
 .landing-title {
   font-size: 64px;
@@ -138,11 +161,14 @@
   align-items: center;
   gap: 12px;
   box-shadow: 0 18px 40px -16px rgba(124, 92, 255, 0.6);
-  transition: transform 0.08s, box-shadow 0.15s;
+  transition: transform 150ms var(--ease-out-back),
+    box-shadow 250ms ease,
+    filter 250ms ease;
 }
 .landing-cta-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 22px 50px -16px rgba(124, 92, 255, 0.7);
+  transform: translateY(-2px);
+  box-shadow: 0 24px 56px -16px rgba(124, 92, 255, 0.7);
+  filter: brightness(1.08);
 }
 .landing-cta-primary:active {
   transform: translateY(0);
@@ -156,34 +182,58 @@
 .landing-preview {
   position: relative;
   height: 420px;
+  animation: fadeInUp 800ms var(--ease-out-expo) 200ms both;
 }
 .landing-card {
   position: absolute;
   background: rgba(20, 20, 32, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
+  border-radius: 20px;
   padding: 22px 24px;
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.7);
+  transition: transform 400ms var(--ease-out-expo),
+    box-shadow 400ms ease;
+}
+.landing-card:hover {
+  transform: translateY(-4px) rotate(0deg) scale(1.02) !important;
+  box-shadow: 0 32px 80px -24px rgba(0, 0, 0, 0.8);
 }
 .landing-card-1 {
   top: 0;
   left: 8%;
   width: 70%;
   transform: rotate(-2.5deg);
+  animation: cardFloat1 6s ease-in-out infinite;
 }
 .landing-card-2 {
   top: 38%;
   right: 4%;
   width: 60%;
   transform: rotate(2deg);
+  animation: cardFloat2 7s ease-in-out infinite;
 }
 .landing-card-3 {
   bottom: 0;
   left: 14%;
   width: 70%;
   transform: rotate(-1deg);
+  animation: cardFloat3 5s ease-in-out infinite;
 }
+@keyframes cardFloat1 {
+  0%, 100% { transform: rotate(-2.5deg) translateY(0); }
+  50% { transform: rotate(-2.5deg) translateY(-8px); }
+}
+@keyframes cardFloat2 {
+  0%, 100% { transform: rotate(2deg) translateY(0); }
+  50% { transform: rotate(2deg) translateY(-10px); }
+}
+@keyframes cardFloat3 {
+  0%, 100% { transform: rotate(-1deg) translateY(0); }
+  50% { transform: rotate(-1deg) translateY(-6px); }
+}
+
 .landing-card-label {
   font-size: 11px;
   letter-spacing: 0.14em;
@@ -244,19 +294,39 @@
 .landing-feature {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
+  border-radius: 20px;
   padding: 24px;
+  transition: background-color 250ms ease,
+    border-color 250ms ease,
+    transform 300ms var(--ease-out-back),
+    box-shadow 300ms ease;
+  animation: fadeInUp 600ms var(--ease-out-expo) both;
+}
+.landing-feature:nth-child(1) { animation-delay: 300ms; }
+.landing-feature:nth-child(2) { animation-delay: 400ms; }
+.landing-feature:nth-child(3) { animation-delay: 500ms; }
+.landing-feature:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
 }
 .landing-feature-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
   background: rgba(124, 92, 255, 0.18);
   color: #b9a6ff;
   font-size: 18px;
   margin-bottom: 14px;
+  transition: transform 300ms var(--ease-out-back),
+    background-color 250ms ease;
+}
+.landing-feature:hover .landing-feature-icon {
+  transform: scale(1.1) rotate(-4deg);
+  background: rgba(124, 92, 255, 0.28);
 }
 .landing-feature h3 {
   font-size: 16px;
@@ -279,6 +349,7 @@
   color: rgba(255, 255, 255, 0.4);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   margin-top: 20px;
+  animation: fadeIn 600ms ease 600ms both;
 }
 
 /* ---------- responsive ---------- */
