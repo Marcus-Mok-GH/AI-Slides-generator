@@ -50,6 +50,18 @@ export async function migrate() {
   await pool.query(
     `CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON sessions (expire);`,
   )
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS decks (
+      id          VARCHAR PRIMARY KEY,
+      title       VARCHAR,
+      subtitle    VARCHAR,
+      slide_count INTEGER,
+      theme       JSONB,
+      data        JSONB,
+      created_at  TIMESTAMP DEFAULT NOW(),
+      updated_at  TIMESTAMP DEFAULT NOW()
+    );
+  `)
   // Add user_id column to existing decks table (no-op on re-runs).
   await pool.query(`ALTER TABLE decks ADD COLUMN IF NOT EXISTS user_id VARCHAR;`)
   await pool.query(
