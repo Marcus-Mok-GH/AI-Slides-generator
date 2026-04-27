@@ -107,6 +107,35 @@ export default function App() {
     }
   }, [isAuthenticated])
 
+  // If the visitor typed a prompt on the public landing page, kick off
+  // generation for them as soon as they're signed in.
+  const pendingHandled = useRef(false)
+  useEffect(() => {
+    if (!isAuthenticated || pendingHandled.current) return
+    let pending = null
+    try {
+      const raw = sessionStorage.getItem('slideai:pendingPrompt')
+      if (raw) {
+        pending = JSON.parse(raw)
+        sessionStorage.removeItem('slideai:pendingPrompt')
+      }
+    } catch {
+      /* ignore */
+    }
+    if (pending?.prompt) {
+      pendingHandled.current = true
+      handleGenerate({
+        prompt: pending.prompt,
+        format: pending.format || 'presentation',
+        length: pending.length || '8 cards',
+        tone: pending.tone || 'Professional',
+        language: pending.language || 'English',
+      })
+    }
+    // handleGenerate is stable enough for this one-shot effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated])
+
   // ---------- URL routing ----------
   // Each deck lives at /slide/{id}. Loading that URL directly opens the deck;
   // closing the deck returns the URL to "/". Browser back/forward also work.
