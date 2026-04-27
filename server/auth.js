@@ -122,6 +122,7 @@ export async function setupAuth(app) {
   passport.deserializeUser((user, cb) => cb(null, user))
 
   app.get('/api/login', (req, res, next) => {
+    console.log('[auth] /api/login from', req.headers['user-agent']?.slice(0, 60))
     passport.authenticate(strategyName, {
       prompt: 'login consent',
       scope: ['openid', 'email', 'profile', 'offline_access'],
@@ -129,9 +130,41 @@ export async function setupAuth(app) {
   })
 
   app.get('/api/callback', (req, res, next) => {
-    passport.authenticate(strategyName, {
-      successReturnToOrRedirect: '/',
-      failureRedirect: '/api/login',
+    console.log(
+      '[auth] /api/callback hit — query keys:',
+      Object.keys(req.query),
+      'has session:',
+      !!req.session,
+      'sid:',
+      req.sessionID?.slice(0, 8),
+    )
+    passport.authenticate(strategyName, (err, user, info) => {
+      if (err) {
+        console.error('[auth] /api/callback error:', err)
+        return res
+          .status(500)
+          .send(`<pre>Auth error: ${String(err.message || err)}</pre>`)
+      }
+      if (!user) {
+        console.warn('[auth] /api/callback no user, info:', info)
+        return res.redirect('/api/login')
+      }
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          console.error('[auth] req.login error:', loginErr)
+          return res
+            .status(500)
+            .send(`<pre>Login error: ${String(loginErr.message || loginErr)}</pre>`)
+        }
+        console.log('[auth] /api/callback success → redirecting to /')
+        // Use a small HTML page with an explicit top-level navigation instead
+        // of a 302. If the OIDC consent page closes the tab itself before the
+        // browser sees our 302, this gives us a chance to take over.
+        res
+          .status(200)
+          .set('Content-Type', 'text/html; charset=utf-8')
+          .send(`<!doctype html><meta charset="utf-8"><title>Signing you in…</title><script>window.location.replace('/');</script><noscript><meta http-equiv="refresh" content="0;url=/"></noscript>`)
+      })
     })(req, res, next)
   })
 
