@@ -19,12 +19,31 @@ const CHANGELOG = [
   },
 ]
 
+function userInitials(user) {
+  if (!user) return '?'
+  const f = user.firstName?.[0] || ''
+  const l = user.lastName?.[0] || ''
+  const initials = (f + l).toUpperCase()
+  if (initials) return initials
+  if (user.email) return user.email[0].toUpperCase()
+  return 'U'
+}
+
+function userDisplayName(user) {
+  if (!user) return ''
+  const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
+  if (name) return name
+  return user.email || 'Signed in'
+}
+
 export default function TopBar({
   search = '',
   onSearchChange,
   deckCount = 0,
   isDark,
   onToggleTheme,
+  user = null,
+  onSignOut,
 }) {
   const [openMenu, setOpenMenu] = useState(null) // 'whatsnew' | 'notif' | 'avatar' | null
   const wrapRef = useRef(null)
@@ -162,18 +181,40 @@ export default function TopBar({
           <button
             type="button"
             className="avatar"
-            title="Account"
+            title={userDisplayName(user) || 'Account'}
             onClick={() => toggle('avatar')}
           >
-            AS
+            {user?.profileImageUrl ? (
+              <img
+                src={user.profileImageUrl}
+                alt=""
+                className="avatar-img"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              userInitials(user)
+            )}
           </button>
           {openMenu === 'avatar' && (
             <div className="tb-pop tb-pop-right">
               <div className="tb-pop-user">
-                <div className="tb-pop-avatar">AS</div>
+                <div className="tb-pop-avatar">
+                  {user?.profileImageUrl ? (
+                    <img
+                      src={user.profileImageUrl}
+                      alt=""
+                      className="avatar-img"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    userInitials(user)
+                  )}
+                </div>
                 <div>
-                  <div className="tb-pop-name">Demo user</div>
-                  <div className="tb-pop-email">demo@slideai.app</div>
+                  <div className="tb-pop-name">{userDisplayName(user)}</div>
+                  {user?.email ? (
+                    <div className="tb-pop-email">{user.email}</div>
+                  ) : null}
                 </div>
               </div>
               <div className="tb-pop-divider" />
@@ -182,21 +223,7 @@ export default function TopBar({
                 className="tb-pop-item"
                 onClick={() => {
                   setOpenMenu(null)
-                  window.alert(
-                    'Account settings will land in the next update.',
-                  )
-                }}
-              >
-                Account settings
-              </button>
-              <button
-                type="button"
-                className="tb-pop-item"
-                onClick={() => {
-                  setOpenMenu(null)
-                  window.alert(
-                    'You\'re signed in as the workspace demo user.',
-                  )
+                  onSignOut?.()
                 }}
               >
                 Sign out

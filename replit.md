@@ -25,6 +25,8 @@ key server-side and never exposes it to the browser.
 - **Backend:** Node 20 + Express 5 (a small server that proxies AI calls)
 - **Dev:** `concurrently` runs Vite (port 5000, public) and the API server
   (port 3001, localhost-only). Vite proxies `/api/*` → `127.0.0.1:3001`.
+- **Auth:** Replit Auth (OpenID Connect) via `openid-client` + `passport`.
+  Sessions persisted in Postgres via `connect-pg-simple`.
 
 ## Project Layout
 ```
@@ -34,20 +36,28 @@ key server-side and never exposes it to the browser.
 ├── vite.config.js              # Vite + /api proxy to localhost:3001
 ├── server/
 │   ├── index.js                # Express app, routes, port 3001
+│   ├── auth.js                 # Replit Auth (OIDC) — setupAuth, isAuthenticated,
+│   │                           #   /api/login, /api/callback, /api/logout,
+│   │                           #   /api/auth/user
 │   ├── generateDeck.js         # Orbitron call + JSON parsing/normalization
 │   ├── streamParser.js         # Incremental JSON parser → emits slides as
 │   │                           #   they complete inside the streamed payload
-│   └── db.js                   # Postgres pool + decks CRUD (pg)
+│   └── db.js                   # Postgres pool + decks CRUD + users/sessions
+│                               #   tables + migrate()
 └── src/
     ├── main.jsx
     ├── App.jsx                 # Switches between Create view and Viewer
     ├── App.css                 # Layout grid
     ├── index.css               # Design tokens
+    ├── hooks/
+    │   └── useAuth.js          # Auth state hook (user / loading / signIn / signOut)
     ├── lib/
-    │   └── api.js              # Frontend fetch wrapper
+    │   └── api.js              # Frontend fetch wrapper (raises UnauthorizedError
+    │                           #   and dispatches a global event on 401)
     └── components/
+        ├── Landing.jsx/css         # Pre-auth marketing/sign-in page
         ├── Sidebar.jsx/css         # Left nav + folders + upgrade card
-        ├── TopBar.jsx/css          # Search, notifications, avatar
+        ├── TopBar.jsx/css          # Search, notifications, real user avatar
         ├── CreateHero.jsx/css      # Prompt + format/length/tone/lang controls
         ├── TemplateRow.jsx/css     # Template gallery
         ├── RecentGallery.jsx/css   # Recent decks grid
@@ -140,20 +150,59 @@ the deck title, brief, and other slide titles as context so the rewrite stays
 cohesive.
 
 ### `GET /api/health`
-Returns `{ ok: true, hasKey: boolean }`.
+Returns `{ ok: true, hasKey: boolean }`. Public — does not require auth.
 
-### Deck persistence
-- `GET /api/decks` → `{ decks: [{ id, title, subtitle, slideCount, theme, updatedAt }] }`
-- `GET /api/decks/:id` → `{ deck }` (full deck JSON)
-- `POST /api/decks` body `{ deck }` → `{ id, updatedAt }` (upserts; generates an
-  id if the deck has none)
-- `DELETE /api/decks/:id` → `{ ok: true }`
+### Auth
+- `GET  /api/login`     → starts the Replit OAuth flow (redirects to
+  `https://replit.com/oidc/...`).
+- `GET  /api/callback`  → OAuth callback; on success creates the session and
+  redirects to `/`.
+- `GET  /api/logout`    → clears the local session and ends the OIDC session
+  with Replit, then returns the user to the app root.
+- `GET  /api/auth/user` → JSON of the current user
+  `{ id, email, firstName, lastName, profileImageUrl }` or `401`.
 
-Storage is the Replit-managed PostgreSQL database (env `DATABASE_URL`). Schema:
+All other `/api/*` routes (deck CRUD, generation, image, URL fetch,
+regenerate-slide) are gated by the `isAuthenticated` middleware. The
+frontend's `lib/api.js` translates a 401 into an `UnauthorizedError` and
+fires a `slideai:unauthorized` window event so `useAuth()` can flip the UI
+back to the landing page without a hard reload.
+
+### Deck persistence (per-user)
+- `GET /api/decks` → `{ decks: [...] }` — only decks owned by the caller.
+- `GET /api/decks/:id` → `{ deck }` — only if owned by the caller, else 404.
+- `POST /api/decks` body `{ deck }` → `{ id, updatedAt }` — upserts; the
+  caller becomes the owner; updates are refused for decks owned by a
+  different user.
+- `DELETE /api/decks/:id` → `{ ok: true }` — only deletes if owned.
+
+Storage is the Replit-managed PostgreSQL database (env `DATABASE_URL`).
+`server/db.js#migrate()` runs at boot and is idempotent. Schema:
 
 ```sql
+-- Replit Auth
+CREATE TABLE users (
+  id                 VARCHAR PRIMARY KEY,         -- claims.sub
+  email              VARCHAR UNIQUE,
+  first_name         VARCHAR,
+  last_name          VARCHAR,
+  profile_image_url  VARCHAR,
+  created_at         TIMESTAMP DEFAULT NOW(),
+  updated_at         TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE sessions (
+  sid    VARCHAR PRIMARY KEY,
+  sess   JSONB   NOT NULL,
+  expire TIMESTAMP NOT NULL
+);
+CREATE INDEX "IDX_session_expire" ON sessions (expire);
+
+-- Decks (now scoped to a user)
 CREATE TABLE decks (
   id          TEXT PRIMARY KEY,
+  user_id     VARCHAR,                            -- FK to users.id (added by
+                                                  --   migrate(); existing rows
+                                                  --   are NULL until reclaimed)
   title       TEXT NOT NULL,
   subtitle    TEXT NOT NULL DEFAULT '',
   slide_count INTEGER NOT NULL,
@@ -163,7 +212,12 @@ CREATE TABLE decks (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX decks_updated_at_idx ON decks (updated_at DESC);
+CREATE INDEX idx_decks_user_id_updated_at ON decks (user_id, updated_at DESC);
 ```
+
+Decks generated before auth was added have `user_id = NULL` and are
+therefore invisible to every signed-in user. They can be safely deleted or
+backfilled to a specific user via SQL.
 
 The frontend debounces autosave (~700ms) on any deck change in the viewer so
 new decks and inline edits land in the DB without an explicit Save button.
@@ -197,6 +251,9 @@ The Recent decks gallery refreshes after each save and supports Open / Delete.
 
 ## Required secrets
 - `ORBITRON_API_KEY` — Orbitron gateway API key.
+- `SESSION_SECRET` — used to sign session cookies. Auto-injected by Replit.
+- `REPL_ID`, `ISSUER_URL` (optional, defaults to `https://replit.com/oidc`),
+  `REPLIT_DOMAINS` — auto-injected by Replit; required by Replit Auth.
 
 ## Workflow
 - `Start application` runs `npm run dev`, which starts both the API server
@@ -236,4 +293,5 @@ Touch targets are ≥36px throughout. The editor drawer respects
 - Add per-slide image generation via `gpt-image-1`.
 - Export to PPTX / PDF.
 - Switch deployment target to a Node server and serve `dist` from Express.
-- Multi-user support (currently all decks are global to the workspace).
+- Optional: deck sharing (read-only public links that bypass auth via a
+  signed share token, since deck reads are now per-owner).

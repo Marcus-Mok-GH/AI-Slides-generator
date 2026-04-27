@@ -1,9 +1,34 @@
+/**
+ * Thrown when the server returns 401 Unauthorized. Calling code can `catch`
+ * this and prompt the user to sign in again, but the global handler in
+ * `useAuth` will also pick it up and refresh auth state.
+ */
+export class UnauthorizedError extends Error {
+  constructor(message = 'Unauthorized') {
+    super(message)
+    this.name = 'UnauthorizedError'
+    this.status = 401
+  }
+}
+
+function notifyUnauthorized() {
+  // Broadcast so the auth hook can re-check session & flip to the landing page.
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('slideai:unauthorized'))
+  }
+}
+
 async function postJson(url, body) {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    credentials: 'same-origin',
   })
+  if (res.status === 401) {
+    notifyUnauthorized()
+    throw new UnauthorizedError()
+  }
   let data = null
   try {
     data = await res.json()
@@ -44,7 +69,13 @@ export async function streamGenerateDeck(payload, handlers = {}) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+    credentials: 'same-origin',
   })
+  if (res.status === 401) {
+    notifyUnauthorized()
+    handlers.onError?.('Please sign in to generate decks.')
+    return
+  }
   if (!res.ok || !res.body) {
     const text = await res.text().catch(() => '')
     throw new Error(text || `Server returned ${res.status}`)
@@ -90,14 +121,24 @@ export async function streamGenerateDeck(payload, handlers = {}) {
 }
 
 export async function listDecks() {
-  const res = await fetch('/api/decks')
+  const res = await fetch('/api/decks', { credentials: 'same-origin' })
+  if (res.status === 401) {
+    notifyUnauthorized()
+    throw new UnauthorizedError()
+  }
   if (!res.ok) throw new Error(`Server returned ${res.status}`)
   const data = await res.json()
   return data.decks
 }
 
 export async function loadDeck(id) {
-  const res = await fetch(`/api/decks/${encodeURIComponent(id)}`)
+  const res = await fetch(`/api/decks/${encodeURIComponent(id)}`, {
+    credentials: 'same-origin',
+  })
+  if (res.status === 401) {
+    notifyUnauthorized()
+    throw new UnauthorizedError()
+  }
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`Server returned ${res.status}`)
   const data = await res.json()
@@ -112,7 +153,23 @@ export async function saveDeck(deck) {
 export async function deleteDeck(id) {
   const res = await fetch(`/api/decks/${encodeURIComponent(id)}`, {
     method: 'DELETE',
+    credentials: 'same-origin',
   })
+  if (res.status === 401) {
+    notifyUnauthorized()
+    throw new UnauthorizedError()
+  }
   if (!res.ok) throw new Error(`Server returned ${res.status}`)
   return true
+}
+
+/**
+ * Fetch the currently signed-in user, or `null` if not authenticated.
+ * Used by useAuth() — does not dispatch the unauthorized event.
+ */
+export async function fetchCurrentUser() {
+  const res = await fetch('/api/auth/user', { credentials: 'same-origin' })
+  if (res.status === 401) return null
+  if (!res.ok) throw new Error(`Server returned ${res.status}`)
+  return await res.json()
 }

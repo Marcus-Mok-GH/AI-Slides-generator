@@ -12,8 +12,17 @@
     "preview": "vite preview --host 0.0.0.0 --port 5000"
   },
   "dependencies": {
+    "@types/connect-pg-simple": "^7.0.3",
+    "@types/express-session": "^1.19.0",
+    "@types/memoizee": "^0.4.12",
+    "@types/passport": "^1.0.17",
     "concurrently": "^9.2.1",
+    "connect-pg-simple": "^10.0.0",
     "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "memoizee": "^0.4.17",
+    "openid-client": "^6.8.3",
+    "passport": "^0.7.0",
     "pg": "^8.20.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

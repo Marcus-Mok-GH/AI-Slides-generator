@@ -5,6 +5,7 @@ import CreateHero from './components/CreateHero.jsx'
 import TemplateRow from './components/TemplateRow.jsx'
 import RecentGallery from './components/RecentGallery.jsx'
 import SlideViewer from './components/SlideViewer.jsx'
+import Landing from './components/Landing.jsx'
 import {
   streamGenerateDeck,
   saveDeck as saveDeckApi,
@@ -13,6 +14,7 @@ import {
   listDecks,
 } from './lib/api.js'
 import useTheme from './lib/useTheme.js'
+import useAuth from './hooks/useAuth.js'
 import './App.css'
 
 const DEFAULT_THEME = {
@@ -48,6 +50,8 @@ function deckIdFromLocation() {
 }
 
 export default function App() {
+  const { user, loading: authLoading, isAuthenticated, signIn, signOut } =
+    useAuth()
   const [deck, setDeck] = useState(null)
   const [status, setStatus] = useState('idle') // idle | streaming | error
   const [error, setError] = useState('')
@@ -69,20 +73,52 @@ export default function App() {
       const decks = await listDecks()
       setSavedDecks(decks)
     } catch (e) {
-      console.warn('Failed to load decks:', e)
+      // 401s are handled globally via the useAuth hook; ignore here so we
+      // don't spam the console while the user is on the landing page.
+      if (e?.status !== 401) {
+        console.warn('Failed to load decks:', e)
+      }
     }
   }, [])
 
+  // Refresh the gallery whenever the user signs in (and on any later
+  // re-auth after a 401). Skipping this when logged-out avoids hitting the
+  // protected endpoint while showing the landing page.
   useEffect(() => {
-    refreshDecks()
-  }, [refreshDecks])
+    if (isAuthenticated) refreshDecks()
+    else setSavedDecks([])
+  }, [isAuthenticated, refreshDecks])
+
+  // After a successful login redirect, restore the deck URL the user was on
+  // before they were sent to /api/login.
+  useEffect(() => {
+    if (!isAuthenticated) return
+    let returnTo = null
+    try {
+      returnTo = sessionStorage.getItem('slideai:returnTo')
+      if (returnTo) sessionStorage.removeItem('slideai:returnTo')
+    } catch {
+      /* ignore */
+    }
+    if (returnTo && window.location.pathname === '/' && returnTo !== '/') {
+      window.history.replaceState({}, '', returnTo)
+      // Trigger the URL-sync effect so the deck actually loads.
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    }
+  }, [isAuthenticated])
 
   // ---------- URL routing ----------
   // Each deck lives at /slide/{id}. Loading that URL directly opens the deck;
   // closing the deck returns the URL to "/". Browser back/forward also work.
 
   // Honor the URL on first paint and whenever the user hits back/forward.
+  // Skip while auth is still loading or the user is signed out — otherwise
+  // every deck load returns 401 and clears the path.
   useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      setRouteLoading(false)
+      return
+    }
     let cancelled = false
 
     const syncFromUrl = async () => {
@@ -133,7 +169,7 @@ export default function App() {
     // We intentionally read the freshest `deck.id` inside the effect, so this
     // doesn't need to re-run on every deck change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [authLoading, isAuthenticated])
 
   // Whenever the open deck's id changes (newly generated, opened from gallery,
   // or closed), reflect that in the URL bar. We hold off while routeLoading is
@@ -305,6 +341,19 @@ export default function App() {
     )
   }, [savedDecks, searchQuery])
 
+  // ---------- auth gating ----------
+  if (authLoading) {
+    return (
+      <div className="route-loading">
+        <div className="route-loading-spinner" aria-hidden />
+        <div className="route-loading-text">Loading…</div>
+      </div>
+    )
+  }
+  if (!isAuthenticated) {
+    return <Landing onSignIn={signIn} />
+  }
+
   if (deck) {
     return (
       <SlideViewer
@@ -338,6 +387,8 @@ export default function App() {
           deckCount={savedDecks.length}
           isDark={isDark}
           onToggleTheme={toggleTheme}
+          user={user}
+          onSignOut={signOut}
         />
         <div className="content">
           <CreateHero

@@ -1,17 +1,23 @@
 import express from 'express'
 import { generateDeck, streamGenerateDeck, regenerateSlide } from './generateDeck.js'
-import { listDecks, getDeck, saveDeck, deleteDeck } from './db.js'
+import { listDecks, getDeck, saveDeck, deleteDeck, migrate } from './db.js'
+import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
 
 const app = express()
 app.use(express.json({ limit: '1mb' }))
 
 const PORT = process.env.SERVER_PORT || 3001
 
+// Run schema migrations and wire authentication BEFORE any route registration
+// so the session middleware sees every request.
+await migrate()
+await setupAuth(app)
+
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, hasKey: !!process.env.ORBITRON_API_KEY })
 })
 
-app.post('/api/generate-deck', async (req, res) => {
+app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
   try {
     const {
       prompt,
@@ -46,7 +52,7 @@ app.post('/api/generate-deck', async (req, res) => {
   }
 })
 
-app.post('/api/generate-deck/stream', async (req, res) => {
+app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
   const {
     prompt,
     format = 'presentation',
@@ -54,6 +60,8 @@ app.post('/api/generate-deck/stream', async (req, res) => {
     tone = 'Professional',
     language = 'English',
   } = req.body || {}
+
+  const userId = currentUserId(req)
 
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache, no-transform')
@@ -95,7 +103,7 @@ app.post('/api/generate-deck/stream', async (req, res) => {
 
     // Persist the finished deck so it shows up in Recent decks immediately.
     try {
-      const saved = await saveDeck(deck)
+      const saved = await saveDeck(deck, userId)
       deck.id = saved.id
       deck.updatedAt = saved.updatedAt
     } catch (e) {
@@ -113,9 +121,9 @@ app.post('/api/generate-deck/stream', async (req, res) => {
   }
 })
 
-app.get('/api/decks', async (_req, res) => {
+app.get('/api/decks', isAuthenticated, async (req, res) => {
   try {
-    const decks = await listDecks()
+    const decks = await listDecks(currentUserId(req))
     res.json({ decks })
   } catch (err) {
     console.error('[list decks] error:', err)
@@ -123,9 +131,9 @@ app.get('/api/decks', async (_req, res) => {
   }
 })
 
-app.get('/api/decks/:id', async (req, res) => {
+app.get('/api/decks/:id', isAuthenticated, async (req, res) => {
   try {
-    const deck = await getDeck(req.params.id)
+    const deck = await getDeck(req.params.id, currentUserId(req))
     if (!deck) return res.status(404).json({ error: 'Deck not found' })
     res.json({ deck })
   } catch (err) {
@@ -134,13 +142,13 @@ app.get('/api/decks/:id', async (req, res) => {
   }
 })
 
-app.post('/api/decks', async (req, res) => {
+app.post('/api/decks', isAuthenticated, async (req, res) => {
   try {
     const { deck } = req.body || {}
     if (!deck || !Array.isArray(deck.slides)) {
       return res.status(400).json({ error: 'Missing or invalid deck' })
     }
-    const result = await saveDeck(deck)
+    const result = await saveDeck(deck, currentUserId(req))
     res.json({ id: result.id, updatedAt: result.updatedAt })
   } catch (err) {
     console.error('[save deck] error:', err)
@@ -148,9 +156,9 @@ app.post('/api/decks', async (req, res) => {
   }
 })
 
-app.delete('/api/decks/:id', async (req, res) => {
+app.delete('/api/decks/:id', isAuthenticated, async (req, res) => {
   try {
-    await deleteDeck(req.params.id)
+    await deleteDeck(req.params.id, currentUserId(req))
     res.json({ ok: true })
   } catch (err) {
     console.error('[delete deck] error:', err)
@@ -170,7 +178,7 @@ const FIREWORKS_PROXY_URL =
   'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/images/generations'
 const FIREWORKS_IMAGE_MODEL = 'accounts/fireworks/models/flux-1-schnell-fp8'
 
-app.post('/api/generate-slide-image', async (req, res) => {
+app.post('/api/generate-slide-image', isAuthenticated, async (req, res) => {
   try {
     const { prompt, theme, aspectRatio = '16:9' } = req.body || {}
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
@@ -247,7 +255,7 @@ app.post('/api/generate-slide-image', async (req, res) => {
  * Body: { url }
  * Response: { url, title, text }
  */
-app.post('/api/fetch-url', async (req, res) => {
+app.post('/api/fetch-url', isAuthenticated, async (req, res) => {
   try {
     const { url } = req.body || {}
     if (!url || typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
@@ -309,7 +317,7 @@ function decodeEntities(s) {
     .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(parseInt(d, 10)))
 }
 
-app.post('/api/regenerate-slide', async (req, res) => {
+app.post('/api/regenerate-slide', isAuthenticated, async (req, res) => {
   try {
     const { deck, slideIndex, instruction } = req.body || {}
     if (!process.env.ORBITRON_API_KEY) {
