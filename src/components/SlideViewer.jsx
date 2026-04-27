@@ -1,6 +1,41 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import SlideEditor from './SlideEditor.jsx'
 import './SlideViewer.css'
+
+/* ----------------------------------------------------------------
+   Slide canonical canvas. Every slide is laid out as if it lived on
+   a fixed 1280×720 (16:9) page — the standard ratio used by modern
+   slide tools — and we scale that page to fit whatever stage area
+   is available. This keeps proportions, font sizes, and spacing
+   identical across small previews, fullscreen, and exports.
+   ---------------------------------------------------------------- */
+const SLIDE_WIDTH = 1280
+const SLIDE_HEIGHT = 720
+
+/**
+ * Observes a stage container and returns the largest scale factor at
+ * which a SLIDE_WIDTH × SLIDE_HEIGHT slide will still fit. Returns 0
+ * until the container has been measured to avoid flashing a 1× slide
+ * before the first measurement.
+ */
+function useFitScale(containerRef) {
+  const [scale, setScale] = useState(0)
+  useLayoutEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const compute = () => {
+      const r = el.getBoundingClientRect()
+      if (r.width === 0 || r.height === 0) return
+      const s = Math.min(r.width / SLIDE_WIDTH, r.height / SLIDE_HEIGHT)
+      setScale(s > 0 ? s : 0)
+    }
+    compute()
+    const ro = new ResizeObserver(compute)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [containerRef])
+  return scale
+}
 
 /* ----------------------------------------------------------------
    Helpers — image rendering varies a lot by layout. Each slide can
@@ -422,6 +457,8 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
   const [toast, setToast] = useState('')
   const userNavigatedRef = useRef(false)
   const prevSlideCountRef = useRef(deck.slides.length)
+  const stageRef = useRef(null)
+  const stageScale = useFitScale(stageRef)
 
   function showToast(msg) {
     setToast(msg)
@@ -700,7 +737,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
           ))}
         </div>
 
-        <main className="stage">
+        <main className="stage" ref={stageRef}>
           {showGenerating ? (
             <GeneratingSlide
               theme={deck.theme || {}}
@@ -708,7 +745,15 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
               slidesSoFar={slideCount}
             />
           ) : (
-            <div className="stage-frame">
+            <div
+              className="stage-frame"
+              style={{
+                width: `${SLIDE_WIDTH}px`,
+                height: `${SLIDE_HEIGHT}px`,
+                transform: `translate(-50%, -50%) scale(${stageScale || 0.0001})`,
+                visibility: stageScale > 0 ? 'visible' : 'hidden',
+              }}
+            >
               <Slide
                 slide={slide}
                 theme={deck.theme}
