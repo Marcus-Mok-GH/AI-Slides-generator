@@ -95,11 +95,14 @@ export async function setupAuth(app) {
 
   // Pre-register one Passport strategy per domain in REPLIT_DOMAINS. The
   // Replit OIDC provider only accepts redirect URIs whose host is one of
-  // those domains — registering anything else here would produce
-  // `invalid_redirect_uri` at sign-in time.
+  // those domains — anything else would produce `invalid_redirect_uri`.
+  // We never key the strategy on req.hostname because our Vite dev proxy
+  // rewrites Host before the request reaches Express.
   const allowedDomains = process.env.REPLIT_DOMAINS.split(',')
     .map((d) => d.trim())
     .filter(Boolean)
+  const canonicalDomain = allowedDomains[0]
+  const strategyName = `replitauth:${canonicalDomain}`
 
   for (const domain of allowedDomains) {
     passport.use(
@@ -118,27 +121,15 @@ export async function setupAuth(app) {
   passport.serializeUser((user, cb) => cb(null, user))
   passport.deserializeUser((user, cb) => cb(null, user))
 
-  // If the request comes in on a host that isn't registered (e.g. a
-  // workspace preview proxy), bounce the user to the canonical domain
-  // before starting the OAuth dance so we always hand the OIDC provider
-  // a redirect URI it has on file.
-  const canonicalDomain = allowedDomains[0]
-
   app.get('/api/login', (req, res, next) => {
-    if (!allowedDomains.includes(req.hostname)) {
-      return res.redirect(`https://${canonicalDomain}/api/login`)
-    }
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    passport.authenticate(strategyName, {
       prompt: 'login consent',
       scope: ['openid', 'email', 'profile', 'offline_access'],
     })(req, res, next)
   })
 
   app.get('/api/callback', (req, res, next) => {
-    if (!allowedDomains.includes(req.hostname)) {
-      return res.redirect(`https://${canonicalDomain}/api/callback${req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''}`)
-    }
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    passport.authenticate(strategyName, {
       successReturnToOrRedirect: '/',
       failureRedirect: '/api/login',
     })(req, res, next)
