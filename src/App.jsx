@@ -257,8 +257,17 @@ export default function App() {
     setStatus('streaming')
     const expectedCount = parseLength(payload.length)
 
+    // Mint a client-side id up front so we can navigate to /slide/{id}
+    // immediately instead of waiting for the server to persist the deck.
+    // The server reuses this id when it saves so the URL stays stable.
+    const newDeckId =
+      (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+        ? crypto.randomUUID()
+        : `d_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+
     // Open the viewer immediately with a streaming stub.
     setDeck({
+      id: newDeckId,
       title: 'Generating…',
       subtitle: payload.prompt.slice(0, 120),
       theme: DEFAULT_THEME,
@@ -279,7 +288,7 @@ export default function App() {
     })
 
     try {
-      await streamGenerateDeck(payload, {
+      await streamGenerateDeck({ ...payload, deckId: newDeckId }, {
         onMeta: ({ title, subtitle, theme }) => {
           setDeck((prev) => {
             if (!prev) return prev
@@ -360,6 +369,9 @@ export default function App() {
         onDone: (finalDeck) => {
           setDeck({
             ...finalDeck,
+            // Prefer the id the server persisted; fall back to the client id
+            // we minted up front so the URL stays valid in either case.
+            id: finalDeck.id || newDeckId,
             streaming: false,
             imagesGenerating: false,
           })

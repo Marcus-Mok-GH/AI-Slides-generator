@@ -76,6 +76,7 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
     tone = 'Professional',
     language = 'English',
     mode = 'default',
+    deckId,
   } = req.body || {}
 
   const userId = currentUserId(req)
@@ -171,6 +172,11 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
     }
 
     // Persist the finished deck so it shows up in Recent decks immediately.
+    // If the client provided a deckId up front, reuse it so the URL the user
+    // already navigated to (/slide/{deckId}) keeps working without a swap.
+    if (typeof deckId === 'string' && deckId.trim()) {
+      deck.id = deckId.trim()
+    }
     try {
       const saved = await saveDeck(deck, userId)
       deck.id = saved.id
