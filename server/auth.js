@@ -156,82 +156,8 @@ export async function setupAuth(app) {
             .status(500)
             .send(`<pre>Login error: ${String(loginErr.message || loginErr)}</pre>`)
         }
-        console.log('[auth] /api/callback success → notifying opener')
-        // The client opens auth in a popup and listens on three channels.
-        // Hit all of them so it doesn't matter whether the opener
-        // relationship survived COOP, whether the browser allows the
-        // popup to close itself, or whether the page is navigated away
-        // by the consent flow before our script runs:
-        //   1. window.opener.postMessage   – classic popup signal
-        //   2. BroadcastChannel             – works across COOP-severed origins
-        //   3. fall back to a top-level redirect to "/" with a friendly
-        //      "you can close this tab" message in case neither worked
-        res
-          .status(200)
-          .set('Content-Type', 'text/html; charset=utf-8')
-          .send(`<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Signed in</title>
-  <style>
-    body { font-family: -apple-system, system-ui, sans-serif; background: #0f0f1a; color: #f5f5fa; display: grid; place-items: center; min-height: 100vh; margin: 0; }
-    .box { text-align: center; padding: 32px; }
-    .spin { width: 32px; height: 32px; border: 3px solid #2a2a3d; border-top-color: #7c5cff; border-radius: 50%; margin: 0 auto 16px; animation: s 0.9s linear infinite; }
-    @keyframes s { to { transform: rotate(360deg); } }
-    .hint { opacity: 0.7; font-size: 14px; margin-top: 12px; }
-  </style>
-</head>
-<body>
-  <div class="box">
-    <div class="spin"></div>
-    <div>Signed in. Returning to the app…</div>
-    <div class="hint" id="hint"></div>
-  </div>
-  <script>
-  (function () {
-    var notified = false;
-    function notify() {
-      if (notified) return;
-      notified = true;
-      try {
-        if (window.opener && !window.opener.closed) {
-          window.opener.postMessage({ type: 'slideai:auth-success' }, '*');
-        }
-      } catch (e) { /* opener may be cross-origin */ }
-      try {
-        if (typeof BroadcastChannel !== 'undefined') {
-          var bc = new BroadcastChannel('slideai:auth');
-          bc.postMessage({ type: 'slideai:auth-success' });
-          // Give the channel a moment to flush before we close.
-          setTimeout(function () { try { bc.close(); } catch (_) {} }, 50);
-        }
-      } catch (e) { /* ignore */ }
-    }
-    notify();
-    // Try to close ourselves. If we were opened with window.open() this
-    // works; if not (or the browser refuses), fall through to a normal
-    // navigation back to the app so the user is never stranded.
-    setTimeout(function () {
-      try { window.close(); } catch (e) { /* ignore */ }
-      // If we're still here a beat later, we couldn't close — just go home.
-      setTimeout(function () {
-        if (!window.closed) {
-          document.getElementById('hint').textContent =
-            'You can close this tab.';
-          // Only redirect if we are clearly the top-level window (not a
-          // popup the parent is already navigating away from on its own).
-          if (window.opener == null) {
-            window.location.replace('/');
-          }
-        }
-      }, 400);
-    }, 100);
-  })();
-  </script>
-  <noscript><meta http-equiv="refresh" content="0;url=/"></noscript>
-</body>
-</html>`)
+        console.log('[auth] /api/callback success → redirecting to /')
+        res.redirect('/')
       })
     })(req, res, next)
   })
