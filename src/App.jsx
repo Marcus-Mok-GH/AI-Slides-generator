@@ -4,6 +4,7 @@ import TopBar from './components/TopBar.jsx'
 import CreateHero from './components/CreateHero.jsx'
 import TemplateRow from './components/TemplateRow.jsx'
 import TemplatesPage from './components/TemplatesPage.jsx'
+import MyDecksPage from './components/MyDecksPage.jsx'
 import RecentGallery from './components/RecentGallery.jsx'
 import SlideViewer from './components/SlideViewer.jsx'
 import Landing from './components/Landing.jsx'
@@ -395,20 +396,16 @@ export default function App() {
     }
   }
 
-  // Sidebar nav: 'templates' is a full page; others scroll to section.
+  // Sidebar nav: 'templates' and 'my-deck' are full pages; others scroll to section.
   const handleNavigate = useCallback((id) => {
     setActiveNav(id)
-    if (id === 'templates') return // full-page view, no scroll needed
-    const scrollTargets = {
-      home: 'create-hero',
-      'my-deck': 'recent-decks',
-    }
-    const targetId = scrollTargets[id]
-    if (targetId) {
-      const el = document.getElementById(targetId)
+    if (id === 'templates' || id === 'my-deck') return // full-page views
+    if (id === 'home') {
+      const el = document.getElementById('create-hero')
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      setTimeout(() => heroRef.current?.focusPrompt?.(), 80)
     }
-    if (id === 'new' || id === 'home') {
+    if (id === 'new') {
       setTimeout(() => heroRef.current?.focusPrompt?.(), 80)
     }
   }, [])
@@ -489,6 +486,16 @@ export default function App() {
         {activeNav === 'templates' ? (
           <div className="content">
             <TemplatesPage onUseTemplate={handleUseTemplate} />
+          </div>
+        ) : activeNav === 'my-deck' ? (
+          <div className="content">
+            <MyDecksPage
+              decks={savedDecks}
+              query={searchQuery}
+              onOpen={handleOpenDeck}
+              onDelete={handleDeleteDeck}
+              onCreateNew={() => handleNavigate('new')}
+            />
           </div>
         ) : (
           <div className="content stagger-children">

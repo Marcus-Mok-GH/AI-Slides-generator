@@ -1,0 +1,170 @@
+.my-decks-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 32px 80px;
+}
+
+/* ---- Header ---- */
+.my-decks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.my-decks-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.my-decks-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+.my-decks-count {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ---- Controls row ---- */
+.my-decks-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ---- Sort select ---- */
+.sort-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.sort-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 7px 30px 7px 13px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.sort-select:hover,
+.sort-select:focus {
+  border-color: var(--border-strong);
+}
+.sort-select-caret {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ---- Grid & List layouts ---- */
+.my-decks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.my-decks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ---- Card overrides for list view ---- */
+.deck-card--list {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 8px 14px 8px 8px;
+  transition: background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
+}
+.deck-card--list:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+.deck-card--list .deck-thumb {
+  width: 132px;
+  flex-shrink: 0;
+  aspect-ratio: 16 / 10;
+  border-radius: 10px;
+  border: none;
+  box-shadow: none;
+}
+.deck-card--list .deck-thumb-inner {
+  inset: 10px;
+  gap: 2px;
+}
+.deck-card--list .deck-headline {
+  font-size: 13px;
+}
+.deck-card--list .deck-meta {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+}
+
+.deck-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.deck-slide-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+
+/* ---- Empty state ---- */
+.my-decks-empty {
+  margin-top: 8px;
+}
+.empty-cta {
+  margin-top: 18px;
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.empty-cta:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 720px) {
+  .my-decks-page { padding: 24px 16px 60px; }
+  .my-decks-title { font-size: 22px; }
+  .my-decks-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .deck-card--list .deck-thumb { width: 92px; }
+}
+@media (max-width: 420px) {
+  .my-decks-grid { grid-template-columns: 1fr; }
+  .my-decks-header { flex-direction: column; align-items: flex-start; }
+}
