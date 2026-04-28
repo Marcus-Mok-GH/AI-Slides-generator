@@ -48,34 +48,49 @@ const MODE_RULES = {
    - Speaker notes: a single short cue, ≤ 14 words.
    - Skip "two-column" and "content" entirely.
    - On-screen prose feels like newspaper headlines, not paragraphs.`,
-  default: `MODE: DEFAULT — balanced presentation (see word caps above).
-   - On-screen word budgets exactly as stated. Don't go over.
-   - Speaker notes: 1 sentence, ≤ 22 words — the talking point.`,
-  detailed: `MODE: DETAILED — a deck someone can actually deliver on stage.
-   The on-screen text MUST still be scannable (don't blow past visible word
-   caps), but speaker notes become a REAL spoken script, not a label.
 
-   On-slide content (what the audience sees):
-   - Bullets: up to 6 items, each ≤ 8 words.
-   - Body / subhead: ≤ 24 words.
-   - Stats: 3-4 entries; "label" may be ≤ 4 words with light context.
-   - Comparison: 3-4 items per side.
+  default: `MODE: DEFAULT — rich, fully-loaded presentation slides.
+   Every field must be filled to near-capacity. Sparse output is a failure.
 
-   Speaker notes (what the presenter SAYS, not what the audience sees):
-   - 3 to 5 sentences, roughly 60-110 words.
-   - Written as natural spoken English, first person ("Here's what we found…",
-     "Notice that…", "Let me show you…"). Not a bullet list.
-   - Open with a hook or transition from the previous slide.
-   - Explain what's on the slide, give the supporting evidence / story / data
-     the audience won't see, and end with the takeaway or a bridge to the
-     next slide.
-   - Concrete examples, real numbers, vivid analogies — the colour the
-     visible slide can't carry on its own.
-   - DO NOT just restate the bullets. Add the substance behind them.
+   On-slide content TARGETS (aim for the high end, not the floor):
+   - Bullets: 4-5 items, each 5-7 words — complete thought, active voice.
+   - Body / subhead: 14-18 words. A real sentence that frames the slide.
+   - Stats: 3-4 entries with real numbers. Labels 2-3 words.
+   - Comparison: 3 items per side, each 5-6 words.
+   - Steps: 4-5 entries; label 3-4 words; detail 8-10 words.
+   - Title body: 10-14 words setting the stakes.
 
-   On-slide word caps still apply per visible item — DO NOT write paragraphs
-   into "title", "body", "bullets", or "stats" fields. The depth lives in
-   speakerNotes.`,
+   Speaker notes: 2-3 sentences, 35-55 words. The talking point the
+   presenter says out loud — NOT a restatement of the bullets.`,
+
+  detailed: `MODE: DETAILED — produce the richest, most substantive deck possible.
+   Every slide must feel complete and ready to present. Thin output is a failure.
+
+   On-slide content (what the audience sees — fill to near the cap):
+   - Bullets: EXACTLY 5-6 items, each 6-8 words. Write full short sentences,
+     not fragments. All items must be distinct and substantive.
+   - Body / subhead: 18-24 words. A full sentence with real context, not a
+     label. Do not write fewer than 14 words.
+   - Stats: 4 entries. Every stat has a real numeric value AND a 3-4 word
+     label that provides context. No "TBD" or placeholder values.
+   - Comparison: 4 items per side, each 6-8 words.
+   - Steps: 5 steps; label 4 words; detail 9-10 words — a complete action.
+   - Quote: the full 20-22 words. Don't write a 7-word quote.
+   - Title body (subtitle): 12-16 words. Set the stakes clearly.
+
+   Speaker notes (what the presenter SAYS out loud):
+   - 4-6 sentences, 80-130 words.
+   - Natural spoken English, first person ("Here's the key insight…",
+     "What this means in practice…", "Notice that…").
+   - Open with a transition or hook from the previous slide.
+   - Spend the bulk explaining evidence, data, or story behind the bullets —
+     the substance the audience WON'T see on the slide.
+   - Close with a clear takeaway or bridge to the next slide.
+   - NEVER restate the bullets. Always add substance behind them.
+
+   HARD RULE: No slide may have a "body" shorter than 12 words, or bullets
+   with fewer than 5 items (for bullet slides), or steps with fewer than 4
+   entries. Sparse output is a failure; write to the maximum.`,
 }
 
 function parseLength(length) {
@@ -84,10 +99,25 @@ function parseLength(length) {
   return 8
 }
 
-function buildDeckSystemPrompt({ format, length, tone, language, mode = 'default' }) {
+function buildDeckSystemPrompt({ format, length, tone, language, mode = 'default', userTheme = null }) {
   const formatDesc = FORMAT_DESCRIPTIONS[format] || FORMAT_DESCRIPTIONS.presentation
   const cardCount = parseLength(length)
   const modeBlock = MODE_RULES[mode] || MODE_RULES.default
+
+  const themeBlock = userTheme && userTheme.primary
+    ? `7. THEME — USER HAS SELECTED A SPECIFIC THEME. You MUST use exactly these colors:
+   - "background": "${userTheme.background}"
+   - "primary":    "${userTheme.primary}"
+   - "accent":     "${userTheme.accent}"
+   - "name":       "${userTheme.name || 'Custom'}"
+   The JSON "theme" block MUST contain exactly these hex values — do NOT invent different ones.
+   All HTML/CSS MUST use var(--primary), var(--accent), var(--bg) for every color.
+   NEVER hardcode any hex value in "css" — always reference the CSS variables.`
+    : `7. THEME:
+   - Pick a cohesive palette that matches the topic and tone.
+   - "background" should be a deep, low-saturation color (works for white text).
+   - "primary" and "accent" should be vivid and harmonize with each other.
+   - All HTML/CSS MUST use var(--primary), var(--accent), var(--bg) for colors.`
 
   return `You are a senior presentation designer (think Gamma, Tome, Duarte) who
 drafts ${formatDesc}. You design real slides, not text dumps. Slides are
@@ -131,15 +161,15 @@ DESIGN LAW — follow strictly:
 
 1. ONE IDEA PER SLIDE. If you have two ideas, make two slides.
 
-2. WORD BUDGETS (hard caps):
+2. WORD BUDGETS (base caps — see MODE section for overrides):
    - Title: ≤ 6 words.
    - Body / subhead: ≤ 18 words. NEVER write a paragraph.
-   - Bullets: 3-5 items, each ≤ 6 words. Apply the 5/5/5 rule.
+   - Bullets: 3-6 items, each ≤ 8 words.
    - Steps: 3-5 entries; "label" ≤ 4 words; "detail" ≤ 10 words.
-   - Comparison: 3 items per side, each ≤ 6 words.
+   - Comparison: 3-4 items per side, each ≤ 8 words.
    - Stats: 3-4 entries; "label" ≤ 3 words; "value" is the headline number.
    - Quote: ≤ 22 words.
-   - Speaker notes: 1 sentence, ≤ 22 words.
+   - Speaker notes: length determined by MODE rule in section 6 below.
 
 3. LAYOUT DIVERSITY (mandatory):
    - First slide MUST be "title".
@@ -185,10 +215,7 @@ DESIGN LAW — follow strictly:
 
 6. ${modeBlock}
 
-7. THEME:
-   - Pick a cohesive palette that matches the topic and tone.
-   - "background" should be a deep, low-saturation color (works for white text).
-   - "primary" and "accent" should be vivid and harmonize with each other.
+${themeBlock}
 
 8. CHARTS (only when meaningful):
    - Add a "charts" array ONLY when the slide is genuinely about quantitative

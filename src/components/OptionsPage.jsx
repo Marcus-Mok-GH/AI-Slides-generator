@@ -33,7 +33,7 @@ export default function OptionsPage({ initialFormat = 'presentation', onBack, on
   const [length, setLength] = useState('8 cards')
   const [tone, setTone] = useState('Professional')
   const [language, setLanguage] = useState('English')
-  const [mode, setMode] = useState('default')
+  const [mode, setMode] = useState('detailed')
   const [themeId, setThemeId] = useState(null)
 
   const isLoading = status === 'loading'

@@ -114,6 +114,7 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
       tone,
       language,
       mode,
+      userTheme: userTheme && userTheme.primary ? userTheme : null,
     }
 
     // One background image is generated per deck (batch) as soon as the deck
@@ -203,6 +204,13 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
     for (const [iStr, image] of Object.entries(imageByIndex)) {
       const i = Number(iStr)
       if (deck.slides[i]) deck.slides[i].image = image
+    }
+
+    // If the user chose a preset theme, override the AI-generated theme so
+    // the persisted deck (and the finalDeck sent to the client) use the
+    // correct colors consistently.
+    if (userTheme && userTheme.primary) {
+      deck.theme = { ...deck.theme, ...userTheme }
     }
 
     // Persist the finished deck so it shows up in Recent decks immediately.

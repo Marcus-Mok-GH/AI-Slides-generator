@@ -381,6 +381,11 @@ export default function App() {
             id: finalDeck.id || newDeckId,
             streaming: false,
             imagesGenerating: false,
+            // Re-apply user theme override — the server's finalDeck carries
+            // the AI-generated theme which must not overwrite the user's pick.
+            theme: userTheme
+              ? { ...finalDeck.theme, ...userTheme }
+              : finalDeck.theme,
           })
           setStatus('idle')
           refreshDecks()
