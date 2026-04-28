@@ -23,7 +23,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "memoizee": "^0.4.17",
-    "openid-client": "^6.8.3",
+    "openid-client": "^6.8.4",
     "passport": "^0.7.0",
     "pg": "^8.20.0",
     "pptxgenjs": "^4.0.1",
