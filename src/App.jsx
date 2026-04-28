@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Sidebar from './components/Sidebar.jsx'
 import TopBar from './components/TopBar.jsx'
 import CreateHero from './components/CreateHero.jsx'
+import OptionsPage from './components/OptionsPage.jsx'
 import TemplateRow from './components/TemplateRow.jsx'
 import TemplatesPage from './components/TemplatesPage.jsx'
 import MyDecksPage from './components/MyDecksPage.jsx'
@@ -62,6 +63,8 @@ export default function App() {
   const [savingState, setSavingState] = useState('idle') // idle | saving | saved | error
   const [searchQuery, setSearchQuery] = useState('')
   const [activeNav, setActiveNav] = useState('new')
+  const [createStep, setCreateStep] = useState('prompt') // 'prompt' | 'options'
+  const [promptPayload, setPromptPayload] = useState(null) // { prompt, format }
   // True on first paint if the URL points at a specific deck — keeps us from
   // flashing the create page while we fetch it.
   const [routeLoading, setRouteLoading] = useState(
@@ -255,7 +258,9 @@ export default function App() {
   async function handleGenerate(payload) {
     setError('')
     setStatus('streaming')
+    setCreateStep('prompt')
     const expectedCount = parseLength(payload.length)
+    const userTheme = payload.userTheme || null
 
     // Mint a client-side id up front so we can navigate to /slide/{id}
     // immediately instead of waiting for the server to persist the deck.
@@ -270,7 +275,7 @@ export default function App() {
       id: newDeckId,
       title: 'Generating…',
       subtitle: payload.prompt.slice(0, 120),
-      theme: DEFAULT_THEME,
+      theme: userTheme ? { ...DEFAULT_THEME, ...userTheme } : DEFAULT_THEME,
       slides: [],
       meta: {
         model: 'claude-sonnet-4.6',
@@ -292,11 +297,13 @@ export default function App() {
         onMeta: ({ title, subtitle, theme }) => {
           setDeck((prev) => {
             if (!prev) return prev
+            // Merge AI theme first, then apply user override on top if set.
+            const merged = { ...prev.theme, ...(theme || {}) }
             return {
               ...prev,
               title: title || prev.title,
               subtitle: subtitle || prev.subtitle,
-              theme: { ...prev.theme, ...(theme || {}) },
+              theme: userTheme ? { ...merged, ...userTheme } : merged,
             }
           })
         },
@@ -425,6 +432,7 @@ export default function App() {
   // Sidebar nav: 'templates' and 'my-deck' are full pages; others scroll to section.
   const handleNavigate = useCallback((id) => {
     setActiveNav(id)
+    setCreateStep('prompt') // always reset to prompt step when navigating
     if (id === 'templates' || id === 'my-deck') return // full-page views
     if (id === 'home') {
       const el = document.getElementById('create-hero')
@@ -524,11 +532,26 @@ export default function App() {
               onCreateNew={() => handleNavigate('new')}
             />
           </div>
+        ) : createStep === 'options' && promptPayload ? (
+          <div className="content">
+            <OptionsPage
+              initialFormat={promptPayload.format}
+              onBack={() => setCreateStep('prompt')}
+              onGenerate={(opts) =>
+                handleGenerate({ ...promptPayload, ...opts })
+              }
+              status={status}
+              error={error}
+            />
+          </div>
         ) : (
           <div className="content stagger-children">
             <CreateHero
               ref={heroRef}
-              onGenerate={handleGenerate}
+              onContinue={({ prompt, format }) => {
+                setPromptPayload({ prompt, format })
+                setCreateStep('options')
+              }}
               status={status}
               error={error}
             />

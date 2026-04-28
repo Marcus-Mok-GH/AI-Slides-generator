@@ -15,15 +15,6 @@ const formats = [
   { id: 'social', icon: '◉', label: 'Social' },
 ]
 
-const lengths = ['4 cards', '8 cards', '12 cards', '16 cards']
-const tones = ['Professional', 'Casual', 'Playful', 'Bold']
-
-const MODES = [
-  { id: 'concise', label: 'Concise', hint: 'Headlines only' },
-  { id: 'default', label: 'Default', hint: 'Balanced slides' },
-  { id: 'detailed', label: 'Detailed', hint: 'Full speaker script' },
-]
-
 const suggestions = [
   'A pitch deck for a B2B SaaS analytics tool',
   'Onboarding deck for new engineering hires',
@@ -47,16 +38,11 @@ const TEMPLATE_PROMPTS = {
 }
 
 const CreateHero = forwardRef(function CreateHero(
-  { onGenerate, status = 'idle', error = '' },
+  { onContinue, status = 'idle', error = '' },
   ref,
 ) {
   const [format, setFormat] = useState('presentation')
   const [prompt, setPrompt] = useState('')
-  const [length, setLength] = useState('8 cards')
-  const [tone, setTone] = useState('Professional')
-  const [language, setLanguage] = useState('English')
-  const [mode, setMode] = useState('default')
-  const [showOptions, setShowOptions] = useState(false)
   const [chipBusy, setChipBusy] = useState('')
   const [chipError, setChipError] = useState('')
   const [promptHistory, setPromptHistory] = useState([])
@@ -141,14 +127,7 @@ const CreateHero = forwardRef(function CreateHero(
 
   function submit() {
     if (!prompt.trim() || isLoading) return
-    onGenerate?.({
-      prompt: prompt.trim(),
-      format,
-      length,
-      tone,
-      language,
-      mode: format === 'presentation' ? mode : 'default',
-    })
+    onContinue?.({ prompt: prompt.trim(), format })
   }
 
   async function handlePaste() {
@@ -286,16 +265,6 @@ const CreateHero = forwardRef(function CreateHero(
         )}
 
         <div className="prompt-bottom">
-          <button
-            type="button"
-            className={`options-toggle ${showOptions ? 'is-open' : ''}`}
-            onClick={() => setShowOptions((v) => !v)}
-            aria-expanded={showOptions}
-          >
-            Options
-            <span className={`options-caret ${showOptions ? 'is-up' : ''}`} aria-hidden>▾</span>
-          </button>
-
           {promptHistory.length > 0 && (
             <div className="history-wrapper" ref={historyRef}>
               <button
@@ -347,80 +316,11 @@ const CreateHero = forwardRef(function CreateHero(
             className="generate-btn"
             disabled={!prompt.trim() || isLoading}
             onClick={submit}
-            title="Generate (Ctrl+Enter)"
+            title="Continue (Ctrl+Enter)"
           >
-            {isLoading ? (
-              <><span className="spinner" /> Generating…</>
-            ) : (
-              'Generate'
-            )}
+            Continue
+            <span style={{ fontSize: '15px', lineHeight: 1 }} aria-hidden>→</span>
           </button>
-        </div>
-
-        <div className={`options-panel ${showOptions ? 'is-open' : ''}`} aria-hidden={!showOptions}>
-          {format === 'presentation' && (
-            <div className="option-row">
-              <span className="option-label">Depth</span>
-              <div className="seg">
-                {MODES.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    className={`seg-btn ${mode === m.id ? 'is-on' : ''}`}
-                    onClick={() => setMode(m.id)}
-                    title={m.hint}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="option-row">
-            <span className="option-label">Length</span>
-            <div className="seg">
-              {lengths.map((l) => (
-                <button
-                  key={l}
-                  className={`seg-btn ${length === l ? 'is-on' : ''}`}
-                  onClick={() => setLength(l)}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="option-row">
-            <span className="option-label">Tone</span>
-            <div className="seg">
-              {tones.map((t) => (
-                <button
-                  key={t}
-                  className={`seg-btn ${tone === t ? 'is-on' : ''}`}
-                  onClick={() => setTone(t)}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="option-row">
-            <span className="option-label">Language</span>
-            <select
-              className="select"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-            >
-              <option>English</option>
-              <option>Español</option>
-              <option>Français</option>
-              <option>Deutsch</option>
-              <option>日本語</option>
-            </select>
-          </div>
         </div>
 
         {error ? <div className="error-banner">{error}</div> : null}

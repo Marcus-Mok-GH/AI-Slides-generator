@@ -28,7 +28,9 @@ The application is built with a React 18 frontend (Vite 5, JavaScript) and a Nod
 - **Editor Flow:** Generated decks land in the Slide Viewer with an editable right-side panel (`SlideEditor`). This panel allows layout selection, inline content editing, and AI-powered slide regeneration. Autosave debounces changes to Postgres.
 - **Content Modes & Auto-Imagery:**
     - **Content Modes:** "Concise", "Default", and "Detailed" modes control the verbosity and depth of generated slide content and speaker notes.
-    - **Auto-Imagery:** Most layouts automatically generate images via the Fireworks Flux proxy, displaying shimmer placeholders until images are ready.
+    - **Consistent Background Image:** One background theme image is generated per deck (instead of per-slide), using the deck's title and theme palette. All slides share this image for a visually consistent look.
+    - **Two-Step Creation Flow:** The main prompt page has a "Continue" button that navigates to an `OptionsPage` where the user configures Format, Theme (8 presets + "AI picks" + "Surprise me"), Depth, Length, Tone, and Language. The "Generate" button lives on the OptionsPage.
+    - **Theme Presets:** Users can pick from 8 preset themes (Aurora, Midnight, Ember, Forest, Ocean, Noir, Rose, Gold) or let the AI choose. A "Surprise me" button picks a random preset.
 - **Responsive Design:** The application is fully usable on mobile devices, with adaptive layouts, sidebar collapsing, and element resizing at various breakpoints (≤1024px, ≤900px, ≤720px, ≤420px). Touch targets are optimized for mobile.
 
 ## External Dependencies

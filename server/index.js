@@ -77,6 +77,7 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
     language = 'English',
     mode = 'default',
     deckId,
+    userTheme = null,
   } = req.body || {}
 
   const userId = currentUserId(req)
@@ -132,6 +133,7 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
 
         // Kick off the single background image the moment we know the theme
         // and deck title — all slides will share this image.
+        // If the user picked a specific theme, use that for the image palette.
         if (!backgroundImagePromise && liveTheme) {
           const bgPrompt =
             `${liveDeckTitle || ctx.prompt}. ` +
@@ -140,7 +142,7 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
             `no logos, no people faces, photographic.`
           backgroundImagePromise = generateSlideImageData({
             prompt: bgPrompt,
-            theme: liveTheme,
+            theme: (userTheme && userTheme.primary) ? userTheme : liveTheme,
             aspectRatio: '16:9',
           })
           backgroundImagePromise.catch((err) => {
@@ -169,7 +171,7 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
               `no logos, no people faces, photographic.`
             backgroundImagePromise = generateSlideImageData({
               prompt: bgPrompt,
-              theme: liveTheme,
+              theme: (userTheme && userTheme.primary) ? userTheme : liveTheme,
               aspectRatio: '16:9',
             })
             backgroundImagePromise.catch((err) => {
