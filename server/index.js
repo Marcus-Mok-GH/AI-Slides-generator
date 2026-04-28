@@ -115,18 +115,38 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
       mode,
     }
 
-    // Track theme as it streams in (needed to color-bias images), and a
-    // collection of in-flight image-generation promises. Each completes
-    // independently and emits `slide-image` so the viewer can swap a
-    // shimmering placeholder for the real image as soon as it's ready.
+    // One background image is generated per deck (batch) as soon as the deck
+    // metadata (title + theme) arrives. Every slide that needs imagery reuses
+    // this same image so the visual feel is consistent throughout the deck.
     let liveTheme = null
+    let liveDeckTitle = ''
+    let backgroundImagePromise = null   // resolves to { url, prompt }
     const imagePromises = []
     const imageByIndex = {}
 
     const deck = await streamGenerateDeck(ctx, {
       onMeta: (meta) => {
         if (meta?.theme) liveTheme = meta.theme
+        if (meta?.title) liveDeckTitle = meta.title
         send('meta', meta)
+
+        // Kick off the single background image the moment we know the theme
+        // and deck title — all slides will share this image.
+        if (!backgroundImagePromise && liveTheme) {
+          const bgPrompt =
+            `${liveDeckTitle || ctx.prompt}. ` +
+            `Abstract, atmospheric, cinematic wide-angle scene that evokes ` +
+            `the overall theme. Editorial mood, dramatic lighting, no text, ` +
+            `no logos, no people faces, photographic.`
+          backgroundImagePromise = generateSlideImageData({
+            prompt: bgPrompt,
+            theme: liveTheme,
+            aspectRatio: '16:9',
+          })
+          backgroundImagePromise.catch((err) => {
+            console.warn('[stream] background image gen failed:', err?.message)
+          })
+        }
       },
       onPartial: ({ index, partial }) => send('partial', { index, partial }),
       onSlide: ({ slide, index }) => {
@@ -137,22 +157,34 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
         ) {
           // Tell the client to render a shimmer placeholder while we work.
           send('slide-image-pending', { index })
-          const p = generateSlideImageData({
-            prompt: slide.imagePrompt,
-            theme: liveTheme,
-            aspectRatio: slide.layout === 'bullets' || slide.layout === 'stats'
-              || slide.layout === 'quote' || slide.layout === 'two-column'
-              || slide.layout === 'content'
-              ? '1:1'
-              : '16:9',
-          })
+
+          // Reuse the single background image — don't generate one per slide.
+          // If somehow onMeta didn't trigger the image (e.g. theme was late),
+          // start it now as a fallback using the original prompt.
+          if (!backgroundImagePromise) {
+            const bgPrompt =
+              `${liveDeckTitle || ctx.prompt}. ` +
+              `Abstract, atmospheric, cinematic wide-angle scene that evokes ` +
+              `the overall theme. Editorial mood, dramatic lighting, no text, ` +
+              `no logos, no people faces, photographic.`
+            backgroundImagePromise = generateSlideImageData({
+              prompt: bgPrompt,
+              theme: liveTheme,
+              aspectRatio: '16:9',
+            })
+            backgroundImagePromise.catch((err) => {
+              console.warn('[stream] background image gen failed (fallback):', err?.message)
+            })
+          }
+          const bgP = backgroundImagePromise
+          const p = bgP
             .then((image) => {
               imageByIndex[index] = image
               send('slide-image', { index, image })
             })
             .catch((err) => {
               console.warn(
-                `[stream] image gen failed for slide ${index}:`,
+                `[stream] image assignment failed for slide ${index}:`,
                 err?.message,
               )
               send('slide-image-failed', { index })
