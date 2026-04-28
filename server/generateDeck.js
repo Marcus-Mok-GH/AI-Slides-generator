@@ -671,6 +671,121 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
   return normalizeDeck(parsed, ctx)
 }
 
+function buildRedesignSystemPrompt({ layout, tone, language }) {
+  return `You are a senior presentation designer redesigning the VISUAL TREATMENT
+of one slide while keeping its content (title, body, bullets, stats, quote,
+steps, comparison, speaker notes, image) IDENTICAL.
+
+You are a strict JSON-only assistant. Return ONLY a JSON object — no prose,
+no code fences, no commentary — matching exactly:
+
+{
+  "html": "<div class=\\"slide ${layout}-slide\\"> … </div>",
+  "css":  ".slide.${layout}-slide { … } /* slide-scoped, no @import, no external url() */"
+}
+
+What "redesign" means here:
+- Same content. Do NOT rewrite the title, body, bullets, stats, etc.
+- Brand-new VISUAL DIRECTION for the html and css: change the layout
+  composition, the accent treatments, the typography rhythm, the use of
+  gradients/cards/dividers/index numbers — bring a meaningfully different
+  feel from the previous markup.
+- Stay within the deck's tone (${tone}) and language (${language}).
+
+HARD CONSTRAINTS (1280×720 sandbox):
+- "html" starts with <div class="slide ${layout}-slide"> ... </div>. ONE root.
+- Use semantic markup: <h1>, <h2>, <p>, <ul><li>, <ol><li>, <blockquote>,
+  <figure>, <figcaption>, <span>, <div>, <cite>.
+- Forbidden tags: <html>, <head>, <body>, <script>, <link>, <style>,
+  <img>, <iframe>. No external assets. No @import. No url(http…).
+- Use the host CSS vars liberally: --bg, --primary, --accent, --fg (#fff),
+  --muted. Default h1/h2/p/li sizes already render at presentation scale —
+  override per the slide variant where needed.
+- Charts: include <div data-chart="N"></div> placeholders if there are charts
+  in the slide; the renderer fills them in.
+- Hero image is painted by the host frame BEHIND .slide. Do NOT add <img>.
+- Speaker notes are NEVER shown on the slide.
+
+VISUAL DESIGN MENU — pull at least ONE distinctive treatment that differs
+from a typical centered wireframe:
+  oversized index numbers ("01", "02"…), eyebrow tags (uppercase,
+  letter-spaced, accent colored), accent vertical bars, divider rules with
+  small caps, glassy cards (rgba(255,255,255,0.04) + 1px border + radius
+  20-28px + optional backdrop-filter: blur(12px)), gradient halos via
+  .slide::before with radial/linear gradients in
+  color-mix(in oklab, var(--primary) X%, transparent), pill-shaped tags,
+  stepped numbered circles, pull-quote marks, asymmetric grids.
+
+CSS REQUIREMENTS:
+- Slide-scoped selectors only (start with .slide…).
+- At least 25 lines covering wrapper layout, eyebrow/index, hierarchy, and
+  any custom classes you used.
+- Hero numbers/titles 96-160px for hero layouts. Body text 22-28px.
+- Asymmetry over centered-everything for non-title layouts.
+
+Return strictly valid JSON. Nothing else.`
+}
+
+export async function redesignSlide({ deck, slideIndex, instruction }) {
+  if (!deck || !Array.isArray(deck.slides)) {
+    throw new Error('Missing deck')
+  }
+  if (slideIndex < 0 || slideIndex >= deck.slides.length) {
+    throw new Error('Invalid slideIndex')
+  }
+  const target = deck.slides[slideIndex]
+  const meta = deck.meta || {}
+
+  const system = buildRedesignSystemPrompt({
+    layout: target.layout,
+    tone: meta.tone || 'Professional',
+    language: meta.language || 'English',
+  })
+
+  const contentForModel = {
+    title: target.title || '',
+    body: target.body || '',
+    bullets: target.bullets || [],
+    steps: target.steps || [],
+    comparison: target.comparison || null,
+    stats: target.stats || [],
+    quote: target.quote || null,
+    sectionLabel: target.sectionLabel || '',
+    charts: target.charts || [],
+  }
+
+  const user = `Deck title: "${deck.title}"
+Deck theme: ${JSON.stringify(deck.theme || {})}
+Slide #${slideIndex + 1} layout: "${target.layout}"
+
+Slide content (do NOT change any of this — only redesign the html/css):
+${JSON.stringify(contentForModel, null, 2)}
+
+Previous html (for reference — produce a DIFFERENT visual direction):
+${target.html || '(none)'}
+
+Previous css (for reference):
+${target.css || '(none)'}
+
+${
+  instruction
+    ? `User's redesign brief:\n"""${instruction}"""\n`
+    : 'No specific brief — pick a fresh visual direction that still suits the slide content.'
+}
+
+Return JSON with ONLY the new "html" and "css" fields.`
+
+  const content = await callLlm7({ model: SLIDE_MODEL, system, user })
+  const parsed = extractJson(content)
+
+  const html = typeof parsed?.html === 'string' ? parsed.html.trim() : ''
+  const css = typeof parsed?.css === 'string' ? parsed.css.trim() : ''
+  if (!html) throw new Error('Model did not return html')
+
+  // Merge: keep ALL existing content fields, swap only html + css.
+  return { ...target, html, css }
+}
+
 export async function regenerateSlide({ deck, slideIndex, instruction }) {
   if (!deck || !Array.isArray(deck.slides)) {
     throw new Error('Missing deck')

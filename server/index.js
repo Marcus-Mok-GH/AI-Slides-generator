@@ -1,5 +1,5 @@
 import express from 'express'
-import { generateDeck, streamGenerateDeck, regenerateSlide } from './generateDeck.js'
+import { generateDeck, streamGenerateDeck, regenerateSlide, redesignSlide } from './generateDeck.js'
 import {
   listDecks, getDeck, saveDeck, deleteDeck, renameDeck, migrate,
   migratePromptHistory, savePromptHistory, getPromptHistory, deletePromptHistoryItem,
@@ -424,6 +424,23 @@ app.post('/api/regenerate-slide', isAuthenticated, async (req, res) => {
     console.error('[regenerate-slide] error:', err)
     res.status(500).json({
       error: err?.message || 'Failed to regenerate slide',
+    })
+  }
+})
+
+app.post('/api/redesign-slide', isAuthenticated, async (req, res) => {
+  try {
+    const { deck, slideIndex, instruction } = req.body || {}
+    const slide = await redesignSlide({
+      deck,
+      slideIndex: Number(slideIndex),
+      instruction: typeof instruction === 'string' ? instruction.trim() : '',
+    })
+    res.json({ slide })
+  } catch (err) {
+    console.error('[redesign-slide] error:', err)
+    res.status(500).json({
+      error: err?.message || 'Failed to redesign slide',
     })
   }
 })

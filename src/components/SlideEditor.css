@@ -284,6 +284,38 @@
   line-height: 1.4;
 }
 
+.redesign-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.redesign-actions .regen-btn {
+  flex: 1;
+}
+.redesign-cancel {
+  margin-top: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-soft);
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease,
+    color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease;
+}
+.redesign-cancel:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--text-soft);
+  background: var(--surface-2);
+}
+.redesign-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .img-preview {
   position: relative;
   width: 100%;

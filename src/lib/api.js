@@ -55,6 +55,15 @@ export async function regenerateSlide({ deck, slideIndex, instruction }) {
   return data.slide
 }
 
+export async function redesignSlide({ deck, slideIndex, instruction }) {
+  const data = await postJson('/api/redesign-slide', {
+    deck,
+    slideIndex,
+    instruction,
+  })
+  return data.slide
+}
+
 export async function generateSlideImage({ prompt, theme, aspectRatio }) {
   const data = await postJson('/api/generate-slide-image', {
     prompt,

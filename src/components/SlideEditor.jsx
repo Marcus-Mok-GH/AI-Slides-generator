@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { regenerateSlide, generateSlideImage } from '../lib/api.js'
+import { regenerateSlide, redesignSlide, generateSlideImage } from '../lib/api.js'
 import './SlideEditor.css'
 
 const LAYOUTS = [
@@ -272,6 +272,10 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
   const [instruction, setInstruction] = useState('')
   const [regenerating, setRegenerating] = useState(false)
   const [regenError, setRegenError] = useState('')
+  const [redesignOpen, setRedesignOpen] = useState(false)
+  const [redesignBrief, setRedesignBrief] = useState('')
+  const [redesigning, setRedesigning] = useState(false)
+  const [redesignError, setRedesignError] = useState('')
 
   function patch(partial) {
     onChangeSlide({ ...slide, ...partial })
@@ -292,6 +296,25 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
       setRegenError(e.message || 'Failed to regenerate')
     } finally {
       setRegenerating(false)
+    }
+  }
+
+  async function doRedesign() {
+    setRedesigning(true)
+    setRedesignError('')
+    try {
+      const newSlide = await redesignSlide({
+        deck,
+        slideIndex,
+        instruction: redesignBrief,
+      })
+      onChangeSlide(newSlide)
+      setRedesignBrief('')
+      setRedesignOpen(false)
+    } catch (e) {
+      setRedesignError(e.message || 'Failed to redesign')
+    } finally {
+      setRedesigning(false)
     }
   }
 
@@ -517,8 +540,75 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
         </button>
         {regenError ? <div className="regen-error">⚠ {regenError}</div> : null}
         <p className="regen-hint">
-          Uses gpt-5-mini for speed. The deck context is included automatically.
+          Rewrites all the slide's content. The deck context is included automatically.
         </p>
+      </div>
+
+      <div className="ed-divider" />
+
+      <div className="ed-section">
+        <label className="ed-label">Redesign visuals only</label>
+        {!redesignOpen ? (
+          <>
+            <button
+              className="regen-btn"
+              onClick={() => setRedesignOpen(true)}
+              disabled={redesigning}
+            >
+              ✨ Redesign this slide's design
+            </button>
+            <p className="regen-hint">
+              Keeps the wording and data — generates a fresh visual treatment
+              (layout, accents, typography rhythm).
+            </p>
+          </>
+        ) : (
+          <>
+            <textarea
+              className="ed-textarea"
+              rows={3}
+              value={redesignBrief}
+              onChange={(e) => setRedesignBrief(e.target.value)}
+              placeholder="What would you like to change? e.g. 'More minimal, big numbers on the right', 'Editorial magazine feel', 'Add a numbered card grid'…"
+              disabled={redesigning}
+              autoFocus
+            />
+            <div className="redesign-actions">
+              <button
+                className="regen-btn"
+                onClick={doRedesign}
+                disabled={redesigning}
+              >
+                {redesigning ? (
+                  <>
+                    <span className="spinner-sm" /> Redesigning…
+                  </>
+                ) : (
+                  <>↻ Apply redesign</>
+                )}
+              </button>
+              <button
+                type="button"
+                className="redesign-cancel"
+                onClick={() => {
+                  setRedesignOpen(false)
+                  setRedesignBrief('')
+                  setRedesignError('')
+                }}
+                disabled={redesigning}
+              >
+                Cancel
+              </button>
+            </div>
+            {redesignError ? (
+              <div className="regen-error">⚠ {redesignError}</div>
+            ) : null}
+            <p className="regen-hint">
+              Tip: leave the prompt empty for a surprise direction, or describe
+              the look you want.
+            </p>
+          </>
+        )}
       </div>
     </aside>
   )
