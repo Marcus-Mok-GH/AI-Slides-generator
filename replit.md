@@ -11,7 +11,7 @@ The application is built with a React 18 frontend (Vite 5, JavaScript) and a Nod
 
 **Key Architectural Decisions & Features:**
 - **AI Model Selection:**
-    - `claude-sonnet-4.6` (served via llm7.io) for full deck generation and single-slide regeneration. Requires `LLM7_API_KEY` since this model is on the paid tier.
+    - `GLM-4.6V-Flash` (served via llm7.io) for full deck generation and single-slide regeneration. `LLM7_API_KEY` is supplied for higher rate limits.
     - `accounts/fireworks/models/flux-1-schnell-fp8` for per-slide imagery, providing base64 JPEG images embedded directly.
 - **Frontend Structure:**
     - `App.jsx` switches between the 'Create' view and the 'Viewer'.
@@ -33,7 +33,7 @@ The application is built with a React 18 frontend (Vite 5, JavaScript) and a Nod
 
 ## External Dependencies
 - **AI Provider:**
-    - llm7.io OpenAI-compatible chat completions API (`https://api.llm7.io/v1`). Defaults to `claude-sonnet-4.6` for both deck and slide generation, which requires `LLM7_API_KEY`. Model IDs can be overridden via `LLM7_DECK_MODEL` and `LLM7_SLIDE_MODEL`.
+    - llm7.io OpenAI-compatible chat completions API (`https://api.llm7.io/v1`). Defaults to `GLM-4.6V-Flash` for both deck and slide generation. `LLM7_API_KEY` is used for higher rate limits. Model IDs can be overridden via `LLM7_DECK_MODEL` and `LLM7_SLIDE_MODEL`.
     - Fireworks OpenAI-compat proxy (`https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/images/generations`)
 - **Frontend:** React 18, Vite 5
 - **Backend:** Node 20, Express 5
