@@ -42,55 +42,51 @@ const FORMAT_DESCRIPTIONS = {
  * deck or a more detailed sales-pitch deck.
  */
 const MODE_RULES = {
-  concise: `MODE: CONCISE — strip every slide to the bone.
-   - Lean toward "statement", "title", "stats", and "quote" layouts.
-   - Bullet slides: max 3 bullets, each ≤ 4 words. Body ≤ 10 words.
-   - Speaker notes: a single short cue, ≤ 14 words.
-   - Skip "two-column" and "content" entirely.
-   - On-screen prose feels like newspaper headlines, not paragraphs.`,
+  concise: `MODE: CONCISE — every slide is a punchy headline. Brevity is the goal.
+   - Prefer "statement", "title", "stats", and "quote" layouts.
+   - Bullets: 3 items max, each a short sharp phrase — headline style, not sentences.
+   - Body: a single framing phrase, not a full sentence.
+   - Speaker notes: one short cue sentence — the single thing the presenter says.
+   - Avoid "two-column" and "content" layouts entirely.
+   - On-screen text feels like newspaper headlines, not explanations.`,
 
-  default: `MODE: DEFAULT — rich, fully-loaded presentation slides.
-   Every field must be filled to near-capacity. Sparse output is a failure.
+  default: `MODE: DEFAULT — rich, fully substantive slides that are ready to present.
+   Every field must be filled with real, meaningful content. Sparse output is a failure.
 
-   On-slide content TARGETS (aim for the high end, not the floor):
-   - Bullets: 4-5 items, each 5-7 words — complete thought, active voice.
-   - Body / subhead: 14-18 words. A real sentence that frames the slide.
-   - Stats: 3-4 entries with real numbers. Labels 2-3 words.
-   - Comparison: 3 items per side, each 5-6 words.
-   - Steps: 4-5 entries; label 3-4 words; detail 8-10 words.
-   - Title body: 10-14 words setting the stakes.
+   On-slide content:
+   - Bullets: 4-5 items, each a complete specific point in active voice.
+   - Body / subhead: a real sentence that frames or contextualizes the slide.
+   - Stats: 3-4 entries with real numbers and meaningful labels.
+   - Comparison: 3 items per side, each a descriptive contrasting phrase.
+   - Steps: 4-5 entries; label is the action name; detail is the full explanation.
+   - Title body: a complete sentence setting the stakes or hook.
 
-   Speaker notes: 2-3 sentences, 35-55 words. The talking point the
-   presenter says out loud — NOT a restatement of the bullets.`,
+   Speaker notes: 2-3 sentences. The talking point the presenter says out loud —
+   NOT a restatement of what's on screen. Add evidence, context, or story.`,
 
   detailed: `MODE: DETAILED — produce the richest, most substantive deck possible.
-   Every slide must feel complete and ready to present. Thin output is a failure.
+   Every slide must feel complete and polished, ready for a live presentation.
+   Sparse or thin output is a failure — write to the fullest.
 
-   On-slide content (what the audience sees — fill to near the cap):
-   - Bullets: EXACTLY 5-6 items, each 6-8 words. Write full short sentences,
-     not fragments. All items must be distinct and substantive.
-   - Body / subhead: 18-24 words. A full sentence with real context, not a
-     label. Do not write fewer than 14 words.
-   - Stats: 4 entries. Every stat has a real numeric value AND a 3-4 word
-     label that provides context. No "TBD" or placeholder values.
-   - Comparison: 4 items per side, each 6-8 words.
-   - Steps: 5 steps; label 4 words; detail 9-10 words — a complete action.
-   - Quote: the full 20-22 words. Don't write a 7-word quote.
-   - Title body (subtitle): 12-16 words. Set the stakes clearly.
+   On-slide content (fill every field generously with real substance):
+   - Bullets: 5-6 items. Each must be a complete, specific sentence in active voice.
+     All bullets must be distinct — no overlap or repetition.
+   - Body / subhead: a full substantive sentence with real context. Never a label.
+   - Stats: 4 entries. Every stat has a real numeric value and a label explaining
+     what it measures. No placeholders, no "TBD".
+   - Comparison: 4 items per side. Each item is a descriptive contrasting phrase.
+   - Steps: 5 entries. Label is the action; detail is a complete explanation with why.
+   - Quote: the full, meaningful quote. Do not truncate it.
+   - Title body (subtitle): a complete sentence that sets the stakes and hooks the audience.
 
-   Speaker notes (what the presenter SAYS out loud):
-   - 4-6 sentences, 80-130 words.
-   - Natural spoken English, first person ("Here's the key insight…",
-     "What this means in practice…", "Notice that…").
-   - Open with a transition or hook from the previous slide.
-   - Spend the bulk explaining evidence, data, or story behind the bullets —
-     the substance the audience WON'T see on the slide.
-   - Close with a clear takeaway or bridge to the next slide.
-   - NEVER restate the bullets. Always add substance behind them.
-
-   HARD RULE: No slide may have a "body" shorter than 12 words, or bullets
-   with fewer than 5 items (for bullet slides), or steps with fewer than 4
-   entries. Sparse output is a failure; write to the maximum.`,
+   Speaker notes (the full spoken script for this slide):
+   - 4-6 sentences of natural spoken English, first person.
+     ("Here's the key insight…", "What this means in practice…", "Notice that…")
+   - Open with a transition or hook that connects from the previous slide.
+   - Spend the majority explaining the evidence, data, or story behind what's on screen —
+     the substance the audience WON'T see.
+   - Close with a clear takeaway or a bridge to the next slide.
+   - NEVER restate the bullets. Always add depth and substance behind them.`,
 }
 
 function parseLength(length) {
@@ -126,8 +122,8 @@ SCANNED, not read.
 Return ONLY valid JSON (no prose, no code fences). Match this exact schema:
 
 {
-  "title": "Deck title (≤ 6 words, punchy)",
-  "subtitle": "One sentence (≤ 14 words) that frames the deck",
+  "title": "Deck title — punchy and specific",
+  "subtitle": "One sentence that frames the deck and sets audience expectations",
   "theme": {
     "name": "Short theme name e.g. 'Aurora', 'Mono', 'Sunrise'",
     "primary": "#hex",
@@ -136,21 +132,21 @@ Return ONLY valid JSON (no prose, no code fences). Match this exact schema:
   },
   "slides": [
     {
-      "title": "Slide title (≤ 6 words)",
+      "title": "Slide title — punchy and specific",
       "layout": "one of: ${LAYOUTS.join(' | ')}",
-      "body": "Optional ≤ 18-word subhead. Never a paragraph.",
-      "bullets":   ["Optional 3-5 items, each ≤ 6 words"],
-      "steps":     [{"label":"Step name (≤ 4 words)","detail":"≤ 10 words"}],
+      "body": "Subhead or framing sentence for this slide — substantive, not a label",
+      "bullets":   ["Each bullet is a complete, specific point with real substance"],
+      "steps":     [{"label":"Step name","detail":"Full description of what to do and why"}],
       "comparison":{
-        "leftLabel":"e.g. Before","leftItems":["≤ 6 words","≤ 6 words","≤ 6 words"],
-        "rightLabel":"e.g. After","rightItems":["≤ 6 words","≤ 6 words","≤ 6 words"]
+        "leftLabel":"e.g. Before","leftItems":["Specific descriptive item","..."],
+        "rightLabel":"e.g. After","rightItems":["Specific descriptive item","..."]
       },
-      "stats":     [{"label":"≤ 3 words","value":"e.g. 92% or $1.2B or 4.4 km/s"}],
-      "quote":     {"text":"≤ 22 words","attribution":"Name, role"},
-      "charts":    [{"type":"bar | line | pie","title":"≤ 4 words","data":[{"label":"≤ 3 words","value": 42}]}],
-      "sectionLabel":"For 'section' layout: a 1-3 word section eyebrow",
+      "stats":     [{"label":"Context label","value":"e.g. 92% or $1.2B or 4.4 km/s"}],
+      "quote":     {"text":"The full quote — meaningful, not truncated","attribution":"Name, role"},
+      "charts":    [{"type":"bar | line | pie","title":"Chart title","data":[{"label":"label","value": 42}]}],
+      "sectionLabel":"Section eyebrow label",
       "imagePrompt":"1-sentence editorial photo description for this slide — concrete, evocative, NO text/logos/words in image. Used as bg for hero/section/statement and side panel for bullets/stats/quote/content.",
-      "speakerNotes":"1 sentence (≤ 22 words) — the talking point a speaker says",
+      "speakerNotes":"What the presenter says out loud — the full spoken script for this slide",
       "html": "Self-contained HTML for the slide body — see HTML/CSS RULES.",
       "css":  "Slide-scoped CSS — see HTML/CSS RULES."
     }
@@ -161,15 +157,15 @@ DESIGN LAW — follow strictly:
 
 1. ONE IDEA PER SLIDE. If you have two ideas, make two slides.
 
-2. WORD BUDGETS (base caps — see MODE section for overrides):
-   - Title: ≤ 6 words.
-   - Body / subhead: ≤ 18 words. NEVER write a paragraph.
-   - Bullets: 3-6 items, each ≤ 8 words.
-   - Steps: 3-5 entries; "label" ≤ 4 words; "detail" ≤ 10 words.
-   - Comparison: 3-4 items per side, each ≤ 8 words.
-   - Stats: 3-4 entries; "label" ≤ 3 words; "value" is the headline number.
-   - Quote: ≤ 22 words.
-   - Speaker notes: length determined by MODE rule in section 6 below.
+2. CONTENT DEPTH — write rich, substantive content in every field:
+   - Titles: punchy and specific. No vague labels like "Introduction" or "Overview".
+   - Body / subhead: a full, meaningful sentence that frames the slide — not a label.
+   - Bullets: each bullet must be a complete, specific point with real substance. No fragments.
+   - Steps: label is the action name; detail is a complete explanation of what to do and why.
+   - Comparison items: descriptive phrases that clearly contrast the two sides.
+   - Stats: every stat has a real numeric value and a label that explains what it measures.
+   - Quote: the full, meaningful quote — never cut it short.
+   - Speaker notes: see MODE section (section 6) — follow those requirements exactly.
 
 3. LAYOUT DIVERSITY (mandatory):
    - First slide MUST be "title".
@@ -184,16 +180,16 @@ DESIGN LAW — follow strictly:
    - Use "two-column" sparingly (max once); never use "content" more than once.
 
 4. FILL EVERY REQUIRED FIELD FOR THE LAYOUT — NO EMPTY OR PLACEHOLDER VALUES:
-   - title         → title, body (acts as subtitle, 8-14 words)
-   - section       → title, sectionLabel (1-3 words)
-   - statement     → title (the headline sentence), body (≤ 14-word elaboration)
-   - bullets       → title, bullets[3-5] (each ≤ 6 words, all distinct)
-   - steps         → title, steps[3-5] (every entry has BOTH label and detail)
-   - comparison    → title, comparison.leftLabel, leftItems[3], rightLabel, rightItems[3]
-   - stats         → title, stats[3-4] (every entry has a real numeric value, no "TBD")
-   - quote         → title, quote.text + quote.attribution (real-sounding name, role)
-   - two-column    → title, body (≤ 18 words), bullets[3-5]
-   - content       → title, body (≤ 18 words)
+   - title         → title, body (a full sentence acting as subtitle — set the stakes)
+   - section       → title, sectionLabel (brief eyebrow label)
+   - statement     → title (bold headline claim), body (a full elaborating sentence)
+   - bullets       → title, bullets with 4-6 items, all distinct and substantive
+   - steps         → title, steps with 4-6 entries (every entry has BOTH label and full detail)
+   - comparison    → title, comparison.leftLabel, leftItems[3-4], rightLabel, rightItems[3-4]
+   - stats         → title, stats with 3-4 entries (every entry has a real numeric value, no "TBD")
+   - quote         → title, quote.text (the full meaningful quote) + attribution (real-sounding name, role)
+   - two-column    → title, body (framing sentence), bullets with 4-6 items
+   - content       → title, body (a full substantive paragraph for the slide)
 
    EVERY slide MUST include speakerNotes. EVERY slide MUST include rich,
    non-empty html and css (see section 9). NEVER ship a slide where bullets,
@@ -378,46 +374,45 @@ Return strictly valid JSON. Do not wrap in markdown.`
 
 function buildSlideSystemPrompt({ layout, tone, language }) {
   return `You rewrite a single slide inside an existing deck. Keep the deck's
-overall tone consistent. Slides are SCANNED, not read.
+overall tone consistent. Write rich, substantive content — sparse output is a failure.
 
 Return ONLY valid JSON (no prose, no code fences) for ONE slide, matching:
 
 {
-  "title": "Slide title (≤ 6 words)",
+  "title": "Slide title — punchy and specific",
   "layout": "${layout}",
-  "body": "Optional ≤ 18-word subhead",
-  "bullets":   ["≤ 6 words each"],
-  "steps":     [{"label":"≤ 4 words","detail":"≤ 10 words"}],
-  "comparison":{"leftLabel":"...","leftItems":["..."],"rightLabel":"...","rightItems":["..."]},
-  "stats":     [{"label":"≤ 3 words","value":"..."}],
-  "quote":     {"text":"≤ 22 words","attribution":"..."},
-  "charts":    [{"type":"bar | line | pie","title":"≤ 4 words","data":[{"label":"≤ 3 words","value": 42}]}],
-  "sectionLabel":"...",
+  "body": "A full substantive sentence that frames the slide — not a label",
+  "bullets":   ["Each bullet is a complete specific point with real substance"],
+  "steps":     [{"label":"Action name","detail":"Full explanation of what to do and why"}],
+  "comparison":{"leftLabel":"...","leftItems":["descriptive item","..."],"rightLabel":"...","rightItems":["descriptive item","..."]},
+  "stats":     [{"label":"Context label","value":"real number e.g. 92% or $1.2B"}],
+  "quote":     {"text":"The full meaningful quote — do not truncate","attribution":"Name, Role"},
+  "charts":    [{"type":"bar | line | pie","title":"Chart title","data":[{"label":"label","value": 42}]}],
+  "sectionLabel":"Brief eyebrow label",
   "imagePrompt":"1-sentence editorial photo description (no text in image)",
-  "speakerNotes":"1 sentence (≤ 22 words)",
+  "speakerNotes":"The full spoken script for this slide — what the presenter says out loud, with evidence and context not shown on screen",
   "html":"Self-contained <div class='slide'> markup — no <html>/<head>/<body>/<style>/<script> tags. Use --bg, --primary, --accent, --fg CSS vars. Place <div data-chart='N'></div> where each chart should appear. No <img> tags (host frame paints the hero image).",
   "css":"Slide-scoped CSS targeting .slide selectors. No @import or external url()."
 }
 
 Rules:
 - Use the layout "${layout}" exactly. Fill EVERY field that layout requires —
-  no empty arrays, no placeholder values like "TBD".
-- Layout → required fields (must all be populated):
-    title       → title, body (acts as subtitle, 8-14 words)
-    section     → title, sectionLabel (1-3 words)
-    statement   → title (the bold sentence), body (≤ 14-word elaboration)
-    bullets     → title, bullets[3-5] (≤ 6 words each, all distinct)
-    steps       → title, steps[3-5] (each entry has BOTH label and detail)
-    comparison  → title, comparison{leftLabel, leftItems[3], rightLabel, rightItems[3]}
-    stats       → title, stats[3-4] (each value is a real number/figure)
-    quote       → title, quote{text, attribution with name + role}
-    two-column  → title, body (≤ 18 words), bullets[3-5]
-    content     → title, body (≤ 18 words)
-- Word caps are hard. Apply the 5/5/5 rule.
+  no empty arrays, no placeholder values like "TBD". Write generously.
+- Layout → required fields (must all be populated with real, substantive content):
+    title       → title, body (a full sentence acting as subtitle — set the stakes)
+    section     → title, sectionLabel (brief eyebrow)
+    statement   → title (bold headline claim), body (a full elaborating sentence)
+    bullets     → title, bullets with 4-6 items, all distinct and complete sentences
+    steps       → title, steps with 4-6 entries (every entry has BOTH label and full detail)
+    comparison  → title, comparison{leftLabel, leftItems[3-4], rightLabel, rightItems[3-4]}
+    stats       → title, stats with 3-4 entries (each value is a real number/figure)
+    quote       → title, quote{full text, attribution with name + role}
+    two-column  → title, body (framing sentence), bullets with 4-6 items
+    content     → title, body (a full substantive paragraph)
 - Active voice. Concrete nouns. No filler.
 - Tone: ${tone}.
 - Output language: ${language}.
-- Always include a one-sentence "speakerNotes" (≤ 22 words).
+- Always include rich "speakerNotes" — the full spoken script, not a summary.
 - Always include "imagePrompt" UNLESS layout is "steps" or "comparison".
 
 HTML / CSS — DESIGN A REAL SLIDE, NOT A WIREFRAME (1280×720 sandbox):
