@@ -237,13 +237,14 @@ const CreateHero = forwardRef(function CreateHero(
           >
             <span className="options-toggle-icon" aria-hidden>⚙</span>
             Options
-            <span className="options-caret" aria-hidden>{showOptions ? '▲' : '▼'}</span>
+            <span className={`options-caret ${showOptions ? 'is-up' : ''}`} aria-hidden>▼</span>
           </button>
 
           <button
             className="generate-btn"
             disabled={!prompt.trim() || isLoading}
             onClick={submit}
+            title="Generate (Ctrl+Enter)"
           >
             {isLoading ? (
               <><span className="spinner" /> Generating…</>
@@ -253,73 +254,71 @@ const CreateHero = forwardRef(function CreateHero(
           </button>
         </div>
 
-        {showOptions && (
-          <div className="options-panel">
-            {format === 'presentation' && (
-              <div className="option-row">
-                <span className="option-label">Depth</span>
-                <div className="seg">
-                  {MODES.map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      className={`seg-btn ${mode === m.id ? 'is-on' : ''}`}
-                      onClick={() => setMode(m.id)}
-                      title={m.hint}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
+        <div className={`options-panel ${showOptions ? 'is-open' : ''}`} aria-hidden={!showOptions}>
+          {format === 'presentation' && (
             <div className="option-row">
-              <span className="option-label">Length</span>
+              <span className="option-label">Depth</span>
               <div className="seg">
-                {lengths.map((l) => (
+                {MODES.map((m) => (
                   <button
-                    key={l}
-                    className={`seg-btn ${length === l ? 'is-on' : ''}`}
-                    onClick={() => setLength(l)}
+                    key={m.id}
+                    type="button"
+                    className={`seg-btn ${mode === m.id ? 'is-on' : ''}`}
+                    onClick={() => setMode(m.id)}
+                    title={m.hint}
                   >
-                    {l}
+                    {m.label}
                   </button>
                 ))}
               </div>
             </div>
+          )}
 
-            <div className="option-row">
-              <span className="option-label">Tone</span>
-              <div className="seg">
-                {tones.map((t) => (
-                  <button
-                    key={t}
-                    className={`seg-btn ${tone === t ? 'is-on' : ''}`}
-                    onClick={() => setTone(t)}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="option-row">
-              <span className="option-label">Language</span>
-              <select
-                className="select"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-              >
-                <option>English</option>
-                <option>Español</option>
-                <option>Français</option>
-                <option>Deutsch</option>
-                <option>日本語</option>
-              </select>
+          <div className="option-row">
+            <span className="option-label">Length</span>
+            <div className="seg">
+              {lengths.map((l) => (
+                <button
+                  key={l}
+                  className={`seg-btn ${length === l ? 'is-on' : ''}`}
+                  onClick={() => setLength(l)}
+                >
+                  {l}
+                </button>
+              ))}
             </div>
           </div>
-        )}
+
+          <div className="option-row">
+            <span className="option-label">Tone</span>
+            <div className="seg">
+              {tones.map((t) => (
+                <button
+                  key={t}
+                  className={`seg-btn ${tone === t ? 'is-on' : ''}`}
+                  onClick={() => setTone(t)}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="option-row">
+            <span className="option-label">Language</span>
+            <select
+              className="select"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            >
+              <option>English</option>
+              <option>Español</option>
+              <option>Français</option>
+              <option>Deutsch</option>
+              <option>日本語</option>
+            </select>
+          </div>
+        </div>
 
         {error ? <div className="error-banner">⚠ {error}</div> : null}
       </div>
