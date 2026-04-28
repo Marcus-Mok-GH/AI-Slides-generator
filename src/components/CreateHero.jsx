@@ -228,6 +228,15 @@ const CreateHero = forwardRef(function CreateHero(
           placeholder="e.g. A 10-slide investor pitch for an AI-powered legal research startup, focused on traction and the team."
         />
 
+        {prompt.length > 0 && (
+          <div className={`prompt-counter ${prompt.length > 800 ? 'is-warn' : ''}`}>
+            {prompt.trim().split(/\s+/).filter(Boolean).length} words
+            <span className="prompt-counter-sep">·</span>
+            {prompt.length} chars
+            {prompt.length > 800 && <span className="prompt-counter-hint"> — try to keep it concise</span>}
+          </div>
+        )}
+
         <div className="prompt-bottom">
           <button
             type="button"

@@ -150,6 +150,29 @@
   background: var(--on-surface);
 }
 
+/* ---- Prompt counter ---- */
+.prompt-counter {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--text-muted, #888);
+  margin-top: 6px;
+  padding: 0 2px;
+  transition: color 200ms ease;
+  user-select: none;
+}
+.prompt-counter.is-warn {
+  color: #e07b2a;
+}
+.prompt-counter-sep {
+  opacity: 0.4;
+}
+.prompt-counter-hint {
+  font-style: italic;
+  opacity: 0.85;
+}
+
 /* ---- Bottom row (options toggle + generate) ---- */
 .prompt-bottom {
   display: flex;
