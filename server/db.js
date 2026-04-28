@@ -166,3 +166,78 @@ export async function deleteDeck(id, userId) {
     userId,
   ])
 }
+
+/* ---------------- prompt_history ---------------- */
+
+export async function migratePromptHistory() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS prompt_history (
+      id        SERIAL PRIMARY KEY,
+      user_id   VARCHAR NOT NULL,
+      prompt    TEXT    NOT NULL,
+      format    VARCHAR,
+      used_at   TIMESTAMP DEFAULT NOW()
+    );
+  `)
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_ph_user_used ON prompt_history (user_id, used_at DESC);`,
+  )
+}
+
+/**
+ * Upserts a prompt for the user: if an identical prompt already exists,
+ * bump its used_at so it rises to the top; otherwise insert a fresh row.
+ * Keeps only the 20 most-recent rows per user.
+ */
+export async function savePromptHistory(userId, prompt, format = null) {
+  if (!userId || !prompt?.trim()) return
+  const trimmed = prompt.trim()
+  // Bump if exists, else insert
+  await pool.query(
+    `INSERT INTO prompt_history (user_id, prompt, format, used_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT DO NOTHING`,
+    [userId, trimmed, format],
+  )
+  // Ensure we just have one canonical row per (user_id, prompt) by updating used_at
+  await pool.query(
+    `UPDATE prompt_history SET used_at = NOW(), format = $3
+     WHERE user_id = $1 AND prompt = $2`,
+    [userId, trimmed, format],
+  )
+  // Prune: keep only the 20 most recent
+  await pool.query(
+    `DELETE FROM prompt_history
+     WHERE user_id = $1
+       AND id NOT IN (
+         SELECT id FROM prompt_history
+         WHERE user_id = $1
+         ORDER BY used_at DESC
+         LIMIT 20
+       )`,
+    [userId],
+  )
+}
+
+export async function getPromptHistory(userId, limit = 15) {
+  if (!userId) return []
+  const { rows } = await pool.query(
+    `SELECT id, prompt, format, used_at
+     FROM prompt_history
+     WHERE user_id = $1
+     ORDER BY used_at DESC
+     LIMIT $2`,
+    [userId, limit],
+  )
+  return rows.map((r) => ({
+    id: r.id,
+    prompt: r.prompt,
+    format: r.format,
+    usedAt: r.used_at,
+  }))
+}
+
+export async function deletePromptHistoryItem(id, userId) {
+  if (!userId) return
+  await pool.query(`DELETE FROM prompt_history WHERE id = $1 AND user_id = $2`, [id, userId])
+}

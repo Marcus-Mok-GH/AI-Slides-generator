@@ -1,5 +1,7 @@
 import {
   forwardRef,
+  useCallback,
+  useEffect,
   useImperativeHandle,
   useRef,
   useState,
@@ -57,9 +59,46 @@ const CreateHero = forwardRef(function CreateHero(
   const [showOptions, setShowOptions] = useState(false)
   const [chipBusy, setChipBusy] = useState('')
   const [chipError, setChipError] = useState('')
+  const [promptHistory, setPromptHistory] = useState([])
+  const [showHistory, setShowHistory] = useState(false)
   const isLoading = status === 'loading'
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
+  const historyRef = useRef(null)
+
+  // Fetch prompt history from the server
+  const fetchHistory = useCallback(async () => {
+    try {
+      const res = await fetch('/api/prompt-history')
+      if (!res.ok) return
+      const data = await res.json()
+      setPromptHistory(data.history || [])
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    fetchHistory()
+  }, [fetchHistory])
+
+  // Close history dropdown on outside click
+  useEffect(() => {
+    if (!showHistory) return
+    function handleClick(e) {
+      if (historyRef.current && !historyRef.current.contains(e.target)) {
+        setShowHistory(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showHistory])
+
+  async function deleteHistoryItem(e, id) {
+    e.stopPropagation()
+    try {
+      await fetch(`/api/prompt-history/${id}`, { method: 'DELETE' })
+      setPromptHistory((prev) => prev.filter((h) => h.id !== id))
+    } catch {}
+  }
 
   useImperativeHandle(
     ref,
@@ -248,6 +287,54 @@ const CreateHero = forwardRef(function CreateHero(
             Options
             <span className={`options-caret ${showOptions ? 'is-up' : ''}`} aria-hidden>▼</span>
           </button>
+
+          {promptHistory.length > 0 && (
+            <div className="history-wrapper" ref={historyRef}>
+              <button
+                type="button"
+                className={`options-toggle ${showHistory ? 'is-open' : ''}`}
+                onClick={() => setShowHistory((v) => !v)}
+                aria-expanded={showHistory}
+              >
+                <span className="options-toggle-icon" aria-hidden>🕐</span>
+                Recent
+                <span className={`options-caret ${showHistory ? 'is-up' : ''}`} aria-hidden>▼</span>
+              </button>
+
+              <div className={`history-dropdown ${showHistory ? 'is-open' : ''}`} role="listbox">
+                {promptHistory.map((item) => (
+                  <div
+                    key={item.id}
+                    className="history-item"
+                    role="option"
+                    tabIndex={0}
+                    onClick={() => {
+                      setPrompt(item.prompt)
+                      setShowHistory(false)
+                      setTimeout(() => textareaRef.current?.focus(), 0)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        setPrompt(item.prompt)
+                        setShowHistory(false)
+                        setTimeout(() => textareaRef.current?.focus(), 0)
+                      }
+                    }}
+                  >
+                    <span className="history-item-text">{item.prompt}</span>
+                    <button
+                      className="history-item-delete"
+                      title="Remove"
+                      aria-label="Remove from history"
+                      onClick={(e) => deleteHistoryItem(e, item.id)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <button
             className="generate-btn"

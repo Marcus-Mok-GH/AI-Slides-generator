@@ -1,6 +1,9 @@
 import express from 'express'
 import { generateDeck, streamGenerateDeck, regenerateSlide } from './generateDeck.js'
-import { listDecks, getDeck, saveDeck, deleteDeck, migrate } from './db.js'
+import {
+  listDecks, getDeck, saveDeck, deleteDeck, migrate,
+  migratePromptHistory, savePromptHistory, getPromptHistory, deletePromptHistoryItem,
+} from './db.js'
 import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
 
 const app = express()
@@ -11,6 +14,7 @@ const PORT = process.env.SERVER_PORT || 3001
 // Run schema migrations and wire authentication BEFORE any route registration
 // so the session middleware sees every request.
 await migrate()
+await migratePromptHistory()
 await setupAuth(app)
 
 app.get('/api/health', (_req, res) => {
@@ -89,6 +93,11 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
 
   const send = (event, data) => {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+  }
+
+  // Save this prompt to history (fire-and-forget — don't block the stream)
+  if (userId && prompt?.trim()) {
+    savePromptHistory(userId, prompt.trim(), format).catch(() => {})
   }
 
   // periodic comment to keep proxies from buffering
@@ -187,6 +196,28 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
     res.end()
   } finally {
     clearInterval(ping)
+  }
+})
+
+/* ---------------- Prompt history routes ---------------- */
+
+app.get('/api/prompt-history', isAuthenticated, async (req, res) => {
+  try {
+    const history = await getPromptHistory(currentUserId(req))
+    res.json({ history })
+  } catch (err) {
+    console.error('[prompt-history] GET error:', err)
+    res.status(500).json({ error: err?.message || 'Failed to load history' })
+  }
+})
+
+app.delete('/api/prompt-history/:id', isAuthenticated, async (req, res) => {
+  try {
+    await deletePromptHistoryItem(Number(req.params.id), currentUserId(req))
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[prompt-history] DELETE error:', err)
+    res.status(500).json({ error: err?.message || 'Failed to delete item' })
   }
 })
 
