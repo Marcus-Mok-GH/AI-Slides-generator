@@ -18,7 +18,7 @@ await migratePromptHistory()
 await setupAuth(app)
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, hasKey: !!process.env.ORBITRON_API_KEY })
+  res.json({ ok: true, hasKey: !!process.env.LLM7_API_KEY })
 })
 
 app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
@@ -34,11 +34,6 @@ app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return res.status(400).json({ error: 'Missing "prompt"' })
-    }
-    if (!process.env.ORBITRON_API_KEY) {
-      return res.status(500).json({
-        error: 'Server is missing ORBITRON_API_KEY. Add it in Secrets.',
-      })
     }
 
     const deck = await generateDeck({
@@ -107,10 +102,6 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
   try {
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       send('error', { error: 'Missing "prompt"' })
-      return res.end()
-    }
-    if (!process.env.ORBITRON_API_KEY) {
-      send('error', { error: 'Server is missing ORBITRON_API_KEY.' })
       return res.end()
     }
 
@@ -423,11 +414,6 @@ function decodeEntities(s) {
 app.post('/api/regenerate-slide', isAuthenticated, async (req, res) => {
   try {
     const { deck, slideIndex, instruction } = req.body || {}
-    if (!process.env.ORBITRON_API_KEY) {
-      return res.status(500).json({
-        error: 'Server is missing ORBITRON_API_KEY. Add it in Secrets.',
-      })
-    }
     const slide = await regenerateSlide({
       deck,
       slideIndex: Number(slideIndex),

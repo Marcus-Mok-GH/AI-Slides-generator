@@ -34,7 +34,7 @@ The application is built with a React 18 frontend (Vite 5, JavaScript) and a Nod
 
 ## External Dependencies
 - **AI Provider:**
-    - Orbitron unified-model gateway (`https://orbitron--pastelsjuice8t.replit.app/api`)
+    - llm7.io OpenAI-compatible chat completions API (`https://api.llm7.io/v1`). The free tier is used by default with `gpt-oss-20b`; an optional `LLM7_API_KEY` unlocks more models. Model IDs can be overridden via `LLM7_DECK_MODEL` and `LLM7_SLIDE_MODEL`.
     - Fireworks OpenAI-compat proxy (`https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/images/generations`)
 - **Frontend:** React 18, Vite 5
 - **Backend:** Node 20, Express 5

@@ -1,14 +1,14 @@
 import { DeckStreamParser } from './streamParser.js'
 
-const ORBITRON_BASE = 'https://orbitron--pastelsjuice8t.replit.app/api'
+const LLM7_BASE = process.env.LLM7_BASE_URL || 'https://api.llm7.io/v1'
 
 /**
- * Best-fit model picks for this app:
- * - Full deck content generation: claude-sonnet-4.6
- * - Single-slide regeneration: gpt-5-mini
+ * Models served by llm7.io. The free tier exposes a small set of models
+ * via the OpenAI-compatible `/chat/completions` endpoint without an API
+ * key; richer models become available when `LLM7_API_KEY` is supplied.
  */
-const DECK_MODEL = 'claude-sonnet-4.6'
-const SLIDE_MODEL = 'gpt-5-mini'
+const DECK_MODEL = process.env.LLM7_DECK_MODEL || 'gpt-oss-20b'
+const SLIDE_MODEL = process.env.LLM7_SLIDE_MODEL || 'gpt-oss-20b'
 
 /**
  * Slide layouts. Each one is a different visual primitive — picked deliberately
@@ -264,16 +264,21 @@ Rules:
 Return strictly valid JSON. No markdown.`
 }
 
-async function callOrbitron({ model, system, user }) {
-  const url = `${ORBITRON_BASE}/chat`
+function llm7Headers() {
+  const headers = { 'Content-Type': 'application/json' }
+  if (process.env.LLM7_API_KEY) {
+    headers.Authorization = `Bearer ${process.env.LLM7_API_KEY}`
+  }
+  return headers
+}
+
+async function callLlm7({ model, system, user }) {
+  const url = `${LLM7_BASE}/chat/completions`
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.ORBITRON_API_KEY}`,
-    },
+    headers: llm7Headers(),
     body: JSON.stringify({
-      modelId: model,
+      model,
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user },
@@ -283,25 +288,11 @@ async function callOrbitron({ model, system, user }) {
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`Orbitron ${res.status}: ${text.slice(0, 300)}`)
+    throw new Error(`llm7 ${res.status}: ${text.slice(0, 300)}`)
   }
 
-  const raw = await res.text()
-  let content = ''
-  for (const line of raw.split('\n')) {
-    const trimmed = line.trim()
-    if (!trimmed.startsWith('data:')) continue
-    const payload = trimmed.slice(5).trim()
-    if (!payload) continue
-    try {
-      const obj = JSON.parse(payload)
-      if (typeof obj.delta === 'string') content += obj.delta
-      if (obj.error) throw new Error(obj.error.message || 'AI error')
-    } catch {
-      // ignore non-JSON keepalive lines
-    }
-  }
-
+  const data = await res.json().catch(() => null)
+  const content = data?.choices?.[0]?.message?.content
   if (!content) throw new Error('Empty response from model')
   return content
 }
@@ -431,27 +422,25 @@ function normalizeDeck(raw, ctx) {
 export async function generateDeck(ctx) {
   const system = buildDeckSystemPrompt(ctx)
   const user = `Topic / brief:\n"""${ctx.prompt}"""\n\nGenerate the deck JSON now.`
-  const content = await callOrbitron({ model: DECK_MODEL, system, user })
+  const content = await callLlm7({ model: DECK_MODEL, system, user })
   const parsed = extractJson(content)
   return normalizeDeck(parsed, ctx)
 }
 
 /**
- * Streaming variant. Calls Orbitron with the same prompt as generateDeck but
+ * Streaming variant. Calls llm7 with the same prompt as generateDeck but
  * forwards meta + each completed slide as it parses out of the model's stream.
  */
 export async function streamGenerateDeck(ctx, handlers = {}) {
   const system = buildDeckSystemPrompt(ctx)
   const user = `Topic / brief:\n"""${ctx.prompt}"""\n\nGenerate the deck JSON now.`
 
-  const upstream = await fetch(`${ORBITRON_BASE}/chat`, {
+  const upstream = await fetch(`${LLM7_BASE}/chat/completions`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.ORBITRON_API_KEY}`,
-    },
+    headers: llm7Headers(),
     body: JSON.stringify({
-      modelId: DECK_MODEL,
+      model: DECK_MODEL,
+      stream: true,
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user },
@@ -461,7 +450,7 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
 
   if (!upstream.ok) {
     const text = await upstream.text().catch(() => '')
-    throw new Error(`Orbitron ${upstream.status}: ${text.slice(0, 300)}`)
+    throw new Error(`llm7 ${upstream.status}: ${text.slice(0, 300)}`)
   }
 
   const parser = new DeckStreamParser()
@@ -497,14 +486,16 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
       if (!trimmed.startsWith('data:')) continue
       const payload = trimmed.slice(5).trim()
       if (!payload) continue
+      if (payload === '[DONE]') continue
       try {
         const obj = JSON.parse(payload)
         if (obj.error) {
-          throw new Error(obj.error.message || 'AI error')
+          throw new Error(obj.error.message || obj.error || 'AI error')
         }
-        if (typeof obj.delta === 'string' && obj.delta) {
-          raw += obj.delta
-          emit(parser.feed(obj.delta))
+        const delta = obj?.choices?.[0]?.delta?.content
+        if (typeof delta === 'string' && delta) {
+          raw += delta
+          emit(parser.feed(delta))
         }
       } catch (e) {
         if (e?.message && !/Unexpected token|in JSON at/.test(e.message)) {
@@ -560,7 +551,7 @@ ${
 
 Return JSON for the rewritten slide only.`
 
-  const content = await callOrbitron({ model: SLIDE_MODEL, system, user })
+  const content = await callLlm7({ model: SLIDE_MODEL, system, user })
   const parsed = extractJson(content)
   // Keep the requested layout — don't let the model swap it.
   return normalizeSlide({ ...parsed, layout: target.layout }, slideIndex)
