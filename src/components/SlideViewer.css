@@ -236,7 +236,7 @@
 }
 .vbar-btn:hover {
   background: var(--surface-2);
-  transform: translateY(-1px);
+  border-color: var(--border-strong);
 }
 .vbar-btn.ghost {
   border-color: transparent;
@@ -250,7 +250,6 @@
 .vbar-btn.primary:hover {
   background: linear-gradient(135deg, var(--accent-hover), var(--accent-light));
   box-shadow: 0 6px 20px rgba(124, 92, 255, 0.4);
-  transform: translateY(-1px);
 }
 .vbar-btn:disabled {
   opacity: 0.4;
@@ -314,7 +313,6 @@
 }
 .thumb:hover {
   background: var(--hover-overlay);
-  transform: translateX(2px);
 }
 .thumb.is-active {
   background: var(--on-surface);
@@ -343,7 +341,6 @@
   background: var(--accent);
   color: white;
   border-color: var(--accent);
-  transform: scale(1.08);
 }
 
 .thumb-text {
@@ -417,12 +414,8 @@
 }
 .stage-nav:hover:not(:disabled) {
   opacity: 1;
-  transform: translateY(-50%) scale(1.08);
   background: var(--surface-2);
   box-shadow: var(--shadow-md);
-}
-.stage-nav:active:not(:disabled) {
-  transform: translateY(-50%) scale(1);
 }
 .stage-nav:disabled {
   opacity: 0.2;
@@ -500,7 +493,6 @@
 .notes-drawer-close:hover {
   color: var(--text);
   background: var(--hover-overlay);
-  transform: scale(1.1);
 }
 .notes-drawer p {
   margin: 0;
@@ -535,7 +527,6 @@
   color: var(--text);
   background: var(--surface-2);
   border-color: var(--border-strong);
-  transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
 .notes p {
@@ -1261,7 +1252,6 @@
     border-color: var(--accent);
     color: white;
     box-shadow: 0 4px 14px rgba(124, 92, 255, 0.3);
-    transform: scale(1.02);
   }
   .strip-thumb.is-pending {
     opacity: 0.6;

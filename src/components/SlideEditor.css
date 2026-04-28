@@ -51,8 +51,7 @@
   flex-shrink: 0;
   cursor: pointer;
   transition: background-color var(--duration-fast) ease,
-    color var(--duration-fast) ease,
-    transform var(--duration-fast) var(--ease-out-back);
+    color var(--duration-fast) ease;
 }
 .editor-close:hover {
   background: var(--surface-2);
@@ -119,8 +118,7 @@
   transition: background-color var(--duration-fast) ease,
     color var(--duration-fast) ease,
     border-color var(--duration-fast) ease,
-    box-shadow var(--duration-fast) ease,
-    transform var(--duration-fast) var(--ease-out-back);
+    box-shadow var(--duration-fast) ease;
 }
 .layout-btn:hover {
   color: var(--text);
@@ -187,8 +185,7 @@
   place-items: center;
   transition: background-color var(--duration-fast) ease,
     color var(--duration-fast) ease,
-    border-color var(--duration-fast) ease,
-    transform var(--duration-fast) var(--ease-out-back);
+    border-color var(--duration-fast) ease;
 }
 .row-x:hover {
   background: var(--error-bg);
@@ -209,8 +206,7 @@
   transition: border-color var(--duration-fast) ease,
     border-style var(--duration-fast) ease,
     color var(--duration-fast) ease,
-    background-color var(--duration-fast) ease,
-    transform var(--duration-fast) var(--ease-out-back);
+    background-color var(--duration-fast) ease;
 }
 .add-row:hover {
   border-style: solid;
@@ -297,8 +293,7 @@
   border: 1px solid var(--border);
   background: var(--surface-2);
   margin-bottom: 8px;
-  transition: box-shadow var(--duration-base) ease,
-    transform var(--duration-fast) var(--ease-out-back);
+  transition: box-shadow var(--duration-base) ease;
 }
 .img-preview:hover {
   box-shadow: var(--shadow-sm);
@@ -333,8 +328,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: background-color var(--duration-fast) ease,
-    color var(--duration-fast) ease,
-    transform var(--duration-fast) var(--ease-out-back);
+    color var(--duration-fast) ease;
 }
 .img-clear:hover {
   background: var(--on-surface);

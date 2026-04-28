@@ -17,8 +17,7 @@
   cursor: pointer;
   transition: background-color var(--duration-fast) ease,
     color var(--duration-fast) ease,
-    box-shadow var(--duration-fast) ease,
-    transform var(--duration-fast) var(--ease-out-back);
+    box-shadow var(--duration-fast) ease;
 }
 .vt-btn:hover {
   color: var(--text);
@@ -242,8 +241,7 @@
   color: var(--text);
   font-weight: 500;
   cursor: pointer;
-  transition: background-color var(--duration-fast) ease,
-    transform var(--duration-fast) var(--ease-out-back);
+  transition: background-color var(--duration-fast) ease;
 }
 .deck-menu button:hover {
   background: var(--surface-2);
@@ -267,7 +265,6 @@
   font-weight: 600;
   backdrop-filter: blur(6px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transition: transform var(--duration-fast) var(--ease-out-back);
 }
 
 
@@ -307,8 +304,7 @@
   place-items: center;
   cursor: pointer;
   transition: background-color var(--duration-fast) ease,
-    color var(--duration-fast) ease,
-    transform var(--duration-fast) var(--ease-out-back);
+    color var(--duration-fast) ease;
 }
 .deck-more:hover {
   background: var(--hover-overlay);
