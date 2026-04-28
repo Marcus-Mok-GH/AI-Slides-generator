@@ -167,6 +167,18 @@ export async function deleteDeck(id, userId) {
   ])
 }
 
+export async function renameDeck(id, userId, newTitle) {
+  if (!userId || !newTitle?.trim()) return
+  await pool.query(
+    `UPDATE decks
+     SET title      = $3,
+         data       = jsonb_set(data, '{title}', to_jsonb($3::text)),
+         updated_at = NOW()
+     WHERE id = $1 AND user_id = $2`,
+    [id, userId, newTitle.trim()],
+  )
+}
+
 /* ---------------- prompt_history ---------------- */
 
 export async function migratePromptHistory() {

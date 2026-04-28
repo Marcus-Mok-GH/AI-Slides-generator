@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import './MyDecksPage.css'
 
 function timeAgo(iso) {
@@ -11,13 +11,36 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString()
 }
 
-function DeckCard({ deck, view, onOpen, onDelete }) {
+function DeckCard({ deck, view, onOpen, onDelete, onRename }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+  const renameRef = useRef(null)
   const theme = deck.theme || {}
   const bg =
     theme.background ||
     `linear-gradient(135deg, ${theme.primary || '#7c5cff'}, ${theme.accent || '#ff6ea0'})`
   const accent = theme.accent || theme.primary || '#7c5cff'
+
+  useEffect(() => {
+    if (isRenaming) renameRef.current?.select()
+  }, [isRenaming])
+
+  function startRename() {
+    setRenameValue(deck.title || '')
+    setIsRenaming(true)
+    setMenuOpen(false)
+  }
+
+  function commitRename() {
+    const trimmed = renameValue.trim()
+    if (trimmed && trimmed !== deck.title) onRename?.(deck.id, trimmed)
+    setIsRenaming(false)
+  }
+
+  function cancelRename() {
+    setIsRenaming(false)
+  }
 
   return (
     <article className={`deck-card ${view === 'list' ? 'deck-card--list' : ''}`}>
@@ -43,7 +66,23 @@ function DeckCard({ deck, view, onOpen, onDelete }) {
 
       <div className="deck-meta">
         <div className="deck-title-row">
-          <span className="deck-title">{deck.title}</span>
+          {isRenaming ? (
+            <input
+              ref={renameRef}
+              className="deck-rename-input"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); commitRename() }
+                if (e.key === 'Escape') cancelRename()
+              }}
+              maxLength={120}
+              aria-label="Rename deck"
+            />
+          ) : (
+            <span className="deck-title">{deck.title}</span>
+          )}
           <div className="deck-menu-wrap">
             <button
               className="deck-more"
@@ -55,6 +94,7 @@ function DeckCard({ deck, view, onOpen, onDelete }) {
             {menuOpen && (
               <div className="deck-menu" onClick={(e) => e.stopPropagation()}>
                 <button onClick={() => { setMenuOpen(false); onOpen(deck.id) }}>Open</button>
+                <button onClick={startRename}>Rename</button>
                 <button
                   className="danger"
                   onClick={() => {
@@ -87,7 +127,7 @@ const SORTS = [
   { id: 'az', label: 'A – Z' },
 ]
 
-export default function MyDecksPage({ decks = [], query = '', onOpen, onDelete, onCreateNew }) {
+export default function MyDecksPage({ decks = [], query = '', onOpen, onDelete, onRename, onCreateNew }) {
   const [view, setView] = useState('grid')
   const [sort, setSort] = useState('newest')
 
@@ -186,6 +226,7 @@ export default function MyDecksPage({ decks = [], query = '', onOpen, onDelete, 
               view={view}
               onOpen={onOpen}
               onDelete={onDelete}
+              onRename={onRename}
             />
           ))}
         </div>

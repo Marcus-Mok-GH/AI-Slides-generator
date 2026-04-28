@@ -248,13 +248,13 @@ const CreateHero = forwardRef(function CreateHero(
       <div className="prompt-card">
         <div className="prompt-tools">
           <button type="button" className="chip" onClick={handlePaste} disabled={chipBusy === 'paste'}>
-            {chipBusy === 'paste' ? '… Pasting' : '📎 Paste text'}
+            {chipBusy === 'paste' ? 'Pasting…' : 'Paste text'}
           </button>
           <button type="button" className="chip" onClick={handleFilePick} disabled={chipBusy === 'file'}>
-            {chipBusy === 'file' ? '… Reading' : '⤴ Import file'}
+            {chipBusy === 'file' ? 'Reading…' : 'Import file'}
           </button>
           <button type="button" className="chip" onClick={handleFromUrl} disabled={chipBusy === 'url'}>
-            {chipBusy === 'url' ? '… Fetching' : '🌐 From URL'}
+            {chipBusy === 'url' ? 'Fetching…' : 'From URL'}
           </button>
           <input
             ref={fileInputRef}
@@ -265,7 +265,7 @@ const CreateHero = forwardRef(function CreateHero(
           />
         </div>
 
-        {chipError ? <div className="chip-error">⚠ {chipError}</div> : null}
+        {chipError ? <div className="chip-error">{chipError}</div> : null}
 
         <textarea
           ref={textareaRef}
@@ -279,12 +279,9 @@ const CreateHero = forwardRef(function CreateHero(
           placeholder="e.g. A 10-slide investor pitch for an AI-powered legal research startup, focused on traction and the team."
         />
 
-        {prompt.length > 0 && (
+        {prompt.length > 400 && (
           <div className={`prompt-counter ${prompt.length > 800 ? 'is-warn' : ''}`}>
-            {prompt.trim().split(/\s+/).filter(Boolean).length} words
-            <span className="prompt-counter-sep">·</span>
-            {prompt.length} chars
-            {prompt.length > 800 && <span className="prompt-counter-hint"> — try to keep it concise</span>}
+            {prompt.trim().split(/\s+/).filter(Boolean).length} words · {prompt.length} chars
           </div>
         )}
 
@@ -295,9 +292,8 @@ const CreateHero = forwardRef(function CreateHero(
             onClick={() => setShowOptions((v) => !v)}
             aria-expanded={showOptions}
           >
-            <span className="options-toggle-icon" aria-hidden>⚙</span>
             Options
-            <span className={`options-caret ${showOptions ? 'is-up' : ''}`} aria-hidden>▼</span>
+            <span className={`options-caret ${showOptions ? 'is-up' : ''}`} aria-hidden>▾</span>
           </button>
 
           {promptHistory.length > 0 && (
@@ -308,9 +304,8 @@ const CreateHero = forwardRef(function CreateHero(
                 onClick={() => setShowHistory((v) => !v)}
                 aria-expanded={showHistory}
               >
-                <span className="options-toggle-icon" aria-hidden>🕐</span>
                 Recent
-                <span className={`options-caret ${showHistory ? 'is-up' : ''}`} aria-hidden>▼</span>
+                <span className={`options-caret ${showHistory ? 'is-up' : ''}`} aria-hidden>▾</span>
               </button>
 
               <div className={`history-dropdown ${showHistory ? 'is-open' : ''}`} role="listbox">
@@ -357,7 +352,7 @@ const CreateHero = forwardRef(function CreateHero(
             {isLoading ? (
               <><span className="spinner" /> Generating…</>
             ) : (
-              <>Generate ✦</>
+              'Generate'
             )}
           </button>
         </div>
@@ -428,7 +423,7 @@ const CreateHero = forwardRef(function CreateHero(
           </div>
         </div>
 
-        {error ? <div className="error-banner">⚠ {error}</div> : null}
+        {error ? <div className="error-banner">{error}</div> : null}
       </div>
 
       <div className="suggestions">

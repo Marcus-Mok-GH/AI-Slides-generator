@@ -57,7 +57,6 @@
 .editor-close:hover {
   background: var(--surface-2);
   color: var(--text);
-  transform: scale(1.08);
 }
 
 .ed-section {
@@ -125,7 +124,6 @@
 }
 .layout-btn:hover {
   color: var(--text);
-  transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
 .layout-btn.is-on {
@@ -196,7 +194,6 @@
   background: var(--error-bg);
   color: var(--error-text);
   border-color: var(--error-border);
-  transform: scale(1.1);
 }
 
 .add-row {
@@ -220,7 +217,6 @@
   color: var(--accent);
   border-color: var(--accent);
   background: var(--accent-soft);
-  transform: translateX(2px);
 }
 
 .ed-divider {
@@ -306,7 +302,6 @@
 }
 .img-preview:hover {
   box-shadow: var(--shadow-sm);
-  transform: scale(1.01);
 }
 .img-preview img {
   width: 100%;
@@ -344,7 +339,6 @@
 .img-clear:hover {
   background: var(--on-surface);
   color: var(--error-text);
-  transform: scale(1.04);
 }
 .img-empty {
   width: 100%;

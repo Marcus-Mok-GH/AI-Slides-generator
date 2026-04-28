@@ -30,12 +30,6 @@
   place-items: center;
   font-size: 14px;
   box-shadow: 0 2px 8px rgba(124, 92, 255, 0.25);
-  transition: transform var(--duration-fast) var(--ease-out-back),
-    box-shadow var(--duration-base) ease;
-}
-.brand:hover .brand-mark {
-  transform: scale(1.06);
-  box-shadow: 0 4px 14px rgba(124, 92, 255, 0.35);
 }
 
 .brand-name {
@@ -194,9 +188,7 @@
   .nav-item.is-primary .nav-icon {
     font-size: 18px;
   }
-  .nav-item:hover {
-    transform: scale(1.05);
-  }
+
 }
 
 @media (max-width: 720px) {

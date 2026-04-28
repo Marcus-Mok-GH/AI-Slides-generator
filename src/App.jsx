@@ -13,6 +13,7 @@ import {
   saveDeck as saveDeckApi,
   loadDeck,
   deleteDeck as deleteDeckApi,
+  renameDeck as renameDeckApi,
   listDecks,
 } from './lib/api.js'
 import useTheme from './lib/useTheme.js'
@@ -396,6 +397,19 @@ export default function App() {
     }
   }
 
+  async function handleRenameDeck(id, newTitle) {
+    // Optimistically update the local list so the UI responds instantly.
+    setSavedDecks((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, title: newTitle } : d)),
+    )
+    try {
+      await renameDeckApi(id, newTitle)
+    } catch (e) {
+      console.warn('Failed to rename deck:', e)
+      refreshDecks() // revert on failure
+    }
+  }
+
   // Sidebar nav: 'templates' and 'my-deck' are full pages; others scroll to section.
   const handleNavigate = useCallback((id) => {
     setActiveNav(id)
@@ -494,6 +508,7 @@ export default function App() {
               query={searchQuery}
               onOpen={handleOpenDeck}
               onDelete={handleDeleteDeck}
+              onRename={handleRenameDeck}
               onCreateNew={() => handleNavigate('new')}
             />
           </div>
@@ -517,6 +532,7 @@ export default function App() {
               query={searchQuery}
               onOpen={handleOpenDeck}
               onDelete={handleDeleteDeck}
+              onRename={handleRenameDeck}
             />
           </div>
         )}

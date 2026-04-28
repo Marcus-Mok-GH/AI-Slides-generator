@@ -168,6 +168,21 @@ export async function deleteDeck(id) {
   return true
 }
 
+export async function renameDeck(id, newTitle) {
+  const res = await fetch(`/api/decks/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: newTitle }),
+    credentials: 'same-origin',
+  })
+  if (res.status === 401) {
+    notifyUnauthorized()
+    throw new UnauthorizedError()
+  }
+  if (!res.ok) throw new Error(`Server returned ${res.status}`)
+  return true
+}
+
 /**
  * Fetch the currently signed-in user, or `null` if not authenticated.
  * Used by useAuth() — does not dispatch the unauthorized event.

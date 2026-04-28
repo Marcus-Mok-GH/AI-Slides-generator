@@ -21,7 +21,7 @@
     transform var(--duration-fast) var(--ease-out-back);
 }
 .vt-btn:hover {
-  transform: scale(1.08);
+  color: var(--text);
 }
 .vt-btn.is-on {
   background: var(--on-surface);
@@ -190,18 +190,18 @@
 }
 
 .empty {
-  border: 1px dashed var(--border-strong);
+  border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 48px 24px;
+  padding: 36px 24px;
   text-align: center;
   background: var(--surface);
-  animation: fadeInUp 400ms var(--ease-out-expo);
+  animation: fadeIn 300ms ease;
 }
 .empty-art {
-  font-size: 28px;
-  color: var(--accent);
-  margin-bottom: 10px;
-  animation: scaleIn 500ms var(--ease-out-back) 100ms both;
+  font-size: 20px;
+  color: var(--text-soft);
+  margin-bottom: 8px;
+  opacity: 0.6;
 }
 .empty-title {
   font-weight: 600;
@@ -247,7 +247,6 @@
 }
 .deck-menu button:hover {
   background: var(--surface-2);
-  transform: translateX(2px);
 }
 .deck-menu button.danger {
   color: var(--error-text);
@@ -270,9 +269,7 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transition: transform var(--duration-fast) var(--ease-out-back);
 }
-.deck-card:hover .deck-pill {
-  transform: scale(1.05);
-}
+
 
 .deck-meta {
   display: flex;
@@ -316,11 +313,30 @@
 .deck-more:hover {
   background: var(--hover-overlay);
   color: var(--text);
-  transform: scale(1.1);
 }
 
 .deck-edited {
   font-size: 12px;
   color: var(--text-soft);
   font-weight: 400;
+}
+
+/* ---- Inline rename input ---- */
+.deck-rename-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 3px 8px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  font-family: inherit;
+  transition: box-shadow 150ms ease;
+}
+.deck-rename-input:focus {
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }

@@ -1,7 +1,7 @@
 import express from 'express'
 import { generateDeck, streamGenerateDeck, regenerateSlide } from './generateDeck.js'
 import {
-  listDecks, getDeck, saveDeck, deleteDeck, migrate,
+  listDecks, getDeck, saveDeck, deleteDeck, renameDeck, migrate,
   migratePromptHistory, savePromptHistory, getPromptHistory, deletePromptHistoryItem,
 } from './db.js'
 import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
@@ -253,6 +253,18 @@ app.post('/api/decks', isAuthenticated, async (req, res) => {
   } catch (err) {
     console.error('[save deck] error:', err)
     res.status(500).json({ error: err?.message || 'Failed to save deck' })
+  }
+})
+
+app.patch('/api/decks/:id', isAuthenticated, async (req, res) => {
+  try {
+    const { title } = req.body || {}
+    if (!title?.trim()) return res.status(400).json({ error: 'title is required' })
+    await renameDeck(req.params.id, currentUserId(req), title.trim())
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[rename deck] error:', err)
+    res.status(500).json({ error: err?.message || 'Failed to rename deck' })
   }
 })
 

@@ -17,12 +17,17 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* Brand only shows on small screens (where sidebar is hidden) */
+/* Brand + theme toggle only show on small screens (where sidebar is hidden).
+   On desktop, the sidebar already provides both the brand and the theme
+   switcher, so keeping them in the top bar too was pure redundancy. */
 .topbar-brand {
   display: none;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+.theme-toggle-topbar {
+  display: none;
 }
 .topbar-brand-mark {
   width: 28px;
@@ -157,25 +162,6 @@
 .search-clear:hover {
   background: var(--surface-2);
   color: var(--text);
-  transform: scale(1.1);
-}
-
-.notif-badge {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--pink), var(--orange));
-  color: white;
-  font-size: 9px;
-  font-weight: 700;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 0 0 2px var(--bg);
-  animation: scaleIn 300ms var(--ease-out-back);
 }
 
 .tb-pop-wrap {
@@ -287,7 +273,6 @@
 }
 .tb-pop-item:hover {
   background: var(--surface-2);
-  transform: translateX(2px);
 }
 
 .theme-toggle-topbar {
@@ -316,7 +301,6 @@
 .avatar:hover {
   border-color: var(--accent-soft);
   box-shadow: var(--shadow-md);
-  transform: none;
 }
 .avatar-img {
   width: 100%;
@@ -345,6 +329,9 @@
   }
   .topbar-brand-name {
     display: none;
+  }
+  .theme-toggle-topbar {
+    display: grid;
   }
   .ghost-btn:not(.icon-only) {
     display: none;
