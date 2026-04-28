@@ -9,7 +9,7 @@ const templates = [
   { name: 'Case study', tag: 'Marketing', grad: 'linear-gradient(135deg,#3b82f6,#7c5cff)' },
 ]
 
-export default function TemplateRow({ onSelect }) {
+export default function TemplateRow({ onSelect, onBrowseAll }) {
   function pick(name) {
     onSelect?.(name)
   }
@@ -20,7 +20,7 @@ export default function TemplateRow({ onSelect }) {
         <button
           type="button"
           className="row-link"
-          onClick={() => pick('Pitch deck')}
+          onClick={() => onBrowseAll?.()}
         >
           Browse all →
         </button>

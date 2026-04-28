@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar.jsx'
 import TopBar from './components/TopBar.jsx'
 import CreateHero from './components/CreateHero.jsx'
 import TemplateRow from './components/TemplateRow.jsx'
+import TemplatesPage from './components/TemplatesPage.jsx'
 import RecentGallery from './components/RecentGallery.jsx'
 import SlideViewer from './components/SlideViewer.jsx'
 import Landing from './components/Landing.jsx'
@@ -394,12 +395,12 @@ export default function App() {
     }
   }
 
-  // Sidebar nav: each entry either scrolls to a section or runs an action.
+  // Sidebar nav: 'templates' is a full page; others scroll to section.
   const handleNavigate = useCallback((id) => {
     setActiveNav(id)
+    if (id === 'templates') return // full-page view, no scroll needed
     const scrollTargets = {
       home: 'create-hero',
-      templates: 'templates-row',
       'my-deck': 'recent-decks',
     }
     const targetId = scrollTargets[id]
@@ -410,6 +411,15 @@ export default function App() {
     if (id === 'new' || id === 'home') {
       setTimeout(() => heroRef.current?.focusPrompt?.(), 80)
     }
+  }, [])
+
+  // Called from TemplatesPage when user picks a template card.
+  const handleUseTemplate = useCallback((name, promptText) => {
+    setActiveNav('new')
+    // Give React a tick to swap views, then fill the prompt.
+    setTimeout(() => {
+      heroRef.current?.applyPrompt?.(promptText)
+    }, 60)
   }, [])
 
   // Filter saved decks by the topbar search query.
@@ -476,26 +486,33 @@ export default function App() {
           user={user}
           onSignOut={signOut}
         />
-        <div className="content stagger-children">
-          <CreateHero
-            ref={heroRef}
-            onGenerate={handleGenerate}
-            status={status}
-            error={error}
-          />
-          <TemplateRow
-            onSelect={(template) => {
-              heroRef.current?.applyTemplate?.(template)
-            }}
-          />
-          <RecentGallery
-            decks={filteredDecks}
-            totalCount={savedDecks.length}
-            query={searchQuery}
-            onOpen={handleOpenDeck}
-            onDelete={handleDeleteDeck}
-          />
-        </div>
+        {activeNav === 'templates' ? (
+          <div className="content">
+            <TemplatesPage onUseTemplate={handleUseTemplate} />
+          </div>
+        ) : (
+          <div className="content stagger-children">
+            <CreateHero
+              ref={heroRef}
+              onGenerate={handleGenerate}
+              status={status}
+              error={error}
+            />
+            <TemplateRow
+              onSelect={(template) => {
+                heroRef.current?.applyTemplate?.(template)
+              }}
+              onBrowseAll={() => handleNavigate('templates')}
+            />
+            <RecentGallery
+              decks={filteredDecks}
+              totalCount={savedDecks.length}
+              query={searchQuery}
+              onOpen={handleOpenDeck}
+              onDelete={handleDeleteDeck}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

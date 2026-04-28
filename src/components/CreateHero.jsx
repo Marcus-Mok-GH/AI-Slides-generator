@@ -123,6 +123,18 @@ const CreateHero = forwardRef(function CreateHero(
           }, 0)
         }
       },
+      applyPrompt(text) {
+        if (text) {
+          setPrompt(text)
+          setTimeout(() => {
+            textareaRef.current?.focus()
+            textareaRef.current?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+            })
+          }, 0)
+        }
+      },
     }),
     [],
   )
