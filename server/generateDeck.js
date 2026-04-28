@@ -153,17 +153,21 @@ DESIGN LAW — follow strictly:
      the deck. The section divider has only "title" + "sectionLabel" — no body.
    - Use "two-column" sparingly (max once); never use "content" more than once.
 
-4. FILL ONLY WHAT THE LAYOUT NEEDS. Leave other fields empty / unset:
-   - title         → title (subtitle is the deck.subtitle, slide.body holds it)
-   - section       → title + sectionLabel
-   - statement     → title (the bold sentence) + optional 1-line body
-   - bullets       → title + bullets[3-5]
-   - steps         → title + steps[3-5]
-   - comparison    → title + comparison{leftLabel,leftItems,rightLabel,rightItems}
-   - stats         → title + stats[3-4]
-   - quote         → title + quote{text,attribution}
-   - two-column    → title + body (≤ 18 words) + bullets[3-5]
-   - content       → title + body (≤ 18 words)
+4. FILL EVERY REQUIRED FIELD FOR THE LAYOUT — NO EMPTY OR PLACEHOLDER VALUES:
+   - title         → title, body (acts as subtitle, 8-14 words)
+   - section       → title, sectionLabel (1-3 words)
+   - statement     → title (the headline sentence), body (≤ 14-word elaboration)
+   - bullets       → title, bullets[3-5] (each ≤ 6 words, all distinct)
+   - steps         → title, steps[3-5] (every entry has BOTH label and detail)
+   - comparison    → title, comparison.leftLabel, leftItems[3], rightLabel, rightItems[3]
+   - stats         → title, stats[3-4] (every entry has a real numeric value, no "TBD")
+   - quote         → title, quote.text + quote.attribution (real-sounding name, role)
+   - two-column    → title, body (≤ 18 words), bullets[3-5]
+   - content       → title, body (≤ 18 words)
+
+   EVERY slide MUST include speakerNotes. EVERY slide MUST include rich,
+   non-empty html and css (see section 9). NEVER ship a slide where bullets,
+   steps, or stats arrays are empty for a layout that needs them.
 
    ALWAYS include "imagePrompt" for EVERY slide EXCEPT "steps" and
    "comparison" (which have no room for imagery). The image is the
@@ -198,24 +202,149 @@ DESIGN LAW — follow strictly:
      <div data-chart="0"></div> placeholder (index = chart's array position).
    - Pair charts naturally with "stats", "comparison", or "two-column" layouts.
 
-9. HTML / CSS PER SLIDE — generate real, self-contained slide markup:
-   - Each slide MUST include "html" and "css" fields.
-   - The slide will render in a sandboxed 1280×720 frame. The frame already
-     injects these CSS variables: --bg, --primary, --accent, --fg (#fff).
-     Use them: e.g. background: var(--bg); color: var(--accent).
-   - "html": ONE root <div class="slide"> containing the full layout. Use
-     semantic markup — h1, h2, p, ul/li, blockquote, etc. NO <html>,
-     <head>, <body>, <script>, <link>, or <style> tags. NO external assets.
-   - "css": Plain CSS targeting selectors INSIDE .slide (e.g. ".slide h1 { ... }").
-     Do NOT use @import or url() to external resources.
-   - Keep the design typographic and confident: large headlines, generous
-     whitespace, restrained palette using the theme variables. The slide
-     canvas is exactly 1280×720 — do not assume scrolling.
-   - Charts: include <div data-chart="N"></div> where N is the index in the
-     "charts" array (0-based). The renderer fills it in.
-   - Hero image (slide.image.url) is rendered automatically by the host
-     frame as a background panel; do NOT embed <img> tags yourself.
-   - Speaker notes are NOT shown on the slide — never include them in HTML.
+9. HTML / CSS — DESIGN A REAL SLIDE, NOT A WIREFRAME:
+
+   The renderer gives you a 1280×720 sandboxed iframe with these CSS variables
+   already defined: --bg (deep background), --primary, --accent, --fg (#fff),
+   --muted (rgba white 65%). Default styles already cover h1/h2/h3/p/ul/li/
+   blockquote at presentation sizes. Build ON TOP of those — don't reinvent
+   them with smaller numbers.
+
+   STRUCTURE RULES:
+   - "html" MUST start with <div class="slide"> ... </div>. ONE root only.
+     Inside, use real semantic markup: <h1>, <h2>, <p>, <ul><li>, <ol><li>,
+     <blockquote>, <figure>, <figcaption>, <span>, <div>.
+   - NO <html>, <head>, <body>, <script>, <link>, <style>, <img>, or <iframe>
+     tags. NO external assets, NO @import, NO url(http…) in css.
+   - The hero image is painted by the host frame BEHIND .slide. Do not
+     reference it in html.
+   - Speaker notes are NEVER shown on the slide.
+   - Charts: drop <div data-chart="N"></div> where N is the chart index.
+     The renderer replaces it with an inline SVG.
+
+   VISUAL DESIGN RULES — every slide must FEEL like a designed slide:
+   - Use BIG type. Hero numbers / titles 96-160px. Body text 22-28px.
+   - Use the theme variables liberally: gradient backgrounds with
+     color-mix(in oklab, var(--primary) X%, var(--bg)), accent borders,
+     accent eyebrows ("01 / 04", "INSIGHT", "STEP 02", etc.).
+   - Add at least ONE deliberate visual treatment per slide from this menu:
+     numbered circles, accent vertical bars, decorative gradient blobs,
+     pill-shaped tags, divider lines, oversized index numbers, subtle
+     dotted/grid patterns via repeating-linear-gradient, glassy cards
+     (background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
+     border-radius: 24px; backdrop-filter: blur(12px)).
+   - Layout with CSS grid or flexbox. Generous whitespace. Asymmetry beats
+     dead-center boxes for non-title slides.
+   - Maintain a clear visual hierarchy: eyebrow → headline → supporting body
+     → details. Never let the supporting content be larger than the headline.
+
+   PER-LAYOUT HTML SCAFFOLDS — adapt these, don't copy verbatim. Replace
+   theme tokens to match the deck's mood; keep the structure.
+
+   • title:
+     <div class="slide title-slide">
+       <span class="eyebrow">PRESENTATION</span>
+       <h1>{slide title}</h1>
+       <p class="lede">{body / subtitle}</p>
+       <div class="meta-row"><span>{date or sector}</span><span>·</span><span>{author or label}</span></div>
+     </div>
+
+   • section:
+     <div class="slide section-slide">
+       <span class="section-index">{02}</span>
+       <span class="section-eyebrow">{sectionLabel}</span>
+       <h1>{slide title}</h1>
+       <div class="accent-bar"></div>
+     </div>
+
+   • statement:
+     <div class="slide statement-slide">
+       <span class="quote-mark">“</span>
+       <h1 class="statement">{slide title}</h1>
+       <p class="elaboration">{body}</p>
+     </div>
+
+   • bullets:
+     <div class="slide bullets-slide">
+       <header><span class="eyebrow">KEY POINTS</span><h2>{slide title}</h2></header>
+       <ul class="bullets">
+         <li><span class="dot"></span><span class="text">{bullet}</span></li>
+         …
+       </ul>
+     </div>
+
+   • steps:
+     <div class="slide steps-slide">
+       <h2>{slide title}</h2>
+       <ol class="steps">
+         <li>
+           <span class="step-num">01</span>
+           <div class="step-body"><h3>{step.label}</h3><p>{step.detail}</p></div>
+         </li>
+         …
+       </ol>
+     </div>
+
+   • comparison:
+     <div class="slide comparison-slide">
+       <h2>{slide title}</h2>
+       <div class="cmp-grid">
+         <section class="cmp-col cmp-left">
+           <span class="cmp-label">{leftLabel}</span>
+           <ul>{leftItems as <li>…</li>}</ul>
+         </section>
+         <section class="cmp-col cmp-right">
+           <span class="cmp-label">{rightLabel}</span>
+           <ul>{rightItems as <li>…</li>}</ul>
+         </section>
+       </div>
+     </div>
+
+   • stats:
+     <div class="slide stats-slide">
+       <header><span class="eyebrow">BY THE NUMBERS</span><h2>{slide title}</h2></header>
+       <div class="stat-grid">
+         <article class="stat-card"><div class="stat-value">{value}</div><div class="stat-label">{label}</div></article>
+         …
+       </div>
+     </div>
+
+   • quote:
+     <div class="slide quote-slide">
+       <span class="quote-mark">“</span>
+       <blockquote>{quote.text}</blockquote>
+       <footer><span class="rule"></span><cite>{quote.attribution}</cite></footer>
+     </div>
+
+   • two-column:
+     <div class="slide two-col-slide">
+       <header><span class="eyebrow">{tag}</span><h2>{slide title}</h2></header>
+       <div class="cols">
+         <div class="prose"><p>{body}</p></div>
+         <ul class="bullets">{bullets as <li>…</li>}</ul>
+       </div>
+     </div>
+
+   • content:
+     <div class="slide content-slide">
+       <span class="eyebrow">{tag}</span>
+       <h2>{slide title}</h2>
+       <p class="body">{body}</p>
+     </div>
+
+   CSS REQUIREMENTS — every slide ships at least 25 lines of slide-scoped CSS
+   that styles its own layout. Always include rules for:
+     - the root .slide variant (e.g. .slide.title-slide { ... }) with grid/flex,
+       padding, background treatment, and gap.
+     - any custom classes you used (.eyebrow, .stat-card, .step-num, .cmp-col,
+       .accent-bar, .quote-mark, etc.).
+     - hover/state polish only if it makes sense; otherwise just static styles.
+   Use color-mix() for tinted accents. Use radial-gradient or linear-gradient
+   on .slide::before for decorative depth where the layout allows.
+
+   GOLDEN RULE: if you removed the body copy, the slide should still LOOK
+   like a finished presentation slide because of the typography, spacing,
+   and accent treatments alone. Empty-looking output is a failure.
 
 Return strictly valid JSON. Do not wrap in markdown.`
 }
@@ -244,23 +373,55 @@ Return ONLY valid JSON (no prose, no code fences) for ONE slide, matching:
 }
 
 Rules:
-- Use the layout "${layout}" exactly. Fill only the fields that layout needs.
-- Layout → required fields:
-    title       → title, body (acts as subtitle)
-    section     → title, sectionLabel
-    statement   → title (the bold sentence), optional 1-line body
-    bullets     → title, bullets[3-5] (≤ 6 words each)
-    steps       → title, steps[3-5]
-    comparison  → title, comparison{leftLabel,leftItems[3], rightLabel,rightItems[3]}
-    stats       → title, stats[3-4]
-    quote       → title, quote{text,attribution}
-    two-column  → title, body, bullets[3-5]
+- Use the layout "${layout}" exactly. Fill EVERY field that layout requires —
+  no empty arrays, no placeholder values like "TBD".
+- Layout → required fields (must all be populated):
+    title       → title, body (acts as subtitle, 8-14 words)
+    section     → title, sectionLabel (1-3 words)
+    statement   → title (the bold sentence), body (≤ 14-word elaboration)
+    bullets     → title, bullets[3-5] (≤ 6 words each, all distinct)
+    steps       → title, steps[3-5] (each entry has BOTH label and detail)
+    comparison  → title, comparison{leftLabel, leftItems[3], rightLabel, rightItems[3]}
+    stats       → title, stats[3-4] (each value is a real number/figure)
+    quote       → title, quote{text, attribution with name + role}
+    two-column  → title, body (≤ 18 words), bullets[3-5]
     content     → title, body (≤ 18 words)
 - Word caps are hard. Apply the 5/5/5 rule.
 - Active voice. Concrete nouns. No filler.
 - Tone: ${tone}.
 - Output language: ${language}.
 - Always include a one-sentence "speakerNotes" (≤ 22 words).
+- Always include "imagePrompt" UNLESS layout is "steps" or "comparison".
+
+HTML / CSS — DESIGN A REAL SLIDE, NOT A WIREFRAME (1280×720 sandbox):
+- Use the host CSS vars: --bg, --primary, --accent, --fg (#fff), --muted.
+  Do NOT redefine the global font sizes for h1/h2/h3/p/li — host already
+  provides presentation-scale defaults; you can override per slide variant.
+- "html" starts with <div class="slide ${layout}-slide"> ... </div>. Use
+  semantic markup (h1/h2/p/ul/li/blockquote/figure/cite). Forbidden tags:
+  <html><head><body><script><link><style><img><iframe>. No external assets.
+- Pick at least ONE deliberate visual treatment from this menu:
+    eyebrow tag (uppercase, letter-spaced, accent color),
+    big index number ("01", "02"…) or step circle,
+    accent vertical bar / divider rule,
+    glassy card (background: rgba(255,255,255,0.04); border: 1px solid
+       rgba(255,255,255,0.08); border-radius: 24px; padding: 28-40px),
+    gradient halo via .slide::before with radial/linear gradients in
+       color-mix(in oklab, var(--primary) 35%, transparent),
+    pill-shaped tags, oversized opening quote mark, asymmetric grid.
+- Layout the slide with CSS grid or flexbox. Generous whitespace. Avoid
+  centered-everything-in-a-box wireframes for non-title slides.
+- Hero numbers / titles 96-160px. Body 22-28px. Maintain hierarchy:
+  eyebrow → headline → supporting body → details.
+- "css" must be slide-scoped (.slide ... selectors), at least 25 lines,
+  styling the layout's wrapper, eyebrow/index, body type, and any custom
+  classes you used. Include a decorative .slide::before treatment when
+  the layout has room. No @import, no url(http…).
+- Charts: include <div data-chart="N"></div> placeholders where they
+  belong; the renderer fills them in.
+- Hero image is painted by the host frame BEHIND the slide — never embed
+  <img> tags. Speaker notes never appear in HTML.
+
 Return strictly valid JSON. No markdown.`
 }
 
