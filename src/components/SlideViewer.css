@@ -181,6 +181,325 @@
   transition: width 500ms var(--ease-out-expo);
   box-shadow: 0 0 14px rgba(124, 92, 255, 0.4);
 }
+/* ================================================================
+   Thinking panel — shown in the stage area while the deck streams.
+   Designed to feel calm and breathable, not an overlay that fights
+   the slide canvas.
+   ================================================================ */
+.thinking-panel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 32px 24px;
+  isolation: isolate;
+  animation: think-fade-in 360ms var(--ease-out-expo) both;
+}
+
+@keyframes think-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.thinking-aura {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+.thinking-aura-blob {
+  position: absolute;
+  width: 540px;
+  height: 540px;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.32;
+  mix-blend-mode: screen;
+}
+.thinking-aura-blob.a {
+  top: -160px;
+  left: -120px;
+  background: var(--think-primary, #7c5cff);
+  animation: think-drift-a 14s ease-in-out infinite alternate;
+}
+.thinking-aura-blob.b {
+  bottom: -200px;
+  right: -160px;
+  background: var(--think-accent, #ff6ea0);
+  animation: think-drift-b 18s ease-in-out infinite alternate;
+}
+@keyframes think-drift-a {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(60px, 40px) scale(1.08); }
+}
+@keyframes think-drift-b {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(-50px, -30px) scale(1.12); }
+}
+
+.thinking-card {
+  position: relative;
+  z-index: 1;
+  width: min(560px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 36px 36px 32px;
+  box-shadow: var(--shadow-xl, 0 24px 70px rgba(0, 0, 0, 0.10), 0 8px 24px rgba(0, 0, 0, 0.06));
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.thinking-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  font-weight: 700;
+}
+.thinking-eyebrow-text {
+  background: linear-gradient(
+    90deg,
+    var(--think-primary, #7c5cff),
+    var(--think-accent, #ff6ea0)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.thinking-orb {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+}
+.thinking-orb-core {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: linear-gradient(
+    135deg,
+    var(--think-primary, #7c5cff),
+    var(--think-accent, #ff6ea0)
+  );
+  box-shadow: 0 0 14px color-mix(in oklab, var(--think-primary, #7c5cff) 60%, transparent);
+  animation: think-core 1.6s ease-in-out infinite;
+}
+.thinking-orb-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in oklab, var(--think-primary, #7c5cff) 50%, transparent);
+  animation: think-ring 1.6s ease-out infinite;
+}
+@keyframes think-core {
+  0%, 100% { transform: scale(0.85); opacity: 0.85; }
+  50%      { transform: scale(1.05); opacity: 1; }
+}
+@keyframes think-ring {
+  0%   { transform: scale(0.6); opacity: 0.8; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.thinking-headline {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.18;
+  letter-spacing: -0.01em;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.thinking-sub {
+  margin: -10px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-soft);
+  max-width: 46ch;
+}
+
+.thinking-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.thinking-prompt-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  font-weight: 700;
+}
+.thinking-prompt-text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.thinking-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.thinking-progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.thinking-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--think-primary, #7c5cff),
+    var(--think-accent, #ff6ea0)
+  );
+  box-shadow: 0 0 14px color-mix(in oklab, var(--think-primary, #7c5cff) 50%, transparent);
+  transition: width 700ms var(--ease-out-expo);
+  position: relative;
+  overflow: hidden;
+}
+.thinking-progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: think-progress-sheen 1.8s linear infinite;
+}
+@keyframes think-progress-sheen {
+  to { transform: translateX(100%); }
+}
+.thinking-progress-label {
+  font-size: 12px;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.thinking-stages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.thinking-stage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-soft);
+  transition: background-color var(--duration-base) ease,
+    border-color var(--duration-base) ease,
+    color var(--duration-base) ease;
+}
+.thinking-stage-marker {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-soft);
+  flex-shrink: 0;
+  transition: all var(--duration-base) ease;
+}
+.thinking-stage-label {
+  font-weight: 500;
+  line-height: 1.2;
+}
+.thinking-stage.is-active {
+  background: color-mix(in oklab, var(--think-primary, #7c5cff) 8%, var(--surface));
+  border-color: color-mix(in oklab, var(--think-primary, #7c5cff) 35%, var(--border));
+  color: var(--text);
+}
+.thinking-stage.is-active .thinking-stage-marker {
+  background: linear-gradient(
+    135deg,
+    var(--think-primary, #7c5cff),
+    var(--think-accent, #ff6ea0)
+  );
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--think-primary, #7c5cff) 20%, transparent);
+  animation: think-marker-pulse 1.6s ease-in-out infinite;
+}
+@keyframes think-marker-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--think-primary, #7c5cff) 30%, transparent); }
+  50%      { box-shadow: 0 0 0 6px color-mix(in oklab, var(--think-primary, #7c5cff) 6%, transparent); }
+}
+.thinking-stage.is-done {
+  color: var(--text);
+}
+.thinking-stage.is-done .thinking-stage-marker {
+  background: color-mix(in oklab, var(--think-primary, #7c5cff) 18%, var(--surface));
+  color: var(--think-primary, #7c5cff);
+  border-color: color-mix(in oklab, var(--think-primary, #7c5cff) 35%, var(--border));
+}
+
+.thinking-deck-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+.thinking-deck-title-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  font-weight: 700;
+}
+.thinking-deck-title-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+@media (max-width: 720px) {
+  .thinking-card {
+    padding: 26px 22px 24px;
+    gap: 16px;
+  }
+  .thinking-headline {
+    font-size: 22px;
+  }
+  .thinking-stages {
+    grid-template-columns: 1fr;
+  }
+}
+
 .shimmer-line {
   height: 10px;
   border-radius: 5px;

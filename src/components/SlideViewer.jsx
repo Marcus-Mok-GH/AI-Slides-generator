@@ -468,31 +468,106 @@ function Slide({ slide, theme, index, total }) {
   )
 }
 
-function GeneratingSlide({ theme, expectedCount, slidesSoFar }) {
+function ThinkingPanel({ theme, expectedCount, slidesSoFar, prompt, deckTitle }) {
+  // Soft tinted glow that picks up the deck's theme without imitating a slide.
   const style = {
-    '--slide-bg': theme.background,
-    '--slide-primary': theme.primary,
-    '--slide-accent': theme.accent,
+    '--think-primary': theme?.primary || '#7c5cff',
+    '--think-accent': theme?.accent || '#ff6ea0',
   }
+
+  // 3-stage rough mapping that feels accurate without being noisy.
+  // 0 → outlining, 1 → drafting slides, 2 → composing visuals.
+  let stageIndex = 0
+  if (slidesSoFar > 0 && slidesSoFar < expectedCount) stageIndex = 1
+  else if (slidesSoFar >= expectedCount && expectedCount > 0) stageIndex = 2
+
+  const stages = [
+    { key: 'outline', label: 'Sketching outline' },
+    { key: 'draft', label: 'Drafting slides' },
+    { key: 'visuals', label: 'Composing visuals' },
+  ]
+
+  const headline =
+    stageIndex === 0
+      ? 'Thinking through your deck…'
+      : stageIndex === 1
+        ? `Drafting slide ${Math.min(slidesSoFar + 1, expectedCount)} of ${expectedCount}…`
+        : 'Polishing visuals…'
+
+  const subhead =
+    stageIndex === 0
+      ? "Reading your prompt and choosing a structure. Slides will start appearing in a few seconds."
+      : stageIndex === 1
+        ? "Each card streams in as soon as it's ready — feel free to scroll the side panel."
+        : "Adding the last touches before everything settles in."
+
+  const pct = expectedCount
+    ? Math.min(100, Math.round((slidesSoFar / Math.max(expectedCount, 1)) * 100))
+    : 0
+
   return (
-    <div className="slide layout-title is-hero generating" style={style}>
-      <div className="slide-grain" aria-hidden />
-      <div className="slide-glow" aria-hidden />
-      <div className="slide-body-wrap">
-        <div className="slide-title-block">
-          <div className="slide-eyebrow">
-            <span className="dot-pulse" /> Drafting
-          </div>
-          <h1 className="slide-h1 shimmer">
-            {slidesSoFar > 0
-              ? `Slide ${slidesSoFar + 1} of ${expectedCount}…`
-              : 'Sketching the deck…'}
-          </h1>
-          <p className="slide-lead">
-            Your AI co-designer is composing each card. Slides appear here as
-            soon as they're ready.
-          </p>
+    <div className="thinking-panel" style={style} role="status" aria-live="polite">
+      <div className="thinking-aura" aria-hidden>
+        <span className="thinking-aura-blob a" />
+        <span className="thinking-aura-blob b" />
+      </div>
+
+      <div className="thinking-card">
+        <div className="thinking-eyebrow">
+          <span className="thinking-orb" aria-hidden>
+            <span className="thinking-orb-ring" />
+            <span className="thinking-orb-core" />
+          </span>
+          <span className="thinking-eyebrow-text">AI is thinking</span>
         </div>
+
+        <h1 className="thinking-headline">{headline}</h1>
+        <p className="thinking-sub">{subhead}</p>
+
+        {prompt ? (
+          <div className="thinking-prompt">
+            <span className="thinking-prompt-label">Your prompt</span>
+            <p className="thinking-prompt-text">
+              {prompt.length > 220 ? prompt.slice(0, 217).trim() + '…' : prompt}
+            </p>
+          </div>
+        ) : null}
+
+        <div className="thinking-progress">
+          <div className="thinking-progress-track">
+            <div
+              className="thinking-progress-fill"
+              style={{ width: `${Math.max(pct, 6)}%` }}
+            />
+          </div>
+          <div className="thinking-progress-label">
+            {slidesSoFar > 0
+              ? `${slidesSoFar} of ${expectedCount} ready`
+              : `Preparing ${expectedCount} slides`}
+          </div>
+        </div>
+
+        <ol className="thinking-stages">
+          {stages.map((s, i) => {
+            const state =
+              i < stageIndex ? 'done' : i === stageIndex ? 'active' : 'todo'
+            return (
+              <li key={s.key} className={`thinking-stage is-${state}`}>
+                <span className="thinking-stage-marker" aria-hidden>
+                  {state === 'done' ? '✓' : i + 1}
+                </span>
+                <span className="thinking-stage-label">{s.label}</span>
+              </li>
+            )
+          })}
+        </ol>
+
+        {deckTitle && deckTitle !== 'Generating…' ? (
+          <div className="thinking-deck-title" title={deckTitle}>
+            <span className="thinking-deck-title-label">Working title</span>
+            <span className="thinking-deck-title-text">{deckTitle}</span>
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -881,10 +956,12 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
 
         <main className="stage" ref={stageRef}>
           {showGenerating ? (
-            <GeneratingSlide
+            <ThinkingPanel
               theme={deck.theme || {}}
               expectedCount={expectedCount}
-              slidesSoFar={slideCount}
+              slidesSoFar={completedCount}
+              prompt={deck.meta?.prompt || ''}
+              deckTitle={deck.title}
             />
           ) : (
             <div
@@ -906,24 +983,28 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
             </div>
           )}
 
-          <button
-            className="stage-nav prev"
-            onClick={() => userJump(Math.max(active - 1, 0))}
-            disabled={active === 0 || slideCount === 0}
-            aria-label="Previous slide"
-          >
-            ‹
-          </button>
-          <button
-            className="stage-nav next"
-            onClick={() => userJump(Math.min(active + 1, slideCount - 1))}
-            disabled={slideCount === 0 || active >= slideCount - 1}
-            aria-label="Next slide"
-          >
-            ›
-          </button>
+          {!showGenerating && (
+            <>
+              <button
+                className="stage-nav prev"
+                onClick={() => userJump(Math.max(active - 1, 0))}
+                disabled={active === 0 || slideCount === 0}
+                aria-label="Previous slide"
+              >
+                ‹
+              </button>
+              <button
+                className="stage-nav next"
+                onClick={() => userJump(Math.min(active + 1, slideCount - 1))}
+                disabled={slideCount === 0 || active >= slideCount - 1}
+                aria-label="Next slide"
+              >
+                ›
+              </button>
+            </>
+          )}
 
-          {!showNotes && (
+          {!showNotes && !showGenerating && (
             <div className="stage-counter-pill">
               {slideCount === 0
                 ? 'Drafting…'
