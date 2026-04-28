@@ -150,10 +150,10 @@ function LandingNav({ onSignIn }) {
           type="button"
           className="g-brand"
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          aria-label="SlideAI"
+          aria-label="Gamma"
         >
-          <span className="g-brand-mark">S</span>
-          <span className="g-brand-name">slide<b>ai</b></span>
+          <span className="g-brand-mark">Γ</span>
+          <span className="g-brand-name"><b>GAMMA</b></span>
         </button>
 
         <nav className="g-nav-links" aria-label="Primary">
@@ -217,7 +217,7 @@ function Hero({ onSignIn }) {
           <br />
           for <span className="g-hero-underline">presentations</span>,
           <br />
-          decks, and more
+          websites, and more
         </h1>
         <p className="g-hero-lede">
           Your ideas are brilliant. The universe deserves to see them. A

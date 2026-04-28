@@ -7,31 +7,19 @@ import {
 import './CreateHero.css'
 
 const formats = [
-  { id: 'presentation', icon: '▭', label: 'Presentation', hint: 'Slide-based deck' },
-  { id: 'document', icon: '☰', label: 'Document', hint: 'Long-form page' },
-  { id: 'webpage', icon: '◫', label: 'Webpage', hint: 'Shareable site' },
-  { id: 'social', icon: '◉', label: 'Social', hint: 'Posts & carousels' },
+  { id: 'presentation', icon: '▭', label: 'Presentation' },
+  { id: 'document', icon: '☰', label: 'Document' },
+  { id: 'webpage', icon: '◫', label: 'Webpage' },
+  { id: 'social', icon: '◉', label: 'Social' },
 ]
 
 const lengths = ['4 cards', '8 cards', '12 cards', '16 cards']
 const tones = ['Professional', 'Casual', 'Playful', 'Bold']
 
 const MODES = [
-  {
-    id: 'concise',
-    label: 'Concise',
-    hint: 'Headlines only — under 10 words a slide.',
-  },
-  {
-    id: 'default',
-    label: 'Default',
-    hint: 'Balanced. Scannable slides + a 1-line speaker note.',
-  },
-  {
-    id: 'detailed',
-    label: 'Detailed',
-    hint: 'Real presentation — full speaker script per slide.',
-  },
+  { id: 'concise', label: 'Concise', hint: 'Headlines only' },
+  { id: 'default', label: 'Default', hint: 'Balanced slides' },
+  { id: 'detailed', label: 'Detailed', hint: 'Full speaker script' },
 ]
 
 const suggestions = [
@@ -41,7 +29,6 @@ const suggestions = [
   'Investor update for Q2 2026',
 ]
 
-// Templates the parent (App.jsx) can hand off via the ref.
 const TEMPLATE_PROMPTS = {
   'Pitch deck':
     'A 10-slide investor pitch deck for [your startup]: problem, solution, market size, product, traction, business model, competition, team, ask, and vision.',
@@ -67,7 +54,8 @@ const CreateHero = forwardRef(function CreateHero(
   const [tone, setTone] = useState('Professional')
   const [language, setLanguage] = useState('English')
   const [mode, setMode] = useState('default')
-  const [chipBusy, setChipBusy] = useState('') // 'paste' | 'file' | 'url' | ''
+  const [showOptions, setShowOptions] = useState(false)
+  const [chipBusy, setChipBusy] = useState('')
   const [chipError, setChipError] = useState('')
   const isLoading = status === 'loading'
   const textareaRef = useRef(null)
@@ -108,8 +96,6 @@ const CreateHero = forwardRef(function CreateHero(
       length,
       tone,
       language,
-      // Mode is presentation-specific. For other formats it's ignored
-      // server-side, but we still send the current value for symmetry.
       mode: format === 'presentation' ? mode : 'default',
     })
   }
@@ -119,14 +105,10 @@ const CreateHero = forwardRef(function CreateHero(
     setChipBusy('paste')
     try {
       if (!navigator.clipboard?.readText) {
-        throw new Error(
-          'Your browser blocks clipboard reads. Paste with Ctrl+V instead.',
-        )
+        throw new Error('Your browser blocks clipboard reads. Paste with Ctrl+V instead.')
       }
       const text = await navigator.clipboard.readText()
-      if (!text?.trim()) {
-        throw new Error('Clipboard is empty.')
-      }
+      if (!text?.trim()) throw new Error('Clipboard is empty.')
       setPrompt((prev) =>
         prev.trim() ? `${prev.trim()}\n\n${text.trim()}` : text.trim(),
       )
@@ -145,19 +127,14 @@ const CreateHero = forwardRef(function CreateHero(
 
   async function handleFileChosen(e) {
     const file = e.target.files?.[0]
-    e.target.value = '' // reset so the same file can be re-picked
+    e.target.value = ''
     if (!file) return
     setChipBusy('file')
     try {
-      if (file.size > 1_000_000) {
-        throw new Error('File is too large (max 1 MB).')
-      }
+      if (file.size > 1_000_000) throw new Error('File is too large (max 1 MB).')
       const text = await file.text()
       if (!text.trim()) throw new Error('File is empty.')
-      const trimmed = text.slice(0, 8000).trim()
-      setPrompt(
-        `Build a deck based on this content:\n\n"""\n${trimmed}\n"""`,
-      )
+      setPrompt(`Build a deck based on this content:\n\n"""\n${text.slice(0, 8000).trim()}\n"""`)
       textareaRef.current?.focus()
     } catch (err) {
       setChipError(err.message || 'Could not read file')
@@ -168,10 +145,7 @@ const CreateHero = forwardRef(function CreateHero(
 
   async function handleFromUrl() {
     setChipError('')
-    const url = window.prompt(
-      'Paste a public URL to import as deck content:',
-      'https://',
-    )
+    const url = window.prompt('Paste a public URL to import as deck content:', 'https://')
     if (!url || url.trim() === 'https://') return
     setChipBusy('url')
     try {
@@ -185,9 +159,7 @@ const CreateHero = forwardRef(function CreateHero(
       const title = data?.title ? `Title: ${data.title}\n\n` : ''
       const body = (data?.text || '').slice(0, 4000)
       if (!body.trim()) throw new Error('No readable text found at that URL.')
-      setPrompt(
-        `Build a deck based on this article (${data.url}).\n\n${title}${body}`,
-      )
+      setPrompt(`Build a deck based on this article (${data.url}).\n\n${title}${body}`)
       textareaRef.current?.focus()
     } catch (err) {
       setChipError(err.message || 'Could not fetch URL')
@@ -199,13 +171,11 @@ const CreateHero = forwardRef(function CreateHero(
   return (
     <section className="hero" id="create-hero">
       <div className="hero-head">
-        <span className="eyebrow">✦ AI generation</span>
         <h1 className="hero-title">
           What would you like to <span className="grad">create</span>?
         </h1>
         <p className="hero-sub">
-          Describe a topic and we'll draft a beautiful deck in seconds. You can
-          edit every card afterwards.
+          Describe your topic and we'll build a beautiful deck in seconds.
         </p>
       </div>
 
@@ -220,35 +190,19 @@ const CreateHero = forwardRef(function CreateHero(
           >
             <span className="format-icon" aria-hidden>{f.icon}</span>
             <span className="format-label">{f.label}</span>
-            <span className="format-hint">{f.hint}</span>
           </button>
         ))}
       </div>
 
       <div className="prompt-card">
         <div className="prompt-tools">
-          <button
-            type="button"
-            className="chip"
-            onClick={handlePaste}
-            disabled={chipBusy === 'paste'}
-          >
-            {chipBusy === 'paste' ? '… Pasting' : '📎 Paste in text'}
+          <button type="button" className="chip" onClick={handlePaste} disabled={chipBusy === 'paste'}>
+            {chipBusy === 'paste' ? '… Pasting' : '📎 Paste text'}
           </button>
-          <button
-            type="button"
-            className="chip"
-            onClick={handleFilePick}
-            disabled={chipBusy === 'file'}
-          >
+          <button type="button" className="chip" onClick={handleFilePick} disabled={chipBusy === 'file'}>
             {chipBusy === 'file' ? '… Reading' : '⤴ Import file'}
           </button>
-          <button
-            type="button"
-            className="chip"
-            onClick={handleFromUrl}
-            disabled={chipBusy === 'url'}
-          >
+          <button type="button" className="chip" onClick={handleFromUrl} disabled={chipBusy === 'url'}>
             {chipBusy === 'url' ? '… Fetching' : '🌐 From URL'}
           </button>
           <input
@@ -260,9 +214,7 @@ const CreateHero = forwardRef(function CreateHero(
           />
         </div>
 
-        {chipError ? (
-          <div className="chip-error">⚠ {chipError}</div>
-        ) : null}
+        {chipError ? <div className="chip-error">⚠ {chipError}</div> : null}
 
         <textarea
           ref={textareaRef}
@@ -270,75 +222,23 @@ const CreateHero = forwardRef(function CreateHero(
           rows={4}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit()
+          }}
           placeholder="e.g. A 10-slide investor pitch for an AI-powered legal research startup, focused on traction and the team."
         />
 
-        {format === 'presentation' ? (
-          <div className="mode-row" role="radiogroup" aria-label="Content depth">
-            <span className="mode-label">Mode</span>
-            <div className="mode-cards">
-              {MODES.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={mode === m.id}
-                  className={`mode-card ${mode === m.id ? 'is-on' : ''}`}
-                  onClick={() => setMode(m.id)}
-                >
-                  <span className="mode-card-name">{m.label}</span>
-                  <span className="mode-card-hint">{m.hint}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        <div className="prompt-controls">
-          <div className="control-group">
-            <label className="control-label">Length</label>
-            <div className="seg">
-              {lengths.map((l) => (
-                <button
-                  key={l}
-                  className={`seg-btn ${length === l ? 'is-on' : ''}`}
-                  onClick={() => setLength(l)}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="control-group">
-            <label className="control-label">Tone</label>
-            <div className="seg">
-              {tones.map((t) => (
-                <button
-                  key={t}
-                  className={`seg-btn ${tone === t ? 'is-on' : ''}`}
-                  onClick={() => setTone(t)}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="control-group grow">
-            <label className="control-label">Language</label>
-            <select
-              className="select"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-            >
-              <option>English</option>
-              <option>Español</option>
-              <option>Français</option>
-              <option>Deutsch</option>
-              <option>日本語</option>
-            </select>
-          </div>
+        <div className="prompt-bottom">
+          <button
+            type="button"
+            className={`options-toggle ${showOptions ? 'is-open' : ''}`}
+            onClick={() => setShowOptions((v) => !v)}
+            aria-expanded={showOptions}
+          >
+            <span className="options-toggle-icon" aria-hidden>⚙</span>
+            Options
+            <span className="options-caret" aria-hidden>{showOptions ? '▲' : '▼'}</span>
+          </button>
 
           <button
             className="generate-btn"
@@ -346,14 +246,80 @@ const CreateHero = forwardRef(function CreateHero(
             onClick={submit}
           >
             {isLoading ? (
-              <>
-                <span className="spinner" /> Generating…
-              </>
+              <><span className="spinner" /> Generating…</>
             ) : (
               <>Generate ✦</>
             )}
           </button>
         </div>
+
+        {showOptions && (
+          <div className="options-panel">
+            {format === 'presentation' && (
+              <div className="option-row">
+                <span className="option-label">Depth</span>
+                <div className="seg">
+                  {MODES.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={`seg-btn ${mode === m.id ? 'is-on' : ''}`}
+                      onClick={() => setMode(m.id)}
+                      title={m.hint}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="option-row">
+              <span className="option-label">Length</span>
+              <div className="seg">
+                {lengths.map((l) => (
+                  <button
+                    key={l}
+                    className={`seg-btn ${length === l ? 'is-on' : ''}`}
+                    onClick={() => setLength(l)}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="option-row">
+              <span className="option-label">Tone</span>
+              <div className="seg">
+                {tones.map((t) => (
+                  <button
+                    key={t}
+                    className={`seg-btn ${tone === t ? 'is-on' : ''}`}
+                    onClick={() => setTone(t)}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="option-row">
+              <span className="option-label">Language</span>
+              <select
+                className="select"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+              >
+                <option>English</option>
+                <option>Español</option>
+                <option>Français</option>
+                <option>Deutsch</option>
+                <option>日本語</option>
+              </select>
+            </div>
+          </div>
+        )}
 
         {error ? <div className="error-banner">⚠ {error}</div> : null}
       </div>
@@ -361,11 +327,7 @@ const CreateHero = forwardRef(function CreateHero(
       <div className="suggestions">
         <span className="sugg-title">Try:</span>
         {suggestions.map((s) => (
-          <button
-            key={s}
-            className="sugg-chip"
-            onClick={() => setPrompt(s)}
-          >
+          <button key={s} className="sugg-chip" onClick={() => setPrompt(s)}>
             {s}
           </button>
         ))}

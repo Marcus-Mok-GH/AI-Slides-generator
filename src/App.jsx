@@ -399,18 +399,15 @@ export default function App() {
     setActiveNav(id)
     const scrollTargets = {
       home: 'create-hero',
-      inspiration: 'create-hero',
       templates: 'templates-row',
       'my-deck': 'recent-decks',
-      trash: 'recent-decks',
     }
     const targetId = scrollTargets[id]
     if (targetId) {
       const el = document.getElementById(targetId)
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-    if (id === 'new' || id === 'home' || id === 'inspiration') {
-      // small delay so the scroll-into-view animation can begin first
+    if (id === 'new' || id === 'home') {
       setTimeout(() => heroRef.current?.focusPrompt?.(), 80)
     }
   }, [])
@@ -474,7 +471,6 @@ export default function App() {
         <TopBar
           search={searchQuery}
           onSearchChange={setSearchQuery}
-          deckCount={savedDecks.length}
           themeMode={themeMode}
           onCycleTheme={cycleTheme}
           user={user}
