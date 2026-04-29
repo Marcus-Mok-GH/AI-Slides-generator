@@ -2,8 +2,17 @@ import pg from 'pg'
 
 const { Pool } = pg
 
+// Prefer Supabase when configured; fall back to the local DATABASE_URL.
+const connectionString =
+  process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL
+
+const isSupabase = /supabase\.(co|com)/i.test(connectionString || '')
+
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
+  // Supabase requires TLS. The pooler uses a managed cert, so we don't
+  // verify the chain.
+  ssl: isSupabase ? { rejectUnauthorized: false } : undefined,
 })
 
 pool.on('error', (err) => {
