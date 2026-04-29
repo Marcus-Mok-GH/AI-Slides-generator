@@ -40,3 +40,8 @@ externalPort = 80
 deploymentTarget = "static"
 build = ["npm", "run", "build"]
 publicDir = "dist"
+
+[userenv]
+
+[userenv.shared]
+WORKOS_COOKIE_PASSWORD = "EscJEXGA2wetmHFDpvHsxftDzzvR22u5_elQeLQ18zs"

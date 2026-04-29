@@ -1,8 +1,9 @@
-import { getAccessToken } from './supabase.js'
-
 /**
- * Thrown when the server returns 401 Unauthorized.
+ * API client. The WorkOS session lives in an HttpOnly cookie set by the
+ * server at /api/auth/callback, so every request just needs
+ * `credentials: 'include'` — no Authorization header to manage.
  */
+
 export class UnauthorizedError extends Error {
   constructor(message = 'Unauthorized') {
     super(message)
@@ -17,18 +18,13 @@ function notifyUnauthorized() {
   }
 }
 
-async function authHeaders(extra = {}) {
-  const token = await getAccessToken()
-  const headers = { ...extra }
-  if (token) headers.Authorization = `Bearer ${token}`
-  return headers
-}
+const FETCH_OPTS = { credentials: 'include' }
 
 async function postJson(url, body) {
-  const headers = await authHeaders({ 'Content-Type': 'application/json' })
   const res = await fetch(url, {
+    ...FETCH_OPTS,
     method: 'POST',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
   if (res.status === 401) {
@@ -47,9 +43,8 @@ async function postJson(url, body) {
   return data
 }
 
-async function authedGet(url) {
-  const headers = await authHeaders()
-  return fetch(url, { headers })
+function authedGet(url) {
+  return fetch(url, FETCH_OPTS)
 }
 
 export async function generateDeck(payload) {
@@ -85,10 +80,10 @@ export async function generateSlideImage({ prompt, theme, aspectRatio }) {
 }
 
 export async function streamGenerateDeck(payload, handlers = {}) {
-  const headers = await authHeaders({ 'Content-Type': 'application/json' })
   const res = await fetch('/api/generate-deck/stream', {
+    ...FETCH_OPTS,
     method: 'POST',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
   if (res.status === 401) {
@@ -175,10 +170,9 @@ export async function saveDeck(deck) {
 }
 
 export async function deleteDeck(id) {
-  const headers = await authHeaders()
   const res = await fetch(`/api/decks/${encodeURIComponent(id)}`, {
+    ...FETCH_OPTS,
     method: 'DELETE',
-    headers,
   })
   if (res.status === 401) {
     notifyUnauthorized()
@@ -189,10 +183,10 @@ export async function deleteDeck(id) {
 }
 
 export async function renameDeck(id, newTitle) {
-  const headers = await authHeaders({ 'Content-Type': 'application/json' })
   const res = await fetch(`/api/decks/${encodeURIComponent(id)}`, {
+    ...FETCH_OPTS,
     method: 'PATCH',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title: newTitle }),
   })
   if (res.status === 401) {

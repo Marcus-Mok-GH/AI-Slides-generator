@@ -1,4 +1,5 @@
 import express from 'express'
+import cookieParser from 'cookie-parser'
 import { generateDeck, streamGenerateDeck, regenerateSlide, redesignSlide } from './generateDeck.js'
 import {
   listDecks, getDeck, saveDeck, deleteDeck, renameDeck, migrate,
@@ -8,6 +9,7 @@ import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
 
 const app = express()
 app.use(express.json({ limit: '20mb' }))
+app.use(cookieParser())
 
 // Run schema migrations and wire auth BEFORE any route registration. On
 // Vercel this runs once per cold-start; locally it runs once at boot.

@@ -1,64 +1,49 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase.js'
+import { fetchCurrentUser } from '../lib/api.js'
 
 /**
- * Supabase-backed auth hook. We listen to onAuthStateChange so the UI
- * reacts immediately to sign-in / sign-out / token-refresh events.
+ * WorkOS-backed auth hook. The session lives in an HttpOnly cookie that the
+ * server sets at /api/auth/callback, so the browser never sees the access
+ * token. We just call /api/auth/user on mount to discover who's signed in.
  *
  * Returned shape:
  *   - user: { id, email, firstName, lastName, profileImageUrl } | null
  *   - loading: true on first load only
  *   - isAuthenticated: boolean
- *   - signOut(): clears the Supabase session
- *   - openSignIn(): opens the in-app sign-in modal (used by the landing CTAs)
+ *   - signIn(): redirects to /api/auth/login (top-level navigation)
+ *   - signOut(): clears the WorkOS session and reloads
  */
 
-function userFromSupabase(u) {
-  if (!u) return null
-  const meta = u.user_metadata || {}
-  const fullName = meta.full_name || meta.name || ''
-  const [first = '', ...rest] = fullName.split(/\s+/).filter(Boolean)
-  return {
-    id: u.id,
-    email: u.email || null,
-    firstName: meta.first_name || meta.given_name || first || null,
-    lastName:
-      meta.last_name ||
-      meta.family_name ||
-      (rest.length ? rest.join(' ') : null),
-    profileImageUrl:
-      meta.avatar_url || meta.picture || meta.profile_image_url || null,
-  }
+function buildLoginUrl() {
+  const returnTo =
+    typeof window !== 'undefined' &&
+    window.location.pathname + window.location.search
+  return `/api/auth/login?returnTo=${encodeURIComponent(returnTo || '/')}`
 }
 
 export default function useAuth() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  // Kept for SignInModal API compatibility — opening the modal just kicks
+  // off the WorkOS redirect, but some screens still gate on `signInOpen`.
   const [signInOpen, setSignInOpen] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (cancelled) return
-      setUser(userFromSupabase(data?.session?.user))
+  const refresh = useCallback(async () => {
+    try {
+      const me = await fetchCurrentUser()
+      setUser(me)
+    } catch {
+      setUser(null)
+    } finally {
       setLoading(false)
-    })
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(userFromSupabase(session?.user))
-      setLoading(false)
-      if (session?.user) setSignInOpen(false)
-    })
-
-    return () => {
-      cancelled = true
-      sub?.subscription?.unsubscribe?.()
     }
   }, [])
 
-  // If any API call returns 401 mid-session, clear local user state. The
-  // Supabase listener will catch up if the session was actually revoked.
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  // If any API call returns 401 mid-session, clear local user state.
   useEffect(() => {
     function onUnauthorized() {
       setUser(null)
@@ -68,12 +53,25 @@ export default function useAuth() {
       window.removeEventListener('slideai:unauthorized', onUnauthorized)
   }, [])
 
-  const openSignIn = useCallback(() => setSignInOpen(true), [])
+  const openSignIn = useCallback(() => {
+    setSignInOpen(true)
+  }, [])
   const closeSignIn = useCallback(() => setSignInOpen(false), [])
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
+    } catch {
+      /* ignore */
+    }
     setUser(null)
+    // Hard navigate so any cached deck data drops with the session.
+    if (typeof window !== 'undefined') {
+      window.location.assign('/')
+    }
   }, [])
 
   return {
@@ -85,5 +83,6 @@ export default function useAuth() {
     closeSignIn,
     signInOpen,
     signOut,
+    loginUrl: buildLoginUrl(),
   }
 }

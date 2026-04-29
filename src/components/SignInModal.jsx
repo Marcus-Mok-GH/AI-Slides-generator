@@ -1,29 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
-import { supabase } from '../lib/supabase.js'
+import { useEffect } from 'react'
 import './SignInModal.css'
 
 /**
- * Email + password sign-in modal backed by Supabase Auth. Tabs between
- * "Sign in" and "Create account" modes. Closes itself when auth succeeds —
- * the parent watches `signInOpen` from useAuth().
+ * Sign-in modal for WorkOS AuthKit. The hosted sign-in / sign-up UI lives
+ * on WorkOS, so this modal is just a launchpad: clicking the button does
+ * a top-level navigation to /api/auth/login, which 302's to WorkOS.
  */
 export default function SignInModal({ open, onClose }) {
-  const [mode, setMode] = useState('signin') // 'signin' | 'signup'
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [info, setInfo] = useState('')
-  const emailRef = useRef(null)
-
-  useEffect(() => {
-    if (open) {
-      setError('')
-      setInfo('')
-      setTimeout(() => emailRef.current?.focus(), 50)
-    }
-  }, [open, mode])
-
   useEffect(() => {
     function onKey(e) {
       if (e.key === 'Escape') onClose?.()
@@ -34,59 +17,14 @@ export default function SignInModal({ open, onClose }) {
 
   if (!open) return null
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (!email.trim() || !password) return
-    setBusy(true)
-    setError('')
-    setInfo('')
-    try {
-      if (mode === 'signin') {
-        const { error: err } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        })
-        if (err) throw err
-        // onAuthStateChange in useAuth will close the modal
-      } else {
-        const { data, error: err } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
-          options: {
-            emailRedirectTo:
-              typeof window !== 'undefined' ? window.location.origin : undefined,
-          },
-        })
-        if (err) throw err
-        if (data?.user && !data.session) {
-          setInfo(
-            'Check your email to confirm your account, then come back and sign in.',
-          )
-        }
-      }
-    } catch (err) {
-      setError(err?.message || 'Something went wrong')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleOAuth(provider) {
-    setError('')
-    setBusy(true)
-    try {
-      const { error: err } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo:
-            typeof window !== 'undefined' ? window.location.origin : undefined,
-        },
-      })
-      if (err) throw err
-    } catch (err) {
-      setError(err?.message || `Failed to sign in with ${provider}`)
-      setBusy(false)
-    }
+  function handleContinue() {
+    const here =
+      typeof window !== 'undefined'
+        ? window.location.pathname + window.location.search
+        : '/'
+    window.location.assign(
+      `/api/auth/login?returnTo=${encodeURIComponent(here)}`,
+    )
   }
 
   return (
@@ -110,87 +48,23 @@ export default function SignInModal({ open, onClose }) {
         </button>
 
         <h2 id="signin-title" className="signin-title">
-          {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+          Welcome
         </h2>
         <p className="signin-sub">
-          {mode === 'signin'
-            ? 'Sign in to keep building decks.'
-            : 'Start drafting AI presentations in seconds.'}
+          Sign in to keep building decks. We use WorkOS to handle accounts and
+          single sign-on.
         </p>
-
-        <form className="signin-form" onSubmit={handleSubmit}>
-          <label className="signin-label">
-            Email
-            <input
-              ref={emailRef}
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              required
-              placeholder="you@example.com"
-            />
-          </label>
-          <label className="signin-label">
-            Password
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={
-                mode === 'signin' ? 'current-password' : 'new-password'
-              }
-              required
-              minLength={6}
-              placeholder="••••••••"
-            />
-          </label>
-
-          {error ? <div className="signin-error">{error}</div> : null}
-          {info ? <div className="signin-info">{info}</div> : null}
-
-          <button
-            type="submit"
-            className="signin-submit"
-            disabled={busy || !email || !password}
-          >
-            {busy
-              ? 'Working…'
-              : mode === 'signin'
-                ? 'Sign in'
-                : 'Create account'}
-          </button>
-        </form>
-
-        <div className="signin-divider">
-          <span>or</span>
-        </div>
 
         <button
           type="button"
-          className="signin-oauth"
-          onClick={() => handleOAuth('google')}
-          disabled={busy}
+          className="signin-submit"
+          onClick={handleContinue}
         >
-          Continue with Google
+          Continue with WorkOS
         </button>
 
         <p className="signin-switch">
-          {mode === 'signin' ? (
-            <>
-              New here?{' '}
-              <button type="button" onClick={() => setMode('signup')}>
-                Create an account
-              </button>
-            </>
-          ) : (
-            <>
-              Already have an account?{' '}
-              <button type="button" onClick={() => setMode('signin')}>
-                Sign in
-              </button>
-            </>
-          )}
+          New here? You'll be able to create an account on the next screen.
         </p>
       </div>
     </div>
