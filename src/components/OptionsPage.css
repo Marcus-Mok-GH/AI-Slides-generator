@@ -152,6 +152,18 @@
   opacity: 0.75;
   line-height: 1;
 }
+.theme-ai-hint {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--accent);
+  opacity: 0.6;
+  text-align: center;
+  margin-top: -2px;
+  letter-spacing: 0.02em;
+}
+.theme-card.is-active .theme-ai-hint {
+  opacity: 1;
+}
 
 /* ---- Surprise me ---- */
 .surprise-btn {

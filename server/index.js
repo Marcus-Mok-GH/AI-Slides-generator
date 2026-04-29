@@ -78,6 +78,7 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
     mode = 'default',
     deckId,
     userTheme = null,
+    perSlideImages = false,
   } = req.body || {}
 
   const userId = currentUserId(req)
@@ -135,10 +136,9 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
         if (meta?.title) liveDeckTitle = meta.title
         send('meta', meta)
 
-        // Kick off the single background image the moment we know the theme
-        // and deck title — all slides will share this image.
-        // If the user picked a specific theme, use that for the image palette.
-        if (!backgroundImagePromise && liveTheme) {
+        // Kick off the shared background image (only when using a preset theme).
+        // In per-slide image mode (AI picks), each slide generates its own image.
+        if (!perSlideImages && !backgroundImagePromise && liveTheme) {
           const bgPrompt =
             `${liveDeckTitle || ctx.prompt}. ` +
             `Abstract, atmospheric, cinematic wide-angle scene that evokes ` +
@@ -157,42 +157,51 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
       onPartial: ({ index, partial }) => send('partial', { index, partial }),
       onSlide: ({ slide, index }) => {
         send('slide', { slide, index })
-        if (
-          slide.imagePrompt &&
-          AUTO_IMAGE_LAYOUTS.has(slide.layout)
-        ) {
+        if (slide.imagePrompt && AUTO_IMAGE_LAYOUTS.has(slide.layout)) {
           // Tell the client to render a shimmer placeholder while we work.
           send('slide-image-pending', { index })
 
-          // Reuse the single background image — don't generate one per slide.
-          // If somehow onMeta didn't trigger the image (e.g. theme was late),
-          // start it now as a fallback using the original prompt.
-          if (!backgroundImagePromise) {
-            const bgPrompt =
-              `${liveDeckTitle || ctx.prompt}. ` +
-              `Abstract, atmospheric, cinematic wide-angle scene that evokes ` +
-              `the overall theme. Editorial mood, dramatic lighting, no text, ` +
-              `no logos, no people faces, photographic.`
-            backgroundImagePromise = generateSlideImageData({
-              prompt: bgPrompt,
-              theme: (userTheme && userTheme.primary) ? userTheme : liveTheme,
+          let imageP
+
+          if (perSlideImages) {
+            // AI picks: generate a unique image for every slide using its
+            // specific imagePrompt so each slide has distinct visuals.
+            imageP = generateSlideImageData({
+              prompt: slide.imagePrompt,
+              theme: liveTheme,
               aspectRatio: '16:9',
             })
-            backgroundImagePromise.catch((err) => {
-              console.warn('[stream] background image gen failed (fallback):', err?.message)
+            imageP.catch((err) => {
+              console.warn(`[stream] per-slide image failed for slide ${index}:`, err?.message)
             })
+          } else {
+            // Preset theme: one shared background image reused across all slides.
+            // If onMeta didn't trigger it yet (theme arrived late), start it now.
+            if (!backgroundImagePromise) {
+              const bgPrompt =
+                `${liveDeckTitle || ctx.prompt}. ` +
+                `Abstract, atmospheric, cinematic wide-angle scene that evokes ` +
+                `the overall theme. Editorial mood, dramatic lighting, no text, ` +
+                `no logos, no people faces, photographic.`
+              backgroundImagePromise = generateSlideImageData({
+                prompt: bgPrompt,
+                theme: (userTheme && userTheme.primary) ? userTheme : liveTheme,
+                aspectRatio: '16:9',
+              })
+              backgroundImagePromise.catch((err) => {
+                console.warn('[stream] background image gen failed (fallback):', err?.message)
+              })
+            }
+            imageP = backgroundImagePromise
           }
-          const bgP = backgroundImagePromise
-          const p = bgP
+
+          const p = imageP
             .then((image) => {
               imageByIndex[index] = image
               send('slide-image', { index, image })
             })
             .catch((err) => {
-              console.warn(
-                `[stream] image assignment failed for slide ${index}:`,
-                err?.message,
-              )
+              console.warn(`[stream] image failed for slide ${index}:`, err?.message)
               send('slide-image-failed', { index })
             })
           imagePromises.push(p)

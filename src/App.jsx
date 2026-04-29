@@ -36,7 +36,7 @@ function parseLength(length) {
 
 /**
  * Read the current location and decide which deck (if any) the URL is asking
- * for. We support `/slide/{id}` (canonical) and `?deck={id}` (legacy share
+ * for. We support `/app/slide/{id}` (canonical) and `?deck={id}` (legacy share
  * links). Returns the id or null.
  */
 function deckIdFromLocation() {
@@ -242,7 +242,7 @@ export default function App() {
 
   // Whenever the open deck's id changes (newly generated, opened from gallery,
   // or closed), reflect that in the URL bar. We hold off while routeLoading is
-  // true so the initial `/slide/{id}` URL isn't briefly overwritten with "/"
+  // true so the initial `/app/slide/{id}` URL isn't briefly overwritten.
   // before syncFromUrl has had a chance to load the deck.
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -285,7 +285,7 @@ export default function App() {
     const expectedCount = parseLength(payload.length)
     const userTheme = payload.userTheme || null
 
-    // Mint a client-side id up front so we can navigate to /slide/{id}
+    // Mint a client-side id up front so we can navigate to /app/slide/{id}
     // immediately instead of waiting for the server to persist the deck.
     // The server reuses this id when it saves so the URL stays stable.
     const newDeckId =
