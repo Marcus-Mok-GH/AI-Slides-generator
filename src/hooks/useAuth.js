@@ -20,6 +20,7 @@ export default function useAuth() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [signInOpen, setSignInOpen] = useState(false)
+  const [passwordResetOpen, setPasswordResetOpen] = useState(false)
 
   const refresh = useCallback(async () => {
     try {
@@ -47,6 +48,12 @@ export default function useAuth() {
       ) {
         refresh()
       }
+      // PASSWORD_RECOVERY fires when Supabase processes the reset token from
+      // the email link.  We open the reset modal so the user can set a new
+      // password even if they navigated away from the redirect page.
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordResetOpen(true)
+      }
     })
     return () => sub?.subscription?.unsubscribe?.()
   }, [refresh])
@@ -63,6 +70,7 @@ export default function useAuth() {
 
   const openSignIn = useCallback(() => setSignInOpen(true), [])
   const closeSignIn = useCallback(() => setSignInOpen(false), [])
+  const closePasswordReset = useCallback(() => setPasswordResetOpen(false), [])
 
   const signOut = useCallback(async () => {
     try {
@@ -85,5 +93,7 @@ export default function useAuth() {
     closeSignIn,
     signInOpen,
     signOut,
+    passwordResetOpen,
+    closePasswordReset,
   }
 }

@@ -222,4 +222,18 @@ export async function fetchCurrentUser() {
   return await res.json()
 }
 
+/**
+ * Send a Supabase password-reset email to the given address.
+ * Supabase handles the email templating and the reset link which points to
+ * the app's origin.  When the user clicks it they are redirected to
+ * <origin>/?resetToken=<token> — the ResetPasswordModal reads that token
+ * from the URL on mount and submits the new password directly to Supabase.
+ */
+export async function resetPasswordEmail(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: `${window.location.origin}/`,
+  })
+  if (error) throw error
+}
+
 export { supabase }

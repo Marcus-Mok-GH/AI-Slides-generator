@@ -20,6 +20,7 @@ import {
 import useTheme from './lib/useTheme.js'
 import useAuth from './hooks/useAuth.js'
 import SignInModal from './components/SignInModal.jsx'
+import ResetPasswordModal from './components/ResetPasswordModal.jsx'
 import './App.css'
 
 const DEFAULT_THEME = {
@@ -62,9 +63,11 @@ export default function App() {
     loading: authLoading,
     isAuthenticated,
     signIn,
-    signOut,
     signInOpen,
     closeSignIn,
+    signOut,
+    passwordResetOpen,
+    closePasswordReset,
   } = useAuth()
   const [deck, setDeck] = useState(null)
   const [status, setStatus] = useState('idle') // idle | streaming | error
@@ -619,6 +622,11 @@ export default function App() {
           </div>
         )}
       </div>
+
+      <ResetPasswordModal
+        open={passwordResetOpen}
+        onClose={closePasswordReset}
+      />
     </div>
   )
 }

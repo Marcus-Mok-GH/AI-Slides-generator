@@ -181,6 +181,23 @@
 }
 .signin-switch button:hover { text-decoration: underline; }
 
+.signin-forgot {
+  margin: -4px 0 0;
+  text-align: center;
+  font-size: 13px;
+  opacity: 0.8;
+}
+.signin-forgot button {
+  background: none;
+  border: 0;
+  color: #7c5cff;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+}
+.signin-forgot button:hover { text-decoration: underline; }
+
 @media (prefers-color-scheme: dark) {
   .signin-modal {
     background: #161826;

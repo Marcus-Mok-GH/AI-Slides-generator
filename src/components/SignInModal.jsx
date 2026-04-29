@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
+import { resetPasswordEmail } from '../lib/api.js'
 import './SignInModal.css'
 
 /**
@@ -9,7 +10,7 @@ import './SignInModal.css'
  * `onAuthStateChange` listener picks it up and the modal closes.
  */
 export default function SignInModal({ open, onClose }) {
-  const [mode, setMode] = useState('signin') // 'signin' | 'signup'
+  const [mode, setMode] = useState('signin') // 'signin' | 'signup' | 'forgot'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -52,6 +53,13 @@ export default function SignInModal({ open, onClose }) {
         })
         if (error) throw error
         onClose?.()
+      } else if (mode === 'forgot') {
+        if (!email.trim()) {
+          setError('Please enter your email address.')
+          return
+        }
+        await resetPasswordEmail(email.trim())
+        setInfo('Check your email for a password reset link.')
       } else {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
@@ -116,12 +124,18 @@ export default function SignInModal({ open, onClose }) {
         </button>
 
         <h2 id="signin-title" className="signin-title">
-          {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+          {mode === 'signin'
+            ? 'Welcome back'
+            : mode === 'forgot'
+              ? 'Reset your password'
+              : 'Create your account'}
         </h2>
         <p className="signin-sub">
           {mode === 'signin'
             ? 'Sign in to keep building decks.'
-            : 'Sign up to save your decks and pick up where you left off.'}
+            : mode === 'forgot'
+              ? "Enter your email and we'll send you a reset link."
+              : 'Sign up to save your decks and pick up where you left off.'}
         </p>
 
         <form className="signin-form" onSubmit={handleSubmit}>
@@ -136,20 +150,22 @@ export default function SignInModal({ open, onClose }) {
               required
             />
           </label>
-          <label className="signin-label">
-            Password
-            <input
-              type="password"
-              autoComplete={
-                mode === 'signin' ? 'current-password' : 'new-password'
-              }
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={busy}
-              minLength={6}
-              required
-            />
-          </label>
+          {mode !== 'forgot' && (
+            <label className="signin-label">
+              Password
+              <input
+                type="password"
+                autoComplete={
+                  mode === 'signin' ? 'current-password' : 'new-password'
+                }
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={busy}
+                minLength={6}
+                required
+              />
+            </label>
+          )}
 
           {error && <div className="signin-error">{error}</div>}
           {info && <div className="signin-info">{info}</div>}
@@ -163,20 +179,42 @@ export default function SignInModal({ open, onClose }) {
               ? 'Please wait…'
               : mode === 'signin'
                 ? 'Sign in'
-                : 'Create account'}
+                : mode === 'forgot'
+                  ? 'Send reset link'
+                  : 'Create account'}
           </button>
+
+          {mode === 'signin' && (
+            <p className="signin-forgot">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('forgot')
+                  setError(null)
+                  setInfo(null)
+                  setPassword('')
+                }}
+              >
+                Forgot password?
+              </button>
+            </p>
+          )}
         </form>
 
-        <div className="signin-divider">or</div>
+        {mode !== 'forgot' && (
+          <>
+            <div className="signin-divider">or</div>
 
-        <button
-          type="button"
-          className="signin-oauth"
-          onClick={handleGoogle}
-          disabled={busy}
-        >
-          Continue with Google
-        </button>
+            <button
+              type="button"
+              className="signin-oauth"
+              onClick={handleGoogle}
+              disabled={busy}
+            >
+              Continue with Google
+            </button>
+          </>
+        )}
 
         <p className="signin-switch">
           {mode === 'signin' ? (
@@ -195,7 +233,7 @@ export default function SignInModal({ open, onClose }) {
             </>
           ) : (
             <>
-              Already have an account?{' '}
+              {mode === 'forgot' ? 'Remember your password? ' : 'Already have an account? '}
               <button
                 type="button"
                 onClick={() => {
@@ -204,7 +242,7 @@ export default function SignInModal({ open, onClose }) {
                   setInfo(null)
                 }}
               >
-                Sign in
+                {mode === 'forgot' ? 'Sign in' : 'Sign in'}
               </button>
             </>
           )}
