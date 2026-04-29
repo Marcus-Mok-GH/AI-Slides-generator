@@ -576,6 +576,15 @@
   transform: none !important;
 }
 
+/* Export button — show full label on wide screens, icon only on narrow */
+.vbar-export-icon {
+  display: none;
+  font-style: normal;
+}
+.vbar-export-full {
+  display: inline;
+}
+
 .viewer-body {
   display: grid;
   grid-template-columns: 200px 1fr;
@@ -1636,6 +1645,13 @@
   }
   .vbar-only-wide {
     display: none;
+  }
+  .vbar-export-full {
+    display: none;
+  }
+  .vbar-export-icon {
+    display: inline;
+    font-size: 16px;
   }
   .vbar-edit-full {
     display: none;

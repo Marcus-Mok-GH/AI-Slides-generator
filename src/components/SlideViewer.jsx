@@ -864,7 +864,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
           <div className="export-menu-wrap" ref={exportMenuRef}>
             <button
               type="button"
-              className="vbar-btn vbar-only-wide"
+              className="vbar-btn"
               disabled={isStreaming || !!exportBusy}
               onClick={() => setExportOpen((v) => !v)}
               title={isStreaming ? 'Available when generation completes' : 'Download deck'}
@@ -872,10 +872,10 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
               aria-expanded={exportOpen}
             >
               {exportBusy === 'pdf'
-                ? 'Building PDF…'
+                ? <><span className="vbar-export-full">Building PDF…</span><span className="vbar-export-icon" aria-hidden>⏳</span></>
                 : exportBusy === 'pptx'
-                  ? 'Building PPTX…'
-                  : 'Export ▾'}
+                  ? <><span className="vbar-export-full">Building PPTX…</span><span className="vbar-export-icon" aria-hidden>⏳</span></>
+                  : <><span className="vbar-export-full">Export ▾</span><span className="vbar-export-icon" aria-hidden>↓</span></>}
             </button>
             {exportOpen && !isStreaming && !exportBusy && (
               <div className="export-menu" role="menu">
