@@ -370,7 +370,7 @@ function ContentSlide({ slide }) {
   )
 }
 
-function Slide({ slide, theme, index, total }) {
+function Slide({ slide, theme, index, total, deckTitle }) {
   const isHero = slide.layout === 'title' || index === 0
   const isSection = slide.layout === 'section'
   const isStatement = slide.layout === 'statement'
@@ -385,16 +385,21 @@ function Slide({ slide, theme, index, total }) {
   // not still being streamed). Falls back to the structured-layout renderer
   // if html is missing — that path also runs while the slide is partial so
   // the user sees text growing in instead of an empty frame.
+  // The HtmlSlide iframe paints its own page footer (slide # / total · deck
+  // title) so we don't add a duplicate outer footer here.
   if (slide.html && !slide.partial) {
     return (
       <div
         className={`slide html-slide ${slide.partial ? 'is-typing' : ''}`}
         style={style}
       >
-        <HtmlSlide slide={slide} theme={theme} />
-        <div className="slide-footer">
-          <span>{index + 1} / {total}</span>
-        </div>
+        <HtmlSlide
+          slide={slide}
+          theme={theme}
+          index={index}
+          total={total}
+          deckTitle={deckTitle}
+        />
       </div>
     )
   }
@@ -414,6 +419,13 @@ function Slide({ slide, theme, index, total }) {
       body = <BulletsSlide slide={slide} />
       break
     case 'steps':
+    // Process flows render the same as steps in the streaming preview.
+    // Once the final HTML arrives, HtmlSlide paints the richer Gamma look.
+    // eslint-disable-next-line no-fallthrough
+    case 'process-flow':
+      body = <StepsSlide slide={slide} />
+      break
+    case 'timeline':
       body = <StepsSlide slide={slide} />
       break
     case 'comparison':
@@ -427,6 +439,13 @@ function Slide({ slide, theme, index, total }) {
       break
     case 'two-column':
       body = <TwoColumnSlide slide={slide} />
+      break
+    case 'feature-cards':
+      // Streaming preview falls back to bullets; final HTML paints the cards.
+      body = <BulletsSlide slide={slide} />
+      break
+    case 'callout':
+      body = <StatementSlide slide={slide} />
       break
     case 'content':
       body = <ContentSlide slide={slide} />
@@ -598,7 +617,7 @@ function ThinkingPanel({ theme, expectedCount, slidesSoFar, prompt, deckTitle, t
    Presentation (full-screen) mode
    ============================================================ */
 
-function PresentMode({ slides, theme, active, total, onNext, onPrev, onExit }) {
+function PresentMode({ slides, theme, active, total, deckTitle, onNext, onPrev, onExit }) {
   const containerRef = useRef(null)
   const [notesOpen, setNotesOpen] = useState(false)
   const [dir, setDir] = useState(0) // -1 left, 0 none, 1 right (for animation)
@@ -657,7 +676,13 @@ function PresentMode({ slides, theme, active, total, onNext, onPrev, onExit }) {
             key={active}
             className={`present-slide-wrap present-slide-enter present-slide-enter-${dir === 1 ? 'right' : dir === -1 ? 'left' : 'none'}`}
           >
-            <HtmlSlide slide={slide} theme={theme} />
+            <HtmlSlide
+              slide={slide}
+              theme={theme}
+              index={active}
+              total={total}
+              deckTitle={deckTitle}
+            />
           </div>
         ) : null}
 
@@ -1146,6 +1171,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
                 theme={deck.theme}
                 index={active}
                 total={Math.max(slideCount, expectedCount)}
+                deckTitle={deck.title}
               />
             </div>
           )}
@@ -1236,6 +1262,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
           theme={deck.theme}
           active={active}
           total={slideCount}
+          deckTitle={deck.title}
           onNext={() => setActive(i => Math.min(i + 1, slideCount - 1))}
           onPrev={() => setActive(i => Math.max(i - 1, 0))}
           onExit={() => setPresenting(false)}

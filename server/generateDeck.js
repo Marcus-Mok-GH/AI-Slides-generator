@@ -17,16 +17,20 @@ const SLIDE_MODEL = process.env.LLM7_SLIDE_MODEL || 'GLM-4.6V-Flash'
  * Tome, Beautiful.ai, Duarte/Reynolds).
  */
 const LAYOUTS = [
-  'title',       // Hero / cover
-  'section',     // Section divider — huge label, no body
-  'statement',   // One big sentence — the central insight
-  'bullets',     // 3-5 punchy bullets with icons
-  'steps',       // Numbered process flow (3-5 steps)
-  'comparison',  // Side-by-side A / B
-  'stats',       // 3-4 KPI cards
-  'quote',       // Pull quote
-  'two-column',  // Prose + bullets
-  'content',     // Title + short subhead (use sparingly)
+  'title',         // Hero / cover
+  'section',       // Section divider — huge label, no body
+  'statement',     // One big sentence — the central insight
+  'bullets',       // 3-5 punchy bullets with icons
+  'steps',         // Numbered process flow (3-5 steps)
+  'comparison',    // Side-by-side A / B
+  'stats',         // 3-4 KPI cards
+  'quote',         // Pull quote
+  'two-column',    // Prose + bullets
+  'content',       // Title + short subhead (use sparingly)
+  'feature-cards', // 3-4 feature cards each with icon + title + description
+  'process-flow',  // Connected process nodes left-to-right
+  'timeline',      // Vertical event timeline (year/phase + event)
+  'callout',       // Big insight callout + supporting body
 ]
 
 const FORMAT_DESCRIPTIONS = {
@@ -143,6 +147,9 @@ Return ONLY valid JSON (no prose, no code fences). Match this exact schema:
       },
       "stats":     [{"label":"Context label","value":"e.g. 92% or $1.2B or 4.4 km/s"}],
       "quote":     {"text":"The full quote — meaningful, not truncated","attribution":"Name, role"},
+      "cards":     [{"icon":"rocket","title":"Card title","description":"Concrete supporting sentence — what it is and why it matters."}],
+      "timeline":  [{"when":"2024","title":"Event title","detail":"What happened and the impact in one sentence"}],
+      "callout":   {"label":"INSIGHT","text":"The bold claim of this slide stated in one sentence."},
       "charts":    [{"type":"bar | line | pie","title":"Chart title","data":[{"label":"label","value": 42}]}],
       "sectionLabel":"Section eyebrow label",
       "imagePrompt":"1-sentence editorial photo description for this slide — concrete, evocative, NO text/logos/words in image. Used as bg for hero/section/statement and side panel for bullets/stats/quote/content.",
@@ -170,11 +177,19 @@ DESIGN LAW — follow strictly:
 3. LAYOUT DIVERSITY (mandatory):
    - First slide MUST be "title".
    - Last slide MUST be "statement" (a closing call-to-action) OR "quote".
-   - Use AT LEAST 4 different non-title layouts across the deck.
+   - Use AT LEAST 5 different non-title layouts across the deck.
    - Never repeat the same layout in 3 consecutive slides.
+   - DEFAULT TO RICH, GAMMA-STYLE LAYOUTS — they make the deck feel built,
+     not generated. In every deck of 6+ slides, include at least:
+       • 1 "feature-cards" slide (3-4 capability/value cards with icons)
+       • 1 "process-flow" or "timeline" slide (when describing how something
+         happens or evolves over time)
+       • 1 "callout" slide (a sharp insight + supporting paragraph)
+       • 1 "stats" slide
    - Prefer "statement" for headline insights — make at least 1 if the deck has
-     5+ slides. Prefer "steps" for processes, "comparison" for contrasts,
-     "stats" for numbers, "quote" for evidence/voice.
+     5+ slides. Prefer "process-flow" for sequential processes, "timeline" for
+     historical/roadmap data, "comparison" for contrasts, "stats" for numbers,
+     "quote" for evidence/voice, "feature-cards" for capabilities/benefits.
    - For decks with 8+ slides, insert at least 1 "section" divider to chapter
      the deck. The section divider has only "title" + "sectionLabel" — no body.
    - Use "two-column" sparingly (max once); never use "content" more than once.
@@ -190,6 +205,17 @@ DESIGN LAW — follow strictly:
    - quote         → title, quote.text (the full meaningful quote) + attribution (real-sounding name, role)
    - two-column    → title, body (framing sentence), bullets with 4-6 items
    - content       → title, body (a full substantive paragraph for the slide)
+   - feature-cards → title, body (one-sentence intro), cards with 3-4 entries
+                     (each entry: icon name from the icon library, short title,
+                     1-sentence description). DO NOT use "bullets" here.
+   - process-flow  → title, body (one-sentence intro), steps with 3-5 entries
+                     (each step.label = action; step.detail = one-sentence why).
+   - timeline      → title, body (one-sentence intro), timeline with 4-6 entries
+                     (each: when = year/quarter/phase, title, detail).
+   - callout       → title (the headline of the slide), callout.label (short
+                     eyebrow like "INSIGHT"), callout.text (one bold sentence —
+                     the punchline), body (a 2-3 sentence paragraph that
+                     supports and unpacks the callout).
 
    EVERY slide MUST include speakerNotes. EVERY slide MUST include rich,
    non-empty html and css (see section 9). NEVER ship a slide where bullets,
@@ -228,10 +254,44 @@ ${themeBlock}
 9. HTML / CSS — DESIGN A REAL SLIDE, NOT A WIREFRAME:
 
    The renderer gives you a 1280×720 sandboxed iframe with these CSS variables
-   already defined: --bg (deep background), --primary, --accent, --fg (#fff),
-   --muted (rgba white 65%). Default styles already cover h1/h2/h3/p/ul/li/
-   blockquote at presentation sizes. Build ON TOP of those — don't reinvent
-   them with smaller numbers.
+   already defined: --bg, --primary, --accent, --fg (#fff), --muted (rgba white
+   65%), --soft (rgba white 8%), --softer (rgba white 4%), --hairline (rgba
+   white 12%). Default styles already cover h1/h2/h3/p/ul/li/blockquote at
+   presentation sizes. Build ON TOP of those — don't reinvent them.
+
+   The renderer ALSO ships a full Gamma-style component library you should
+   prefer over inventing new classes. Use these utility classes liberally:
+
+     .eyebrow         — uppercase letter-spaced label with a leading bar
+                         (use above headlines)
+     .pill / .pill.accent — small rounded tag
+     .accent-bar      — 4px gradient vertical bar (drop next to a heading)
+     .number-badge / .number-badge.sm — huge gradient "01" style number
+     .card            — glass card (background + border + radius + blur)
+     .card.featured   — primary/accent gradient-filled hero card
+     .card .card-icon — icon container (44px rounded square)
+     .card-grid / .card-grid.cols-2 / .cols-3 / .cols-4 — auto/fixed grid
+     .callout         — accent-bordered insight block, with .callout-label
+     .divider / .divider.with-label — horizontal rule, optionally labelled
+     .dot-grid        — subtle dotted background texture (apply to a wrapper)
+     .stat            — vertical block of .stat-value (gradient) + .stat-label
+     .process / .process .node — connected horizontal process row with arrows
+                                  (use .node-num as eyebrow inside each .node)
+     .timeline / .timeline .event — vertical timeline; each .event has
+                                     .when (left col) and .what (right col)
+     .gradient-text   — apply to a span/h1 inside a headline for accent text
+
+   ICON LIBRARY — drop a vector icon anywhere with:
+     <svg class="icon"><use href="#i-NAME"/></svg>
+   Available icons: check, arrow-right, arrow-up, arrow-down, plus, minus, x,
+   star, heart, rocket, bolt, spark, target, flag, bulb, shield, lock, gear,
+   clock, calendar, users, user, chart, trend, dollar, globe, cloud, code,
+   layers, document, mail, pin, eye, search, quote.
+   Use icons in .card.card-icon, next to bullet items, next to comparison
+   labels, in callouts. Add .lg or .xl to .icon for larger sizes.
+
+   PAGE FOOTER — the renderer paints a slide-number / total · deck-title
+   footer automatically. Do NOT add your own footer or page numbers.
 
    STRUCTURE RULES:
    - "html" MUST start with <div class="slide"> ... </div>. ONE root only.
@@ -355,6 +415,79 @@ ${themeBlock}
        <p class="body">{body}</p>
      </div>
 
+   • feature-cards:
+     <div class="slide feature-cards-slide">
+       <header><span class="eyebrow">{tag e.g. CAPABILITIES}</span>
+         <h2>{slide title}</h2>
+         <p class="lede">{body — one-sentence intro}</p></header>
+       <div class="card-grid cols-3">
+         <article class="card">
+           <span class="card-icon"><svg class="icon lg"><use href="#i-rocket"/></svg></span>
+           <h3>{cards[0].title}</h3>
+           <p>{cards[0].description}</p>
+         </article>
+         <article class="card">
+           <span class="card-icon"><svg class="icon lg"><use href="#i-shield"/></svg></span>
+           <h3>{cards[1].title}</h3>
+           <p>{cards[1].description}</p>
+         </article>
+         <article class="card">
+           <span class="card-icon"><svg class="icon lg"><use href="#i-bolt"/></svg></span>
+           <h3>{cards[2].title}</h3>
+           <p>{cards[2].description}</p>
+         </article>
+       </div>
+     </div>
+
+   • process-flow:
+     <div class="slide process-flow-slide">
+       <header><span class="eyebrow">PROCESS</span>
+         <h2>{slide title}</h2>
+         <p class="lede">{body}</p></header>
+       <div class="process">
+         <div class="node">
+           <span class="node-num">01</span>
+           <h3>{steps[0].label}</h3>
+           <p>{steps[0].detail}</p>
+         </div>
+         <div class="node">
+           <span class="node-num">02</span>
+           <h3>{steps[1].label}</h3>
+           <p>{steps[1].detail}</p>
+         </div>
+         <div class="node">
+           <span class="node-num">03</span>
+           <h3>{steps[2].label}</h3>
+           <p>{steps[2].detail}</p>
+         </div>
+       </div>
+     </div>
+
+   • timeline:
+     <div class="slide timeline-slide">
+       <header><span class="eyebrow">TIMELINE</span>
+         <h2>{slide title}</h2></header>
+       <div class="timeline">
+         <div class="event">
+           <span class="when">{timeline[0].when}</span>
+           <div class="what"><h3>{timeline[0].title}</h3>
+             <p>{timeline[0].detail}</p></div>
+         </div>
+         …
+       </div>
+     </div>
+
+   • callout:
+     <div class="slide callout-slide">
+       <span class="eyebrow">{callout.label}</span>
+       <h2>{slide title}</h2>
+       <div class="callout">
+         <span class="callout-label">{callout.label}</span>
+         {callout.text}
+       </div>
+       <p class="lede">{body — supporting paragraph}</p>
+     </div>
+
    CSS REQUIREMENTS — every slide ships at least 25 lines of slide-scoped CSS
    that styles its own layout. Always include rules for:
      - the root .slide variant (e.g. .slide.title-slide { ... }) with grid/flex,
@@ -387,6 +520,9 @@ Return ONLY valid JSON (no prose, no code fences) for ONE slide, matching:
   "comparison":{"leftLabel":"...","leftItems":["descriptive item","..."],"rightLabel":"...","rightItems":["descriptive item","..."]},
   "stats":     [{"label":"Context label","value":"real number e.g. 92% or $1.2B"}],
   "quote":     {"text":"The full meaningful quote — do not truncate","attribution":"Name, Role"},
+  "cards":     [{"icon":"icon name","title":"Card title","description":"One-sentence concrete value statement"}],
+  "timeline":  [{"when":"2024","title":"Event title","detail":"What happened in one sentence"}],
+  "callout":   {"label":"INSIGHT","text":"The bold one-sentence punchline"},
   "charts":    [{"type":"bar | line | pie","title":"Chart title","data":[{"label":"label","value": 42}]}],
   "sectionLabel":"Brief eyebrow label",
   "imagePrompt":"1-sentence editorial photo description (no text in image)",
@@ -399,16 +535,21 @@ Rules:
 - Use the layout "${layout}" exactly. Fill EVERY field that layout requires —
   no empty arrays, no placeholder values like "TBD". Write generously.
 - Layout → required fields (must all be populated with real, substantive content):
-    title       → title, body (a full sentence acting as subtitle — set the stakes)
-    section     → title, sectionLabel (brief eyebrow)
-    statement   → title (bold headline claim), body (a full elaborating sentence)
-    bullets     → title, bullets with 4-6 items, all distinct and complete sentences
-    steps       → title, steps with 4-6 entries (every entry has BOTH label and full detail)
-    comparison  → title, comparison{leftLabel, leftItems[3-4], rightLabel, rightItems[3-4]}
-    stats       → title, stats with 3-4 entries (each value is a real number/figure)
-    quote       → title, quote{full text, attribution with name + role}
-    two-column  → title, body (framing sentence), bullets with 4-6 items
-    content     → title, body (a full substantive paragraph)
+    title         → title, body (a full sentence acting as subtitle — set the stakes)
+    section       → title, sectionLabel (brief eyebrow)
+    statement     → title (bold headline claim), body (a full elaborating sentence)
+    bullets       → title, bullets with 4-6 items, all distinct and complete sentences
+    steps         → title, steps with 4-6 entries (every entry has BOTH label and full detail)
+    comparison    → title, comparison{leftLabel, leftItems[3-4], rightLabel, rightItems[3-4]}
+    stats         → title, stats with 3-4 entries (each value is a real number/figure)
+    quote         → title, quote{full text, attribution with name + role}
+    two-column    → title, body (framing sentence), bullets with 4-6 items
+    content       → title, body (a full substantive paragraph)
+    feature-cards → title, body (one-sentence intro), cards with 3-4 entries
+                    (icon name + short title + 1-sentence description each)
+    process-flow  → title, body, steps with 3-5 entries
+    timeline      → title, body, timeline with 4-6 entries (when/title/detail)
+    callout       → title, callout{label, text}, body (2-3 sentence supporting paragraph)
 - Active voice. Concrete nouns. No filler.
 - Tone: ${tone}.
 - Output language: ${language}.
@@ -416,9 +557,23 @@ Rules:
 - Always include "imagePrompt" UNLESS layout is "steps" or "comparison".
 
 HTML / CSS — DESIGN A REAL SLIDE, NOT A WIREFRAME (1280×720 sandbox):
-- Use the host CSS vars: --bg, --primary, --accent, --fg (#fff), --muted.
-  Do NOT redefine the global font sizes for h1/h2/h3/p/li — host already
-  provides presentation-scale defaults; you can override per slide variant.
+- Use the host CSS vars: --bg, --primary, --accent, --fg (#fff), --muted,
+  --soft, --softer, --hairline. Do NOT redefine the global font sizes for
+  h1/h2/h3/p/li — host already provides presentation-scale defaults.
+- The renderer ships a Gamma-style component library — prefer these classes
+  over inventing new ones: .eyebrow, .pill, .pill.accent, .accent-bar,
+  .number-badge, .card, .card.featured, .card .card-icon,
+  .card-grid (.cols-2/3/4), .callout (with .callout-label), .divider
+  (with-label), .dot-grid, .stat (.stat-value, .stat-label),
+  .process (.node, .node-num), .timeline (.event, .when, .what),
+  .gradient-text.
+- Icons: drop <svg class="icon"><use href="#i-NAME"/></svg> using any of
+  check, arrow-right, arrow-up, arrow-down, plus, minus, x, star, heart,
+  rocket, bolt, spark, target, flag, bulb, shield, lock, gear, clock,
+  calendar, users, user, chart, trend, dollar, globe, cloud, code, layers,
+  document, mail, pin, eye, search, quote. Add .lg or .xl to the icon class.
+- Page footer (slide # / deck title) is painted by the renderer — do NOT
+  add your own page numbers or footer.
 - "html" starts with <div class="slide ${layout}-slide"> ... </div>. Use
   semantic markup (h1/h2/p/ul/li/blockquote/figure/cite). Forbidden tags:
   <html><head><body><script><link><style><img><iframe>. No external assets.
@@ -540,6 +695,27 @@ function normalizeSlide(s, fallbackIndex = 0) {
         ? {
             text: String(s.quote.text || ''),
             attribution: String(s.quote.attribution || ''),
+          }
+        : null,
+    cards: Array.isArray(s?.cards)
+      ? s.cards.map((c) => ({
+          icon: c?.icon ? String(c.icon) : '',
+          title: String(c?.title || ''),
+          description: String(c?.description || ''),
+        }))
+      : [],
+    timeline: Array.isArray(s?.timeline)
+      ? s.timeline.map((t) => ({
+          when: String(t?.when || ''),
+          title: String(t?.title || ''),
+          detail: String(t?.detail || ''),
+        }))
+      : [],
+    callout:
+      s?.callout && typeof s.callout === 'object'
+        ? {
+            label: String(s.callout.label || ''),
+            text: String(s.callout.text || ''),
           }
         : null,
     sectionLabel: s?.sectionLabel ? String(s.sectionLabel) : '',

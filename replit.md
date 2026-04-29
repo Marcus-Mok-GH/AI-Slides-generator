@@ -56,10 +56,20 @@ vite.config.js          ← Dev proxy to Express on :3001
 - `/api/generate-deck/stream` returns Server-Sent Events. UI opens the Slide Viewer with a streaming stub and renders `meta`, `partial`, `slide`, `slide-image-pending`, `slide-image`, and `done` events as they arrive. On Vercel, `maxDuration: 60` (configurable in `vercel.json`).
 
 ### Editor & Slides
-- 10 layouts (title, section, statement, bullets, steps, comparison, stats, quote, two-column, content) enforced by "real slide" rules (one idea per slide, word caps, layout diversity).
-- `HtmlSlide.jsx` renders AI HTML/CSS in a sandboxed iframe.
+- 14 layouts (title, section, statement, bullets, steps, comparison, stats, quote, two-column, content, **feature-cards, process-flow, timeline, callout**) enforced by "real slide" rules (one idea per slide, word caps, layout diversity, mandatory Gamma-style cards/process/callout coverage in 6+ slide decks).
+- `HtmlSlide.jsx` renders AI HTML/CSS in a sandboxed iframe and ships a built-in **Gamma-style component library**:
+  - Utility classes: `.eyebrow`, `.pill(.accent)`, `.accent-bar`, `.number-badge`, `.card(.featured)`, `.card-grid(.cols-2/3/4)`, `.callout`, `.divider(.with-label)`, `.dot-grid`, `.stat`, `.process`/`.node`, `.timeline`/`.event`, `.gradient-text`.
+  - Inline icon sprite (~35 line icons): use as `<svg class="icon"><use href="#i-NAME"/></svg>` (rocket, shield, bolt, target, bulb, chart, trend, users, clock, etc.).
+  - Auto-injected page footer (slide # / total · deck title) and ambient gradient blobs that pick up the deck theme.
+- New per-slide schema fields: `cards: [{icon,title,description}]`, `timeline: [{when,title,detail}]`, `callout: {label,text}`.
 - `lib/charts.js` is a dependency-free SVG chart renderer.
 - Right-side `SlideEditor` allows layout changes, inline edits, and AI regeneration. Autosave debounces to Postgres.
+
+### Exports
+- **PDF** — `exportDeckToPdf` rasterizes each slide via `html2canvas` against the same `HtmlSlide` document and stitches them into a 16:9 `jsPDF`.
+- **PPTX** — `exportDeckToPptx` ships the rasterized slide as a full-bleed image per slide (opens cleanly in PowerPoint and Google Slides) and attaches the speaker notes as PPTX notes.
+- **JSON** — raw deck data for archival.
+- All exports flow through `buildSlideDocument(slide, theme, {index, total, deckTitle})` so the page footer is preserved in downloads.
 
 ### Two-Step Creation Flow
 - `/` Landing page (logged-out) with hero CTA → opens sign-in modal.

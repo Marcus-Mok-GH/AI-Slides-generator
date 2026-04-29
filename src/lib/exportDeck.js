@@ -18,7 +18,7 @@ const SLIDE_H = 720
  * Render one slide into a 1280x720 PNG data URL by mounting it in an
  * off-screen iframe and snapshotting the body with html2canvas.
  */
-async function renderSlideToPng(slide, theme) {
+async function renderSlideToPng(slide, theme, footerOpts = {}) {
   const html2canvas = (await import('html2canvas')).default
 
   const host = document.createElement('div')
@@ -42,7 +42,7 @@ async function renderSlideToPng(slide, theme) {
   document.body.appendChild(host)
 
   try {
-    iframe.srcdoc = buildSlideDocument(slide, theme)
+    iframe.srcdoc = buildSlideDocument(slide, theme, footerOpts)
     await new Promise((resolve) => {
       const onLoad = () => resolve()
       iframe.addEventListener('load', onLoad, { once: true })
@@ -84,7 +84,11 @@ export async function exportDeckToPdf(deck, { onProgress } = {}) {
   const slides = deck.slides || []
   for (let i = 0; i < slides.length; i++) {
     onProgress?.({ index: i, total: slides.length, phase: 'render' })
-    const png = await renderSlideToPng(slides[i], deck.theme)
+    const png = await renderSlideToPng(slides[i], deck.theme, {
+      index: i,
+      total: slides.length,
+      deckTitle: deck.title,
+    })
     if (i > 0) pdf.addPage([SLIDE_W, SLIDE_H], 'landscape')
     pdf.addImage(png, 'PNG', 0, 0, SLIDE_W, SLIDE_H, undefined, 'FAST')
   }
@@ -102,7 +106,11 @@ export async function exportDeckToPptx(deck, { onProgress } = {}) {
   const slides = deck.slides || []
   for (let i = 0; i < slides.length; i++) {
     onProgress?.({ index: i, total: slides.length, phase: 'render' })
-    const png = await renderSlideToPng(slides[i], deck.theme)
+    const png = await renderSlideToPng(slides[i], deck.theme, {
+      index: i,
+      total: slides.length,
+      deckTitle: deck.title,
+    })
     const slide = pptx.addSlide()
     slide.background = { color: hexBare(deck.theme?.background || '#0f0f1a') }
     slide.addImage({
