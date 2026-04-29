@@ -1,12 +1,22 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase.js'
 import './SignInModal.css'
 
 /**
- * Sign-in modal for WorkOS AuthKit. The hosted sign-in / sign-up UI lives
- * on WorkOS, so this modal is just a launchpad: clicking the button does
- * a top-level navigation to /api/auth/login, which 302's to WorkOS.
+ * Sign-in / sign-up modal backed by Supabase Auth. Supports email +
+ * password flows plus Google OAuth. The Supabase client manages the
+ * session in localStorage; once a user signs in, `useAuth`'s
+ * `onAuthStateChange` listener picks it up and the modal closes.
  */
 export default function SignInModal({ open, onClose }) {
+  const [mode, setMode] = useState('signin') // 'signin' | 'signup'
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const [info, setInfo] = useState(null)
+
+  // Close on Escape.
   useEffect(() => {
     function onKey(e) {
       if (e.key === 'Escape') onClose?.()
@@ -15,16 +25,74 @@ export default function SignInModal({ open, onClose }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
+  // Reset form whenever the modal is reopened.
+  useEffect(() => {
+    if (!open) return
+    setError(null)
+    setInfo(null)
+    setBusy(false)
+  }, [open])
+
   if (!open) return null
 
-  function handleContinue() {
-    const here =
-      typeof window !== 'undefined'
-        ? window.location.pathname + window.location.search
-        : '/'
-    window.location.assign(
-      `/api/auth/login?returnTo=${encodeURIComponent(here)}`,
-    )
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError(null)
+    setInfo(null)
+    if (!email.trim() || !password) {
+      setError('Email and password are required.')
+      return
+    }
+    setBusy(true)
+    try {
+      if (mode === 'signin') {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        })
+        if (error) throw error
+        onClose?.()
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+        })
+        if (error) throw error
+        if (data?.session) {
+          // Email confirmations disabled — user is signed in immediately.
+          onClose?.()
+        } else {
+          setInfo(
+            'Check your email for a confirmation link to finish creating your account.',
+          )
+        }
+      }
+    } catch (err) {
+      setError(err?.message || 'Something went wrong.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleGoogle() {
+    setError(null)
+    setInfo(null)
+    setBusy(true)
+    try {
+      const redirectTo =
+        typeof window !== 'undefined'
+          ? window.location.origin + window.location.pathname
+          : undefined
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo },
+      })
+      if (error) throw error
+      // Browser navigates away to Google.
+    } catch (err) {
+      setError(err?.message || 'Google sign-in failed.')
+      setBusy(false)
+    }
   }
 
   return (
@@ -48,23 +116,98 @@ export default function SignInModal({ open, onClose }) {
         </button>
 
         <h2 id="signin-title" className="signin-title">
-          Welcome
+          {mode === 'signin' ? 'Welcome back' : 'Create your account'}
         </h2>
         <p className="signin-sub">
-          Sign in to keep building decks. We use WorkOS to handle accounts and
-          single sign-on.
+          {mode === 'signin'
+            ? 'Sign in to keep building decks.'
+            : 'Sign up to save your decks and pick up where you left off.'}
         </p>
+
+        <form className="signin-form" onSubmit={handleSubmit}>
+          <label className="signin-label">
+            Email
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={busy}
+              required
+            />
+          </label>
+          <label className="signin-label">
+            Password
+            <input
+              type="password"
+              autoComplete={
+                mode === 'signin' ? 'current-password' : 'new-password'
+              }
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={busy}
+              minLength={6}
+              required
+            />
+          </label>
+
+          {error && <div className="signin-error">{error}</div>}
+          {info && <div className="signin-info">{info}</div>}
+
+          <button
+            type="submit"
+            className="signin-submit"
+            disabled={busy}
+          >
+            {busy
+              ? 'Please wait…'
+              : mode === 'signin'
+                ? 'Sign in'
+                : 'Create account'}
+          </button>
+        </form>
+
+        <div className="signin-divider">or</div>
 
         <button
           type="button"
-          className="signin-submit"
-          onClick={handleContinue}
+          className="signin-oauth"
+          onClick={handleGoogle}
+          disabled={busy}
         >
-          Continue with WorkOS
+          Continue with Google
         </button>
 
         <p className="signin-switch">
-          New here? You'll be able to create an account on the next screen.
+          {mode === 'signin' ? (
+            <>
+              Don't have an account?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signup')
+                  setError(null)
+                  setInfo(null)
+                }}
+              >
+                Sign up
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signin')
+                  setError(null)
+                  setInfo(null)
+                }}
+              >
+                Sign in
+              </button>
+            </>
+          )}
         </p>
       </div>
     </div>

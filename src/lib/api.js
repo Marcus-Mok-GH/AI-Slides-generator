@@ -1,7 +1,9 @@
+import { getAccessToken, supabase } from './supabase.js'
+
 /**
- * API client. The WorkOS session lives in an HttpOnly cookie set by the
- * server at /api/auth/callback, so every request just needs
- * `credentials: 'include'` — no Authorization header to manage.
+ * API client. The Supabase session lives in localStorage (managed by
+ * supabase-js) and we attach the access token to every request via
+ * `Authorization: Bearer …`.
  */
 
 export class UnauthorizedError extends Error {
@@ -18,13 +20,22 @@ function notifyUnauthorized() {
   }
 }
 
-const FETCH_OPTS = { credentials: 'include' }
+/**
+ * Build the headers for an authenticated request, attaching the current
+ * Supabase access token if there is one.
+ */
+async function authHeaders(extra = {}) {
+  const token = await getAccessToken()
+  const headers = { ...extra }
+  if (token) headers.Authorization = `Bearer ${token}`
+  return headers
+}
 
 async function postJson(url, body) {
+  const headers = await authHeaders({ 'Content-Type': 'application/json' })
   const res = await fetch(url, {
-    ...FETCH_OPTS,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   })
   if (res.status === 401) {
@@ -43,8 +54,9 @@ async function postJson(url, body) {
   return data
 }
 
-function authedGet(url) {
-  return fetch(url, FETCH_OPTS)
+async function authedGet(url) {
+  const headers = await authHeaders()
+  return fetch(url, { headers })
 }
 
 export async function generateDeck(payload) {
@@ -80,10 +92,10 @@ export async function generateSlideImage({ prompt, theme, aspectRatio }) {
 }
 
 export async function streamGenerateDeck(payload, handlers = {}) {
+  const headers = await authHeaders({ 'Content-Type': 'application/json' })
   const res = await fetch('/api/generate-deck/stream', {
-    ...FETCH_OPTS,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(payload),
   })
   if (res.status === 401) {
@@ -170,9 +182,10 @@ export async function saveDeck(deck) {
 }
 
 export async function deleteDeck(id) {
+  const headers = await authHeaders()
   const res = await fetch(`/api/decks/${encodeURIComponent(id)}`, {
-    ...FETCH_OPTS,
     method: 'DELETE',
+    headers,
   })
   if (res.status === 401) {
     notifyUnauthorized()
@@ -183,10 +196,10 @@ export async function deleteDeck(id) {
 }
 
 export async function renameDeck(id, newTitle) {
+  const headers = await authHeaders({ 'Content-Type': 'application/json' })
   const res = await fetch(`/api/decks/${encodeURIComponent(id)}`, {
-    ...FETCH_OPTS,
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ title: newTitle }),
   })
   if (res.status === 401) {
@@ -201,8 +214,12 @@ export async function renameDeck(id, newTitle) {
  * Fetch the currently signed-in user, or `null` if not authenticated.
  */
 export async function fetchCurrentUser() {
+  const token = await getAccessToken()
+  if (!token) return null
   const res = await authedGet('/api/auth/user')
   if (res.status === 401) return null
   if (!res.ok) throw new Error(`Server returned ${res.status}`)
   return await res.json()
 }
+
+export { supabase }
