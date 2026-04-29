@@ -8,11 +8,14 @@ const connectionString =
 
 const isSupabase = /supabase\.(co|com)/i.test(connectionString || '')
 
+// Tight pool sized for serverless (Vercel) — each function instance only
+// needs one or two open connections; otherwise we exhaust Supabase's pooler.
 export const pool = new Pool({
   connectionString,
-  // Supabase requires TLS. The pooler uses a managed cert, so we don't
-  // verify the chain.
   ssl: isSupabase ? { rejectUnauthorized: false } : undefined,
+  max: 2,
+  idleTimeoutMillis: 10_000,
+  connectionTimeoutMillis: 10_000,
 })
 
 pool.on('error', (err) => {
@@ -33,9 +36,10 @@ async function generateId() {
 }
 
 /**
- * Idempotent schema setup. Creates the users + sessions tables required by
- * Replit Auth, and adds the `user_id` column on the existing `decks` table
- * so each deck can be scoped to its owner.
+ * Idempotent schema setup. Creates a `users` profile table mirroring the
+ * Supabase auth user (one row per auth user) and the `decks` table scoped
+ * to that user id. We do NOT create a sessions table — Supabase Auth
+ * manages sessions client-side via JWTs.
  */
 export async function migrate() {
   await pool.query(`
@@ -49,16 +53,6 @@ export async function migrate() {
       updated_at         TIMESTAMP DEFAULT NOW()
     );
   `)
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS sessions (
-      sid    VARCHAR PRIMARY KEY,
-      sess   JSONB   NOT NULL,
-      expire TIMESTAMP NOT NULL
-    );
-  `)
-  await pool.query(
-    `CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON sessions (expire);`,
-  )
   await pool.query(`
     CREATE TABLE IF NOT EXISTS decks (
       id          VARCHAR PRIMARY KEY,
@@ -99,9 +93,6 @@ export async function upsertUser(user) {
 }
 
 /* ---------------- decks ---------------- */
-//
-// All deck queries below require a `userId`. The server is responsible for
-// passing the authenticated user — there is no "global" deck namespace.
 
 export async function listDecks(userId, limit = 24) {
   if (!userId) return []
@@ -162,7 +153,6 @@ export async function saveDeck(deck, userId) {
     ],
   )
   if (rows.length === 0) {
-    // The id exists but belongs to another user — refuse.
     throw new Error('Deck already owned by another user')
   }
   return { id: rows[0].id, updatedAt: rows[0].updated_at }
@@ -205,28 +195,20 @@ export async function migratePromptHistory() {
   )
 }
 
-/**
- * Upserts a prompt for the user: if an identical prompt already exists,
- * bump its used_at so it rises to the top; otherwise insert a fresh row.
- * Keeps only the 20 most-recent rows per user.
- */
 export async function savePromptHistory(userId, prompt, format = null) {
   if (!userId || !prompt?.trim()) return
   const trimmed = prompt.trim()
-  // Bump if exists, else insert
   await pool.query(
     `INSERT INTO prompt_history (user_id, prompt, format, used_at)
      VALUES ($1, $2, $3, NOW())
      ON CONFLICT DO NOTHING`,
     [userId, trimmed, format],
   )
-  // Ensure we just have one canonical row per (user_id, prompt) by updating used_at
   await pool.query(
     `UPDATE prompt_history SET used_at = NOW(), format = $3
      WHERE user_id = $1 AND prompt = $2`,
     [userId, trimmed, format],
   )
-  // Prune: keep only the 20 most recent
   await pool.query(
     `DELETE FROM prompt_history
      WHERE user_id = $1

@@ -19,6 +19,7 @@ import {
 } from './lib/api.js'
 import useTheme from './lib/useTheme.js'
 import useAuth from './hooks/useAuth.js'
+import SignInModal from './components/SignInModal.jsx'
 import './App.css'
 
 const DEFAULT_THEME = {
@@ -56,8 +57,15 @@ function deckIdFromLocation() {
 }
 
 export default function App() {
-  const { user, loading: authLoading, isAuthenticated, signIn, signOut } =
-    useAuth()
+  const {
+    user,
+    loading: authLoading,
+    isAuthenticated,
+    signIn,
+    signOut,
+    signInOpen,
+    closeSignIn,
+  } = useAuth()
   const [deck, setDeck] = useState(null)
   const [status, setStatus] = useState('idle') // idle | streaming | error
   const [error, setError] = useState('')
@@ -508,7 +516,12 @@ export default function App() {
     )
   }
   if (!isAuthenticated) {
-    return <Landing onSignIn={signIn} />
+    return (
+      <>
+        <Landing onSignIn={signIn} />
+        <SignInModal open={signInOpen} onClose={closeSignIn} />
+      </>
+    )
   }
 
   if (deck) {

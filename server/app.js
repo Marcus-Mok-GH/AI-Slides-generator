@@ -9,10 +9,8 @@ import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
 const app = express()
 app.use(express.json({ limit: '20mb' }))
 
-const PORT = process.env.SERVER_PORT || 3001
-
-// Run schema migrations and wire authentication BEFORE any route registration
-// so the session middleware sees every request.
+// Run schema migrations and wire auth BEFORE any route registration. On
+// Vercel this runs once per cold-start; locally it runs once at boot.
 await migrate()
 await migratePromptHistory()
 await setupAuth(app)
@@ -505,6 +503,4 @@ app.post('/api/redesign-slide', isAuthenticated, async (req, res) => {
   }
 })
 
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`[server] listening on http://127.0.0.1:${PORT}`)
-})
+export default app
