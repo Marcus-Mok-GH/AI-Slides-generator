@@ -117,7 +117,8 @@ export async function streamGenerateDeck(payload, handlers = {}) {
       } catch {
         continue
       }
-      if (event === 'meta') handlers.onMeta?.(parsed)
+      if (event === 'thinking') handlers.onThinking?.(parsed)
+      else if (event === 'meta') handlers.onMeta?.(parsed)
       else if (event === 'partial') handlers.onPartial?.(parsed)
       else if (event === 'slide') handlers.onSlide?.(parsed)
       else if (event === 'slide-image-pending')

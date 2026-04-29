@@ -41,7 +41,9 @@ function parseLength(length) {
  */
 function deckIdFromLocation() {
   if (typeof window === 'undefined') return null
-  const pathMatch = window.location.pathname.match(/^\/slide\/([^/?#]+)$/)
+  const pathMatch = window.location.pathname.match(
+    /^\/(?:app\/)?slide\/([^/?#]+)$/,
+  )
   if (pathMatch) {
     try {
       return decodeURIComponent(pathMatch[1])
@@ -121,6 +123,21 @@ export default function App() {
     }
   }, [isAuthenticated])
 
+  // Keep the authenticated app mounted at /app while preserving deep links.
+  useEffect(() => {
+    if (authLoading) return
+    if (isAuthenticated) {
+      if (window.location.pathname === '/') {
+        window.history.replaceState({}, '', '/app')
+      }
+      return
+    }
+    // Logged-out visitors should stay on the public landing page.
+    if (window.location.pathname === '/app') {
+      window.history.replaceState({}, '', '/')
+    }
+  }, [authLoading, isAuthenticated])
+
   // If the visitor typed a prompt on the public landing page, kick off
   // generation for them as soon as they're signed in.
   const pendingHandled = useRef(false)
@@ -156,8 +173,9 @@ export default function App() {
   }, [isAuthenticated])
 
   // ---------- URL routing ----------
-  // Each deck lives at /slide/{id}. Loading that URL directly opens the deck;
-  // closing the deck returns the URL to "/". Browser back/forward also work.
+  // Each deck lives at /app/slide/{id}. Loading that URL directly opens the
+  // deck; closing the deck returns the URL to "/app". Browser back/forward
+  // also work.
 
   // Honor the URL on first paint and whenever the user hits back/forward.
   // Skip while auth is still loading or the user is signed out — otherwise
@@ -187,18 +205,21 @@ export default function App() {
         if (cancelled) return
         if (loaded) {
           setDeck(loaded)
-          // Normalize legacy `?deck=` URLs to the canonical path.
-          if (window.location.pathname !== `/slide/${encodeURIComponent(id)}`) {
+          // Normalize legacy `?deck=` and old `/slide/:id` URLs.
+          if (
+            window.location.pathname !==
+            `/app/slide/${encodeURIComponent(id)}`
+          ) {
             window.history.replaceState(
               { deckId: id },
               '',
-              `/slide/${encodeURIComponent(id)}`,
+              `/app/slide/${encodeURIComponent(id)}`,
             )
           }
         } else {
           // ID in URL but no such deck — clear the path so the user lands on
           // the create page instead of a phantom "loading" state.
-          window.history.replaceState({}, '', '/')
+          window.history.replaceState({}, '', '/app')
         }
       } catch (e) {
         console.warn('Failed to load deck from URL:', e)
@@ -226,7 +247,9 @@ export default function App() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (routeLoading) return
-    const targetPath = deck?.id ? `/slide/${encodeURIComponent(deck.id)}` : '/'
+    const targetPath = deck?.id
+      ? `/app/slide/${encodeURIComponent(deck.id)}`
+      : '/app'
     if (window.location.pathname === targetPath) return
     window.history.pushState({ deckId: deck?.id || null }, '', targetPath)
   }, [deck?.id, routeLoading])
@@ -294,6 +317,12 @@ export default function App() {
 
     try {
       await streamGenerateDeck({ ...payload, deckId: newDeckId }, {
+        onThinking: ({ text }) => {
+          setDeck((prev) => {
+            if (!prev) return prev
+            return { ...prev, thinkingText: (prev.thinkingText || '') + text }
+          })
+        },
         onMeta: ({ title, subtitle, theme }) => {
           setDeck((prev) => {
             if (!prev) return prev

@@ -468,7 +468,16 @@ function Slide({ slide, theme, index, total }) {
   )
 }
 
-function ThinkingPanel({ theme, expectedCount, slidesSoFar, prompt, deckTitle }) {
+function ThinkingPanel({ theme, expectedCount, slidesSoFar, prompt, deckTitle, thinkingText }) {
+  const streamRef = useRef(null)
+
+  // Auto-scroll the reasoning stream to the bottom as new tokens arrive
+  useEffect(() => {
+    if (streamRef.current) {
+      streamRef.current.scrollTop = streamRef.current.scrollHeight
+    }
+  }, [thinkingText])
+
   // Soft tinted glow that picks up the deck's theme without imitating a slide.
   const style = {
     '--think-primary': theme?.primary || '#7c5cff',
@@ -566,6 +575,18 @@ function ThinkingPanel({ theme, expectedCount, slidesSoFar, prompt, deckTitle })
           <div className="thinking-deck-title" title={deckTitle}>
             <span className="thinking-deck-title-label">Working title</span>
             <span className="thinking-deck-title-text">{deckTitle}</span>
+          </div>
+        ) : null}
+
+        {thinkingText ? (
+          <div className="thinking-stream">
+            <div className="thinking-stream-header">
+              <span className="thinking-stream-dot" aria-hidden />
+              <span className="thinking-stream-label">Reasoning stream</span>
+            </div>
+            <div className="thinking-stream-body" ref={streamRef}>
+              <pre className="thinking-stream-text">{thinkingText}<span className="thinking-stream-caret">▌</span></pre>
+            </div>
           </div>
         ) : null}
       </div>
@@ -962,6 +983,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
               slidesSoFar={completedCount}
               prompt={deck.meta?.prompt || ''}
               deckTitle={deck.title}
+              thinkingText={deck.thinkingText || ''}
             />
           ) : (
             <div

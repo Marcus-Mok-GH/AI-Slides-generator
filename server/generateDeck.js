@@ -675,10 +675,17 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
         if (obj.error) {
           throw new Error(obj.error.message || obj.error || 'AI error')
         }
+        // Some models expose reasoning tokens in a separate field
+        const reasoning = obj?.choices?.[0]?.delta?.reasoning_content
+        if (typeof reasoning === 'string' && reasoning) {
+          handlers.onThinking?.({ text: reasoning, type: 'reasoning' })
+        }
         const delta = obj?.choices?.[0]?.delta?.content
         if (typeof delta === 'string' && delta) {
           raw += delta
           emit(parser.feed(delta))
+          // Stream raw tokens as "thinking" so the client can show them live
+          handlers.onThinking?.({ text: delta, type: 'content' })
         }
       } catch (e) {
         if (e?.message && !/Unexpected token|in JSON at/.test(e.message)) {

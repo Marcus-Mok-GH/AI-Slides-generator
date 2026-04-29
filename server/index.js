@@ -127,6 +127,9 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
     const imageByIndex = {}
 
     const deck = await streamGenerateDeck(ctx, {
+      onThinking: ({ text, type }) => {
+        send('thinking', { text, type })
+      },
       onMeta: (meta) => {
         if (meta?.theme) liveTheme = meta.theme
         if (meta?.title) liveDeckTitle = meta.title
