@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import './TopBar.css'
+import logo from '../assets/slideai-logo.svg'
 
 function userInitials(user) {
   if (!user) return '?'
@@ -70,8 +71,7 @@ export default function TopBar({
   return (
     <header className={`topbar ${scrolled ? 'scrolled' : ''}`} ref={wrapRef}>
       <div className="topbar-brand" aria-hidden>
-        <div className="topbar-brand-mark">S</div>
-        <span className="topbar-brand-name">Slide<span>AI</span></span>
+        <img src={logo} alt="" className="topbar-brand-logo" />
       </div>
 
       <div className="search">

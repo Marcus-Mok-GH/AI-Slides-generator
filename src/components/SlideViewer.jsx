@@ -594,10 +594,143 @@ function ThinkingPanel({ theme, expectedCount, slidesSoFar, prompt, deckTitle, t
   )
 }
 
+/* ============================================================
+   Presentation (full-screen) mode
+   ============================================================ */
+
+function PresentMode({ slides, theme, active, total, onNext, onPrev, onExit }) {
+  const containerRef = useRef(null)
+  const [notesOpen, setNotesOpen] = useState(false)
+  const [dir, setDir] = useState(0) // -1 left, 0 none, 1 right (for animation)
+  const slide = slides[active]
+
+  /* Request full-screen on mount, listen for external exit (Esc key native) */
+  useEffect(() => {
+    const el = containerRef.current
+    if (el && document.fullscreenEnabled) {
+      el.requestFullscreen().catch(() => {})
+    }
+    const onFsChange = () => {
+      if (!document.fullscreenElement) onExit()
+    }
+    document.addEventListener('fullscreenchange', onFsChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange)
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+    }
+  }, [onExit])
+
+  /* Keyboard navigation */
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault(); setDir(1); onNext()
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault(); setDir(-1); onPrev()
+      } else if (e.key === 'Escape') {
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+        else onExit()
+      } else if (e.key === 'n' || e.key === 'N') {
+        setNotesOpen(v => !v)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onNext, onPrev, onExit])
+
+  function handleZoneClick(e) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const pct = x / rect.width
+    if (pct < 0.3) { setDir(-1); onPrev() }
+    else if (pct > 0.7) { setDir(1); onNext() }
+  }
+
+  const pct = total > 1 ? Math.round(((active + 1) / total) * 100) : 100
+
+  return (
+    <div className="present-overlay" ref={containerRef}>
+      {/* Slide area — clickable for nav */}
+      <div className="present-stage" onClick={handleZoneClick}>
+        {slide ? (
+          <div
+            key={active}
+            className={`present-slide-wrap present-slide-enter present-slide-enter-${dir === 1 ? 'right' : dir === -1 ? 'left' : 'none'}`}
+          >
+            <HtmlSlide slide={slide} theme={theme} />
+          </div>
+        ) : null}
+
+        {/* Ghost click-zone hints */}
+        {active > 0 && (
+          <div className="present-zone-hint left" aria-hidden>
+            <span className="present-arrow">‹</span>
+          </div>
+        )}
+        {active < total - 1 && (
+          <div className="present-zone-hint right" aria-hidden>
+            <span className="present-arrow">›</span>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom HUD */}
+      <div className="present-hud">
+        <button
+          className="present-hud-btn"
+          onClick={() => { setDir(-1); onPrev() }}
+          disabled={active === 0}
+          aria-label="Previous slide"
+        >←</button>
+
+        <div className="present-counter">
+          <div className="present-progress">
+            <div className="present-progress-fill" style={{ width: `${pct}%` }} />
+          </div>
+          <span className="present-counter-text">{active + 1} / {total}</span>
+        </div>
+
+        <button
+          className="present-hud-btn"
+          onClick={() => { setDir(1); onNext() }}
+          disabled={active === total - 1}
+          aria-label="Next slide"
+        >→</button>
+
+        <div className="present-hud-sep" />
+
+        <button
+          className={`present-hud-btn ${notesOpen ? 'is-active' : ''}`}
+          onClick={() => setNotesOpen(v => !v)}
+          title="Toggle speaker notes (N)"
+        >Notes</button>
+
+        <button
+          className="present-hud-btn present-exit"
+          onClick={() => {
+            if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+            else onExit()
+          }}
+          title="Exit presentation (Esc)"
+        >✕ Exit</button>
+      </div>
+
+      {/* Speaker notes panel */}
+      {notesOpen && slide?.speakerNotes && (
+        <div className="present-notes">
+          <div className="present-notes-label">Speaker notes</div>
+          <p className="present-notes-text">{slide.speakerNotes}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function SlideViewer({ deck, savingState, onDeckChange, onBack }) {
   const [active, setActive] = useState(0)
   const [editing, setEditing] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
+  const [presenting, setPresenting] = useState(false)
   const [toast, setToast] = useState('')
   const userNavigatedRef = useRef(false)
   const prevSlideCountRef = useRef(deck.slides.length)
@@ -746,6 +879,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
 
   useEffect(() => {
     const handler = (e) => {
+      if (presenting) return // PresentMode handles its own keyboard events
       const t = e.target
       const tag = t?.tagName
       const isFormField =
@@ -757,11 +891,13 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
         userJump(Math.max(active - 1, 0))
       } else if (e.key === 'Escape') {
         onBack?.()
+      } else if ((e.key === 'f' || e.key === 'F') && !isFormField) {
+        if (slide && !isStreaming) setPresenting(true)
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [active, slideCount, onBack])
+  }, [active, slideCount, onBack, presenting])
 
   const slide = deck.slides[active]
 
@@ -843,6 +979,15 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
           </div>
         ) : null}
         <div className="vbar-actions">
+          <button
+            className="vbar-btn vbar-present-btn"
+            onClick={() => setPresenting(true)}
+            disabled={isStreaming || !slide}
+            title={isStreaming ? 'Available when generation completes' : 'Present full-screen (F)'}
+          >
+            <span className="vbar-present-full">▶ Present</span>
+            <span className="vbar-present-icon" aria-hidden>▶</span>
+          </button>
           <button
             className={`vbar-btn ${editing ? 'primary' : ''}`}
             onClick={() => setEditing((v) => !v)}
@@ -1084,6 +1229,18 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
           {toast}
         </div>
       ) : null}
+
+      {presenting && !isStreaming && (
+        <PresentMode
+          slides={deck.slides}
+          theme={deck.theme}
+          active={active}
+          total={slideCount}
+          onNext={() => setActive(i => Math.min(i + 1, slideCount - 1))}
+          onPrev={() => setActive(i => Math.max(i - 1, 0))}
+          onExit={() => setPresenting(false)}
+        />
+      )}
     </div>
   )
 }

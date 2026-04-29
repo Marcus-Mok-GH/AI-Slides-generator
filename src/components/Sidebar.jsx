@@ -1,4 +1,5 @@
 import './Sidebar.css'
+import logo from '../assets/slideai-logo.svg'
 
 const nav = [
   { id: 'new', icon: '+', label: 'New', primary: true },
@@ -22,8 +23,7 @@ export default function Sidebar({
   return (
     <aside className="sidebar">
       <div className="brand">
-        <div className="brand-mark">S</div>
-        <span className="brand-name">Slide<span>AI</span></span>
+        <img src={logo} alt="SlideAI" className="brand-logo" />
       </div>
 
       <nav className="nav">

@@ -1922,3 +1922,245 @@
   0%, 100% { opacity: 1; }
   50%       { opacity: 0; }
 }
+
+/* ============================================================
+   Present button — responsive (full label wide, icon narrow)
+   ============================================================ */
+.vbar-present-btn {
+  background: linear-gradient(135deg, var(--accent), var(--accent-light, #a78bfa));
+  color: #fff;
+  font-weight: 700;
+  border: none;
+}
+.vbar-present-btn:hover:not(:disabled) {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+.vbar-present-icon {
+  display: none;
+}
+.vbar-present-full {
+  display: inline;
+}
+@media (max-width: 900px) {
+  .vbar-present-full {
+    display: none;
+  }
+  .vbar-present-icon {
+    display: inline;
+    font-size: 13px;
+  }
+}
+
+/* ============================================================
+   Presentation (full-screen) overlay
+   ============================================================ */
+.present-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Slide stage — fills all space above the HUD */
+.present-stage {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+/* The slide iframe inside present mode — scale to fill */
+.present-stage > .html-slide-wrap,
+.present-stage > .slide-wrap,
+.present-stage > div {
+  width: 100%;
+  height: 100%;
+  max-width: calc((100vh - 72px) * 16 / 9);
+  max-height: calc(100vw * 9 / 16);
+  position: relative;
+}
+
+/* Click-zone hover hints */
+.present-zone-hint {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30%;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.present-zone-hint.left  { left: 0;  justify-content: flex-start; padding-left: 24px; }
+.present-zone-hint.right { right: 0; justify-content: flex-end;   padding-right: 24px; }
+.present-stage:hover .present-zone-hint { opacity: 1; }
+
+.present-arrow {
+  font-size: 48px;
+  color: rgba(255,255,255,0.45);
+  font-weight: 300;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+  line-height: 1;
+  user-select: none;
+}
+
+/* Bottom HUD bar */
+.present-hud {
+  flex-shrink: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 20px;
+  background: rgba(10, 10, 20, 0.9);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(12px);
+}
+
+.present-hud-btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.8);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.present-hud-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+.present-hud-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.present-hud-btn.is-active {
+  background: rgba(124,92,255,0.25);
+  border-color: rgba(124,92,255,0.5);
+  color: #c4b5fd;
+}
+
+.present-hud-sep {
+  width: 1px;
+  height: 24px;
+  background: rgba(255,255,255,0.1);
+  margin: 0 4px;
+}
+
+/* Slide counter + progress */
+.present-counter {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.present-progress {
+  width: 120px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.12);
+  overflow: hidden;
+}
+.present-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #7c5cff, #ff6ea0);
+  border-radius: 2px;
+  transition: width 0.35s ease;
+}
+.present-counter-text {
+  font-size: 12px;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+.present-exit {
+  border-color: rgba(255,80,80,0.25);
+  color: rgba(255,120,120,0.85);
+}
+.present-exit:hover:not(:disabled) {
+  background: rgba(255,60,60,0.12);
+  border-color: rgba(255,80,80,0.5);
+  color: #ff8080;
+}
+
+/* Speaker notes panel — slides up from bottom */
+.present-notes {
+  position: absolute;
+  bottom: 56px;
+  left: 0;
+  right: 0;
+  max-height: 30vh;
+  overflow-y: auto;
+  background: rgba(8, 8, 18, 0.92);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding: 16px 28px 20px;
+  animation: present-notes-in 0.2s ease;
+  backdrop-filter: blur(16px);
+}
+@keyframes present-notes-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.present-notes-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  margin-bottom: 10px;
+}
+.present-notes-text {
+  font-size: 16px;
+  line-height: 1.65;
+  color: rgba(255,255,255,0.75);
+  margin: 0;
+}
+
+/* Slide enter animation */
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.present-slide-enter {
+  animation-duration: 0.3s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+}
+.present-slide-enter-right { animation-name: slide-in-right; }
+.present-slide-enter-left  { animation-name: slide-in-left; }
+
+/* Slide wrapper inside present mode — scales to fill stage */
+.present-slide-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* HtmlSlide iframe inside present mode — stretch to fill */
+.present-slide-wrap .html-slide-frame {
+  width: min(100vw, calc((100vh - 72px) * 16 / 9));
+  height: min(calc(100vh - 72px), calc(100vw * 9 / 16));
+  display: block;
+}

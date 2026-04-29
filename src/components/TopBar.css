@@ -23,31 +23,15 @@
 .topbar-brand {
   display: none;
   align-items: center;
-  gap: 8px;
   flex-shrink: 0;
 }
 .theme-toggle-topbar {
   display: none;
 }
-.topbar-brand-mark {
-  width: 28px;
+.topbar-brand-logo {
   height: 28px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--accent), var(--pink));
-  color: white;
-  font-weight: 700;
-  display: grid;
-  place-items: center;
-  font-size: 13px;
-  box-shadow: 0 2px 8px rgba(124, 92, 255, 0.25);
-}
-.topbar-brand-name {
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: -0.01em;
-}
-.topbar-brand-name span {
-  color: var(--accent);
+  width: auto;
+  display: block;
 }
 
 .search {
@@ -326,9 +310,6 @@
   }
   .topbar-brand {
     display: flex;
-  }
-  .topbar-brand-name {
-    display: none;
   }
   .theme-toggle-topbar {
     display: grid;
