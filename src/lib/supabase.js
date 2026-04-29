@@ -8,8 +8,13 @@ import { createClient } from '@supabase/supabase-js'
  * The session is persisted in localStorage and auto-refreshed by
  * supabase-js, so we don't manage tokens ourselves.
  */
-const url = import.meta.env.VITE_SUPABASE_URL
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Normalize: supabase-js builds URLs by appending `/auth/v1/...`, so a
+// trailing slash on the project URL produces a double slash that some edge
+// nodes reject (the browser then surfaces a generic "Load failed" /
+// TypeError from fetch).
+const rawUrl = import.meta.env.VITE_SUPABASE_URL || ''
+const url = rawUrl.replace(/\/+$/, '')
+const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim()
 
 if (!url || !anonKey) {
   console.warn(

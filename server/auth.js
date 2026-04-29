@@ -19,8 +19,11 @@ import { upsertUser } from './db.js'
  *   SUPABASE_ANON_KEY   - public anon key (safe to ship to the browser too)
  */
 
-const supabaseUrl = process.env.SUPABASE_URL
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
+// Strip trailing slashes — supabase-js appends `/auth/v1/...` and a double
+// slash on some edge nodes returns a network error (surfaces as "Load
+// failed" in the browser).
+const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/+$/, '')
+const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY || '').trim()
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
