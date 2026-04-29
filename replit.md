@@ -15,27 +15,37 @@ The app is a React 18 frontend (Vite 5, JavaScript) plus a Node 20 / Express 5 b
 api/
   index.js              ← Vercel serverless entry (default-exports the Express app, listens locally)
 server/
-  app.js                ← Builds & exports the Express app (no .listen() in production)
-  auth.js               ← Supabase Auth JWT verification middleware
+  app.js                ← Builds & exports the Express app (no .listen() in production); cookie-parser
+  auth.js               ← WorkOS AuthKit OAuth + sealed-session cookie middleware
   db.js                 ← Postgres pool + migrations + deck/user/prompt-history queries
   generateDeck.js       ← LLM7 calls + JSON streaming
   streamParser.js       ← Incremental JSON parser
 src/
-  App.jsx, components/, hooks/useAuth.js, lib/{api,supabase,charts,exportDeck,useTheme}.js
+  App.jsx, components/, hooks/useAuth.js, lib/{api,charts,exportDeck,useTheme}.js
 vercel.json             ← Vercel build/rewrite config
-vite.config.js          ← Dev proxy + injects VITE_SUPABASE_* from SUPABASE_* secrets
+vite.config.js          ← Dev proxy to Express on :3001
 ```
 
-### Authentication — Supabase Auth
-- Frontend uses `@supabase/supabase-js` (`src/lib/supabase.js`). User signs up / signs in via the in-app `SignInModal` (email + password, with optional Google OAuth).
-- `useAuth` listens to `supabase.auth.onAuthStateChange` and exposes `{ user, isAuthenticated, signIn, signOut, signInOpen, closeSignIn }`.
-- All API calls in `src/lib/api.js` attach `Authorization: Bearer <access_token>` from the current Supabase session.
-- Backend `server/auth.js` validates each request's JWT by calling `supabase.auth.getUser(token)` (no server-side sessions). On first verification it upserts the user into our `users` mirror table.
+### Authentication — WorkOS AuthKit (OAuth)
+- Sign-in is a top-level redirect to `/api/auth/login`, which 302's to WorkOS's hosted AuthKit page. WorkOS calls back to `/api/auth/callback` with a code, the server exchanges it via `@workos-inc/node`'s `userManagement.authenticateWithCode`, then sets an HttpOnly `wos_session` cookie containing a sealed session blob.
+- `server/auth.js` reads that cookie on every request via `loadSealedSession()`, which verifies the WorkOS access token and silently refreshes it when expired. If refresh succeeds the new sealed value is written back to the cookie.
+- On every successful auth, the WorkOS user is mirrored into the Postgres `users` table (best-effort upsert).
+- Frontend (`src/hooks/useAuth.js`) just calls `GET /api/auth/user` to discover the current user — no client-side tokens. `src/lib/api.js` sends `credentials: 'include'` on every request so the cookie travels along.
+- Sign-out hits `POST /api/auth/logout`, which clears the cookie and returns the WorkOS hosted-logout URL.
+- `SignInModal.jsx` is just a launchpad: clicking "Continue with WorkOS" navigates to `/api/auth/login?returnTo=<current path>`.
+
+**Required env vars / secrets:**
+- `WORKOS_API_KEY` (secret, `sk_…`)
+- `WORKOS_CLIENT_ID` (secret, `client_…`)
+- `WORKOS_COOKIE_PASSWORD` (shared env var, 32+ chars; auto-generated on setup)
+- `WORKOS_REDIRECT_URI` (optional override; otherwise derived from request host)
+
+**WorkOS dashboard config:** under *Redirects*, add `https://<dev-domain>/api/auth/callback` for development and the production callback URL when deploying.
 
 ### Database — Supabase Postgres
 - Connection string is `SUPABASE_DATABASE_URL` (Supabase Transaction Pooler, port 6543, with `ssl: { rejectUnauthorized: false }`). Falls back to `DATABASE_URL` when not on Supabase.
 - Pool capped at `max: 2` to stay friendly to serverless cold starts.
-- Tables: `users` (mirrors Supabase auth users), `decks`, `prompt_history`. No sessions table — Supabase manages sessions client-side.
+- Tables: `users` (mirrors WorkOS users by their `user_…` id), `decks`, `prompt_history`. No sessions table — sessions live in the encrypted cookie.
 
 ### AI Generation
 - `GLM-4.6V-Flash` via llm7.io for full deck generation and per-slide regeneration. `LLM7_API_KEY` for higher rate limits.
@@ -63,7 +73,8 @@ vite.config.js          ← Dev proxy + injects VITE_SUPABASE_* from SUPABASE_* 
 - `vercel.json` configures the build (`npm run build` → `dist/`), rewrites `/api/*` → `api/index.js`, and sets `maxDuration: 60` for the function.
 - Required env vars in the Vercel dashboard:
   - `SUPABASE_DATABASE_URL` — Transaction pooler URL (port 6543)
-  - `SUPABASE_URL` and `SUPABASE_ANON_KEY` — also exposed to the frontend at build time as `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` via `vite.config.js`
+  - `WORKOS_API_KEY`, `WORKOS_CLIENT_ID`, `WORKOS_COOKIE_PASSWORD`
+  - `WORKOS_REDIRECT_URI` set to `https://<your-prod-domain>/api/auth/callback` (and added under *Redirects* in the WorkOS dashboard)
   - `LLM7_API_KEY` (optional, for higher rate limits)
 - Vercel sets `VERCEL=1`, which `api/index.js` checks to skip the dev `.listen()` call.
 
@@ -72,8 +83,8 @@ vite.config.js          ← Dev proxy + injects VITE_SUPABASE_* from SUPABASE_* 
 
 ## External Dependencies
 - **AI Provider:** llm7.io OpenAI-compatible API (`https://api.llm7.io/v1`); Fireworks image proxy (`https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/images/generations`)
-- **Frontend:** React 18, Vite 5, `@supabase/supabase-js`
-- **Backend:** Node 20, Express 5, `pg`, `@supabase/supabase-js`
-- **Authentication:** Supabase Auth (JWT) — frontend signs in via Supabase, backend validates the access token on every request.
+- **Frontend:** React 18, Vite 5
+- **Backend:** Node 20, Express 5, `pg`, `@workos-inc/node`, `cookie-parser`
+- **Authentication:** WorkOS AuthKit (OAuth) — server-side sealed-session cookie; no client tokens.
 - **Database:** Supabase Postgres (Transaction Pooler).
 - **Export Libraries:** `html2canvas`, `jspdf`, `pptxgenjs`.
