@@ -223,17 +223,87 @@ export async function fetchCurrentUser() {
 }
 
 /**
- * Send a Supabase password-reset email to the given address.
+ * Sign in with email + password through our backend proxy. The browser
+ * never touches *.supabase.co directly — some networks / extensions
+ * block that domain. Once the server returns the session tokens we
+ * hand them to supabase-js so the rest of the app behaves as usual.
+ */
+export async function signInWithPassword({ email, password }) {
+  const res = await fetch('/api/auth/password/signin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  let data = null
+  try { data = await res.json() } catch { /* empty body */ }
+  if (!res.ok) {
+    const err = new Error(data?.error || `Sign-in failed (${res.status})`)
+    err.code = data?.code
+    err.status = res.status
+    throw err
+  }
+  if (data?.session?.access_token && data.session?.refresh_token) {
+    await supabase.auth.setSession({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    })
+  }
+  return data
+}
+
+/**
+ * Sign up with email + password through our backend proxy. Returns
+ * `{ session, user, needsConfirmation }` — when email confirmation is
+ * required, `session` is null and the caller should prompt the user to
+ * check their inbox.
+ */
+export async function signUpWithPassword({ email, password }) {
+  const res = await fetch('/api/auth/password/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  let data = null
+  try { data = await res.json() } catch { /* empty body */ }
+  if (!res.ok) {
+    const err = new Error(data?.error || `Sign-up failed (${res.status})`)
+    err.code = data?.code
+    err.status = res.status
+    throw err
+  }
+  if (data?.session?.access_token && data.session?.refresh_token) {
+    await supabase.auth.setSession({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    })
+  }
+  return data
+}
+
+/**
+ * Send a Supabase password-reset email through our backend proxy.
  * Supabase handles the email templating and the reset link which points to
  * the app's origin.  When the user clicks it they are redirected to
  * <origin>/?resetToken=<token> — the ResetPasswordModal reads that token
  * from the URL on mount and submits the new password directly to Supabase.
  */
 export async function resetPasswordEmail(email) {
-  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-    redirectTo: `${window.location.origin}/`,
+  const res = await fetch('/api/auth/password/reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email,
+      redirectTo: `${window.location.origin}/`,
+    }),
   })
-  if (error) throw error
+  let data = null
+  try { data = await res.json() } catch { /* empty body */ }
+  if (!res.ok) {
+    const err = new Error(data?.error || `Reset failed (${res.status})`)
+    err.code = data?.code
+    err.status = res.status
+    throw err
+  }
 }
 
 export { supabase }

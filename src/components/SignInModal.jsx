@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
-import { resetPasswordEmail } from '../lib/api.js'
+import {
+  resetPasswordEmail,
+  signInWithPassword,
+  signUpWithPassword,
+} from '../lib/api.js'
 import './SignInModal.css'
 
 /**
@@ -79,11 +83,7 @@ export default function SignInModal({ open, onClose }) {
     setBusy(true)
     try {
       if (mode === 'signin') {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        })
-        if (error) throw error
+        await signInWithPassword({ email: email.trim(), password })
         onClose?.()
       } else if (mode === 'forgot') {
         if (!email.trim()) {
@@ -93,11 +93,10 @@ export default function SignInModal({ open, onClose }) {
         await resetPasswordEmail(email.trim())
         setInfo('Check your email for a password reset link.')
       } else {
-        const { data, error } = await supabase.auth.signUp({
+        const data = await signUpWithPassword({
           email: email.trim(),
           password,
         })
-        if (error) throw error
         if (data?.session) {
           // Email confirmations disabled — user is signed in immediately.
           onClose?.()

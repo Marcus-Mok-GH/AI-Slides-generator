@@ -101,10 +101,19 @@ async function resolveSession(req) {
 
 /**
  * Wires the public auth routes:
- *   GET /api/auth/user — return the current user (or 401)
+ *   GET  /api/auth/user            — current user (or 401)
+ *   POST /api/auth/password/signin — proxy email+password sign-in
+ *   POST /api/auth/password/signup — proxy email+password sign-up
+ *   POST /api/auth/password/reset  — proxy reset-password email
  *
- * Sign-in / sign-up / sign-out all happen client-side via supabase-js,
- * so there are no callback or login routes to register here.
+ * The proxy endpoints exist because some browsers / extensions block
+ * direct calls to *.supabase.co. Calling them through our server keeps
+ * the browser talking only to the dev origin. The session tokens
+ * returned to the client are real Supabase JWTs and can be loaded into
+ * supabase-js with `supabase.auth.setSession()`.
+ *
+ * Google OAuth still happens client-side via `supabase.auth.signInWithOAuth`
+ * because it needs a top-level redirect.
  */
 export async function setupAuth(app) {
   app.set('trust proxy', 1)
@@ -113,6 +122,88 @@ export async function setupAuth(app) {
     const result = await resolveSession(req)
     if (!result) return res.status(401).json({ error: 'Unauthorized' })
     res.json(result.user)
+  })
+
+  app.post('/api/auth/password/signin', async (req, res) => {
+    if (!supabase) {
+      return res.status(500).json({ error: 'Auth is not configured.' })
+    }
+    const { email, password } = req.body || {}
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' })
+    }
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: String(email).trim(),
+        password: String(password),
+      })
+      if (error) {
+        return res
+          .status(error.status || 400)
+          .json({ error: error.message, code: error.code || error.error_code })
+      }
+      mirrorUser(data.user)
+      res.json({
+        session: data.session,
+        user: data.user ? mirrorUser(data.user) : null,
+      })
+    } catch (err) {
+      console.error('[auth/signin] proxy error:', err)
+      res.status(502).json({ error: err?.message || 'Sign-in failed.' })
+    }
+  })
+
+  app.post('/api/auth/password/signup', async (req, res) => {
+    if (!supabase) {
+      return res.status(500).json({ error: 'Auth is not configured.' })
+    }
+    const { email, password } = req.body || {}
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' })
+    }
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: String(email).trim(),
+        password: String(password),
+      })
+      if (error) {
+        return res
+          .status(error.status || 400)
+          .json({ error: error.message, code: error.code || error.error_code })
+      }
+      if (data.user) mirrorUser(data.user)
+      res.json({
+        session: data.session,
+        user: data.user ? mirrorUser(data.user) : null,
+        needsConfirmation: !data.session,
+      })
+    } catch (err) {
+      console.error('[auth/signup] proxy error:', err)
+      res.status(502).json({ error: err?.message || 'Sign-up failed.' })
+    }
+  })
+
+  app.post('/api/auth/password/reset', async (req, res) => {
+    if (!supabase) {
+      return res.status(500).json({ error: 'Auth is not configured.' })
+    }
+    const { email, redirectTo } = req.body || {}
+    if (!email) return res.status(400).json({ error: 'Email is required.' })
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        String(email).trim(),
+        redirectTo ? { redirectTo: String(redirectTo) } : undefined,
+      )
+      if (error) {
+        return res
+          .status(error.status || 400)
+          .json({ error: error.message, code: error.code || error.error_code })
+      }
+      res.json({ ok: true })
+    } catch (err) {
+      console.error('[auth/reset] proxy error:', err)
+      res.status(502).json({ error: err?.message || 'Reset failed.' })
+    }
   })
 }
 
