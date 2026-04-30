@@ -76,7 +76,13 @@ export default function SignInModal({ open, onClose }) {
         }
       }
     } catch (err) {
-      setError(err?.message || 'Something went wrong.')
+      // Distinguish network/TypeError ("Load failed") from Supabase errors.
+      const msg = err?.message || ''
+      if (msg.includes('fetch failed') || msg.includes('Load failed') || err instanceof TypeError) {
+        setError('Cannot reach the server. Please check your connection and try again.')
+      } else {
+        setError(err?.message || 'Something went wrong.')
+      }
     } finally {
       setBusy(false)
     }
@@ -98,7 +104,12 @@ export default function SignInModal({ open, onClose }) {
       if (error) throw error
       // Browser navigates away to Google.
     } catch (err) {
-      setError(err?.message || 'Google sign-in failed.')
+      const msg = err?.message || ''
+      if (msg.includes('fetch failed') || msg.includes('Load failed') || err instanceof TypeError) {
+        setError('Cannot reach the server. Please check your connection and try again.')
+      } else {
+        setError(err?.message || 'Google sign-in failed.')
+      }
       setBusy(false)
     }
   }
