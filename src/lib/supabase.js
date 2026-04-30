@@ -23,14 +23,30 @@ if (!url || !anonKey) {
   )
 }
 
-export const supabase = createClient(url || 'http://invalid', anonKey || 'invalid', {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce',
-  },
-})
+// HMR safety: keep ONE GoTrue/Supabase client per browser context. Without
+// this, every Vite hot-reload of any module that imports supabase creates
+// a fresh client sharing the same localStorage key. Multiple GoTrue
+// instances race on token refresh and cancel each other's fetches, which
+// surfaces in the browser as a generic "Load failed" error on sign-in /
+// sign-up calls. Pin the singleton on globalThis so HMR re-evaluations
+// reuse it.
+const SUPABASE_SINGLETON_KEY = '__slideai_supabase_client__'
+
+function buildClient() {
+  return createClient(url || 'http://invalid', anonKey || 'invalid', {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+      storageKey: 'slideai-auth',
+    },
+  })
+}
+
+export const supabase =
+  globalThis[SUPABASE_SINGLETON_KEY] ||
+  (globalThis[SUPABASE_SINGLETON_KEY] = buildClient())
 
 /**
  * Resolve the current access token (or null). Used by the API client to
