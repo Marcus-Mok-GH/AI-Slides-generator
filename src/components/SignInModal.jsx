@@ -12,12 +12,13 @@ function formatAuthError(err) {
   if (!err) return null
   const code = err.code || err.error_code || err.status
   const msg = (err.message || '').trim()
+  const detail = msg ? ` [${err.name || 'Error'}: ${msg}]` : ''
 
   if (
     err instanceof TypeError ||
     /load failed|fetch failed|networkerror|failed to fetch/i.test(msg)
   ) {
-    return 'Cannot reach the authentication server. Check your network and try again.'
+    return `Cannot reach the authentication server.${detail}`
   }
   if (code === 429 || /rate limit|over_email_send_rate_limit/i.test(msg)) {
     return 'Too many sign-up attempts. Please wait an hour and try again, or disable email confirmation in your Supabase dashboard.'
