@@ -144,9 +144,10 @@ export async function streamGenerateDeck(payload, handlers = {}) {
       else if (event === 'slide-image') handlers.onSlideImage?.(parsed)
       else if (event === 'slide-image-failed')
         handlers.onSlideImageFailed?.(parsed)
+      else if (event === 'credits') handlers.onCredits?.(parsed)
       else if (event === 'done') handlers.onDone?.(parsed.deck)
       else if (event === 'error') {
-        handlers.onError?.(parsed.error || 'Failed to generate')
+        handlers.onError?.(parsed.error || 'Failed to generate', parsed)
         return
       }
     }
@@ -220,6 +221,19 @@ export async function fetchCurrentUser() {
   if (res.status === 401) return null
   if (!res.ok) throw new Error(`Server returned ${res.status}`)
   return await res.json()
+}
+
+/**
+ * Fetch the signed-in user's credit balance and per-deck price.
+ * Returns null if the user is signed out.
+ */
+export async function fetchCredits() {
+  const token = await getAccessToken()
+  if (!token) return null
+  const res = await authedGet('/api/credits')
+  if (res.status === 401) return null
+  if (!res.ok) throw new Error(`Server returned ${res.status}`)
+  return await res.json() // { balanceCents, deckCostCents }
 }
 
 /**

@@ -20,6 +20,7 @@ import {
 } from './lib/api.js'
 import useTheme from './lib/useTheme.js'
 import useAuth from './hooks/useAuth.js'
+import useCredits from './hooks/useCredits.js'
 import SignInModal from './components/SignInModal.jsx'
 import ResetPasswordModal from './components/ResetPasswordModal.jsx'
 import './App.css'
@@ -90,6 +91,7 @@ export default function App() {
     typeof window === 'undefined' ? '/' : window.location.pathname,
   )
   const { mode: themeMode, setMode: setThemeMode, cycle: cycleTheme } = useTheme()
+  const credits = useCredits(isAuthenticated)
   const saveTimer = useRef(null)
   const heroRef = useRef(null)
 
@@ -432,6 +434,11 @@ export default function App() {
             return { ...prev, slides }
           })
         },
+        onCredits: ({ balanceCents }) => {
+          if (typeof balanceCents === 'number') {
+            credits.setBalanceCents(balanceCents)
+          }
+        },
         onDone: (finalDeck) => {
           setDeck({
             ...finalDeck,
@@ -449,8 +456,20 @@ export default function App() {
           setStatus('idle')
           refreshDecks()
         },
-        onError: (msg) => {
-          setError(msg || 'Failed to generate')
+        onError: (msg, parsed) => {
+          // The server reports out-of-credits via this same SSE error event.
+          // Pull the live balance off the payload so the topbar pill stays
+          // accurate even when the user just dropped to zero.
+          if (parsed?.code === 'insufficient_credits') {
+            if (typeof parsed.balanceCents === 'number') {
+              credits.setBalanceCents(parsed.balanceCents)
+            }
+            setError(
+              "You're out of credits — top up to keep generating decks.",
+            )
+          } else {
+            setError(msg || 'Failed to generate')
+          }
           setStatus('error')
           setDeck(null)
         },
@@ -592,6 +611,8 @@ export default function App() {
           onCycleTheme={cycleTheme}
           user={user}
           onSignOut={signOut}
+          creditsCents={credits.balanceCents}
+          deckCostCents={credits.deckCostCents}
         />
         {activeNav === 'templates' ? (
           <div className="content">

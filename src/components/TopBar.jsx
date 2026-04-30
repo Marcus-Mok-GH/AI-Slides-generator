@@ -27,6 +27,14 @@ const THEME_LABELS = {
   system: 'System theme',
 }
 
+function formatCredits(cents) {
+  if (typeof cents !== 'number' || !Number.isFinite(cents)) return null
+  // Always show dollars and cents (e.g. $4.50, $0.00) so the value reads
+  // unambiguously as money — not a deck count.
+  const dollars = Math.max(0, cents) / 100
+  return `$${dollars.toFixed(2)}`
+}
+
 export default function TopBar({
   search = '',
   onSearchChange,
@@ -34,6 +42,8 @@ export default function TopBar({
   onCycleTheme,
   user = null,
   onSignOut,
+  creditsCents = null,
+  deckCostCents = 50,
 }) {
   const [openMenu, setOpenMenu] = useState(null)
   const [scrolled, setScrolled] = useState(false)
@@ -99,6 +109,23 @@ export default function TopBar({
       </div>
 
       <div className="topbar-actions">
+        {(() => {
+          const label = formatCredits(creditsCents)
+          if (label === null) return null
+          const cost = formatCredits(deckCostCents) || '$0.50'
+          const low = (creditsCents ?? 0) < (deckCostCents ?? 50)
+          return (
+            <div
+              className={`credits-pill ${low ? 'is-low' : ''}`}
+              title={`Credits remaining. Each deck costs ${cost}.`}
+              aria-label={`Credits remaining: ${label}. Each deck costs ${cost}.`}
+            >
+              <span className="credits-pill-spark" aria-hidden>◈</span>
+              <span className="credits-pill-amount">{label}</span>
+              <span className="credits-pill-label">credits</span>
+            </div>
+          )
+        })()}
         <button
           type="button"
           className="ghost-btn agent-five-btn"

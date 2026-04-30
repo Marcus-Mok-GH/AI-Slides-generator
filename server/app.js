@@ -4,6 +4,7 @@ import {
   listDecks, getDeck, saveDeck, deleteDeck, renameDeck, migrate,
   migratePromptHistory, savePromptHistory, getPromptHistory, deletePromptHistoryItem,
   migrateAgentChats, listAgentChats, getAgentChat, createAgentChat, updateAgentChat, deleteAgentChat,
+  getCredits, deductCredits, DECK_GENERATION_CENTS,
 } from './db.js'
 import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
 import { agentFiveTurn, agentFiveStream } from './agentFive.js'
@@ -22,6 +23,20 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, hasKey: !!process.env.LLM7_API_KEY })
 })
 
+/**
+ * Current user's credit balance plus the per-deck price the client should
+ * surface. Used by the TopBar pill and the out-of-credits banner.
+ */
+app.get('/api/credits', isAuthenticated, async (req, res) => {
+  try {
+    const balanceCents = await getCredits(currentUserId(req))
+    res.json({ balanceCents, deckCostCents: DECK_GENERATION_CENTS })
+  } catch (err) {
+    console.error('[credits] error:', err)
+    res.status(500).json({ error: err?.message || 'Failed to load credits' })
+  }
+})
+
 app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
   try {
     const {
@@ -37,6 +52,16 @@ app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
       return res.status(400).json({ error: 'Missing "prompt"' })
     }
 
+    const userId = currentUserId(req)
+    const balance = await getCredits(userId)
+    if (balance < DECK_GENERATION_CENTS) {
+      return res.status(402).json({
+        error: 'Out of credits',
+        balanceCents: balance,
+        deckCostCents: DECK_GENERATION_CENTS,
+      })
+    }
+
     const deck = await generateDeck({
       prompt: prompt.trim(),
       format,
@@ -45,7 +70,9 @@ app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
       language,
       mode,
     })
-    res.json({ deck })
+
+    const newBalance = await deductCredits(userId, DECK_GENERATION_CENTS)
+    res.json({ deck, balanceCents: newBalance ?? balance })
   } catch (err) {
     console.error('[generate-deck] error:', err)
     res.status(500).json({
@@ -138,6 +165,19 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
   try {
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       send('error', { error: 'Missing "prompt"' })
+      return res.end()
+    }
+
+    // Credit pre-check. We block here (rather than mid-stream) so the user
+    // sees the out-of-credits banner instead of a half-generated deck.
+    const startBalance = await getCredits(userId)
+    if (startBalance < DECK_GENERATION_CENTS) {
+      send('error', {
+        error: 'Out of credits',
+        code: 'insufficient_credits',
+        balanceCents: startBalance,
+        deckCostCents: DECK_GENERATION_CENTS,
+      })
       return res.end()
     }
 
@@ -277,6 +317,18 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
     } catch (e) {
       console.warn('[stream] failed to persist deck:', e?.message)
     }
+
+    // Charge for the deck only after it's been generated AND persisted.
+    // If the deduction returns null (race / concurrent spend) we fall back
+    // to whatever the DB says now so the UI doesn't show a stale balance.
+    let balanceCents = startBalance
+    try {
+      const after = await deductCredits(userId, DECK_GENERATION_CENTS)
+      balanceCents = after ?? (await getCredits(userId))
+    } catch (e) {
+      console.warn('[stream] credit deduction failed:', e?.message)
+    }
+    send('credits', { balanceCents, deckCostCents: DECK_GENERATION_CENTS })
 
     send('done', { deck })
     res.end()

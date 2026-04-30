@@ -34,6 +34,19 @@ async function generateId() {
 }
 
 /**
+ * Initial credit grants (in cents).
+ *   NEW_USER_CENTS — handed to anyone signing up after the credits column
+ *     exists. Currently $5 (= 500 cents).
+ *   LEGACY_USER_CENTS — one-time backfill for users that already existed
+ *     before we shipped credits. Currently $100 (= 10 000 cents).
+ *
+ * Per-deck price is `DECK_GENERATION_CENTS` (50¢). Tweak both as needed.
+ */
+export const NEW_USER_CENTS = 500
+export const LEGACY_USER_CENTS = 10000
+export const DECK_GENERATION_CENTS = 50
+
+/**
  * Idempotent schema setup. Creates a `users` profile table mirroring the
  * Supabase auth user (one row per auth user) and the `decks` table scoped
  * to that user id. We do NOT create a sessions table — Supabase Auth
@@ -51,6 +64,28 @@ export async function migrate() {
       updated_at         TIMESTAMP DEFAULT NOW()
     );
   `)
+
+  // ---------- Credits column + one-time legacy backfill ----------
+  // Add the column nullable first so we can tell legacy rows apart from
+  // freshly inserted ones. Anyone already in `users` at this point predates
+  // the credits feature and gets the higher legacy grant; new sign-ups get
+  // the smaller starter grant via the column default below.
+  await pool.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS credits_cents INTEGER;
+  `)
+  await pool.query(
+    `UPDATE users SET credits_cents = $1 WHERE credits_cents IS NULL`,
+    [LEGACY_USER_CENTS],
+  )
+  // Now lock in the new-user default so future inserts that omit the column
+  // automatically get the starter grant.
+  await pool.query(
+    `ALTER TABLE users ALTER COLUMN credits_cents SET DEFAULT ${NEW_USER_CENTS}`,
+  )
+  await pool.query(
+    `ALTER TABLE users ALTER COLUMN credits_cents SET NOT NULL`,
+  )
   await pool.query(`
     CREATE TABLE IF NOT EXISTS decks (
       id          VARCHAR PRIMARY KEY,
@@ -75,6 +110,9 @@ export async function migrate() {
 
 export async function upsertUser(user) {
   const { id, email, firstName, lastName, profileImageUrl } = user
+  // Don't touch credits_cents in the UPDATE branch — only the INSERT path
+  // grants the starter balance via the column default. Subsequent logins
+  // must never reset the running balance.
   const { rows } = await pool.query(
     `INSERT INTO users (id, email, first_name, last_name, profile_image_url)
      VALUES ($1, $2, $3, $4, $5)
@@ -84,10 +122,45 @@ export async function upsertUser(user) {
        last_name         = EXCLUDED.last_name,
        profile_image_url = EXCLUDED.profile_image_url,
        updated_at        = NOW()
-     RETURNING id, email, first_name, last_name, profile_image_url`,
+     RETURNING id, email, first_name, last_name, profile_image_url, credits_cents`,
     [id, email, firstName, lastName, profileImageUrl],
   )
   return rows[0]
+}
+
+/* ---------------- credits ---------------- */
+
+/**
+ * Read the current balance for a user (in cents). Returns 0 if the user
+ * is unknown — callers should treat that as "not enough" without crashing.
+ */
+export async function getCredits(userId) {
+  if (!userId) return 0
+  const { rows } = await pool.query(
+    `SELECT credits_cents FROM users WHERE id = $1`,
+    [userId],
+  )
+  return rows[0]?.credits_cents ?? 0
+}
+
+/**
+ * Atomically deduct `amountCents` from the user's balance. Returns the new
+ * balance, or `null` if the user didn't have enough (no row updated).
+ * Use this AFTER you've delivered the work — pre-check with `getCredits`
+ * to surface "out of credits" early without rolling back side effects.
+ */
+export async function deductCredits(userId, amountCents) {
+  if (!userId || !Number.isFinite(amountCents) || amountCents <= 0) return null
+  const { rows } = await pool.query(
+    `UPDATE users
+     SET credits_cents = credits_cents - $2,
+         updated_at    = NOW()
+     WHERE id = $1 AND credits_cents >= $2
+     RETURNING credits_cents`,
+    [userId, Math.round(amountCents)],
+  )
+  if (!rows.length) return null
+  return rows[0].credits_cents
 }
 
 /* ---------------- decks ---------------- */
