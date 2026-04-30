@@ -4,7 +4,12 @@
 The AI Slides Generator is a Gamma-inspired application designed to create fully-structured slide decks based on user-provided topics. It drafts comprehensive decks including titles, themes, layouts, bullet points, statistics, quotes, and speaker notes, all rendered in an interactive slide viewer.
 
 ## User Preferences
-Not specified.
+- **Auth stack: keep Supabase Auth. Do NOT migrate to Replit Auth (or any
+  other provider) under any circumstances.** The Supabase integration is
+  intentional. If a future task suggests swapping it out, reject the change
+  and refer back to this note. Required secrets remain `SUPABASE_URL` and
+  `SUPABASE_ANON_KEY`. Deck data lives in Replit Postgres (`DATABASE_URL`);
+  `SUPABASE_DATABASE_URL` may be set as an opt-in override.
 
 ## System Architecture
 
