@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchCurrentUser } from '../lib/api.js'
-import { supabase } from '../lib/supabase.js'
+import { setCachedAccessToken, supabase } from '../lib/supabase.js'
 
 /**
  * Supabase-backed auth hook. The session lives in localStorage (managed by
@@ -70,11 +70,21 @@ export default function useAuth() {
 
   // The proxy sign-in/up path writes the session to localStorage directly
   // (so we never need to call supabase from the browser to validate it) and
-  // dispatches this event. Re-fetch the user from our own backend when it
-  // fires so the UI flips out of the landing page immediately.
+  // dispatches this event. The detail payload carries the user that the
+  // server already verified, so we can flip to "authenticated" instantly
+  // without an extra round-trip — critical because the very first
+  // post-signup `getSession()` call returns stale null until supabase-js
+  // re-reads storage on the next page load.
   useEffect(() => {
-    function onAuthChanged() {
-      refresh()
+    function onAuthChanged(e) {
+      const detailUser = e?.detail?.user
+      if (detailUser?.id) {
+        setUser(detailUser)
+        setLoading(false)
+      } else {
+        // Fallback: no user on the event — go ask the server.
+        refresh()
+      }
     }
     window.addEventListener('slideai:auth-changed', onAuthChanged)
     return () =>
@@ -106,6 +116,7 @@ export default function useAuth() {
     } catch {
       /* ignore */
     }
+    setCachedAccessToken(null)
     setUser(null)
     if (typeof window !== 'undefined') {
       window.location.assign('/')

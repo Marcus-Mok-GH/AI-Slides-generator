@@ -50,17 +50,17 @@ function bearerToken(req) {
 }
 
 /**
- * Map a Supabase auth user object to the columns in our `users` table
- * and best-effort upsert it. Errors don't block the request.
+ * Map a Supabase auth user object to the columns in our `users` table.
+ * Pure — no DB I/O. Returns `null` for a missing user.
  */
-function mirrorUser(u) {
+function toLocalUser(u) {
   if (!u) return null
   const meta = u.user_metadata || {}
   // Supabase doesn't split first/last for OAuth sign-ins by default — derive
   // them from `full_name` / `name` when available.
   const fullName = meta.full_name || meta.name || ''
   const [firstFromFull, ...restFromFull] = fullName.trim().split(/\s+/)
-  const user = {
+  return {
     id: u.id,
     email: u.email || meta.email || null,
     firstName: meta.first_name || meta.given_name || firstFromFull || null,
@@ -70,9 +70,24 @@ function mirrorUser(u) {
       (restFromFull.length ? restFromFull.join(' ') : null),
     profileImageUrl: meta.avatar_url || meta.picture || null,
   }
-  upsertUser(user).catch((e) =>
-    console.warn('[auth] upsertUser failed:', e?.message),
-  )
+}
+
+/**
+ * Mirror a Supabase auth user into our local `users` table. We **await**
+ * the upsert (rather than fire-and-forget) so callers can guarantee the
+ * row exists before the response goes out — otherwise the very first
+ * authenticated request from a brand-new user would race the insert and
+ * get back empty data (no credits row, etc.). Errors are still caught so
+ * the auth flow never hard-fails because of a DB hiccup.
+ */
+async function mirrorUser(u) {
+  const user = toLocalUser(u)
+  if (!user) return null
+  try {
+    await upsertUser(user)
+  } catch (e) {
+    console.warn('[auth] upsertUser failed:', e?.message)
+  }
   return user
 }
 
@@ -92,7 +107,7 @@ async function resolveSession(req) {
   const { data, error } = await supabase.auth.getUser(token)
   if (error || !data?.user) return null
 
-  const user = mirrorUser(data.user)
+  const user = await mirrorUser(data.user)
   if (!user) return null
 
   req._authResult = { user }
@@ -142,10 +157,12 @@ export async function setupAuth(app) {
           .status(error.status || 400)
           .json({ error: error.message, code: error.code || error.error_code })
       }
-      mirrorUser(data.user)
+      // Mirror once, await it, and return the result. Calling mirrorUser
+      // twice raced two upserts against the same row.
+      const user = await mirrorUser(data.user)
       res.json({
         session: data.session,
-        user: data.user ? mirrorUser(data.user) : null,
+        user,
       })
     } catch (err) {
       console.error('[auth/signin] proxy error:', err)
@@ -171,10 +188,29 @@ export async function setupAuth(app) {
           .status(error.status || 400)
           .json({ error: error.message, code: error.code || error.error_code })
       }
-      if (data.user) mirrorUser(data.user)
+      // Supabase quirk: signing up an already-registered email when email
+      // confirmations are ON returns 200 with `data.user.identities = []`
+      // and no session — which our old code surfaced as "Check your email
+      // for a confirmation link". That sent users in circles. Detect it
+      // and return a clear "already registered" error instead.
+      const identities = data.user?.identities
+      if (
+        data.user &&
+        Array.isArray(identities) &&
+        identities.length === 0 &&
+        !data.session
+      ) {
+        return res.status(400).json({
+          error: 'An account with that email already exists. Try signing in instead.',
+          code: 'user_already_exists',
+        })
+      }
+      // Only mirror to our local DB once we have a real (non-shadow) user.
+      // Mirror once, await it, so the row exists before /api/credits runs.
+      const user = data.user ? await mirrorUser(data.user) : null
       res.json({
         session: data.session,
-        user: data.user ? mirrorUser(data.user) : null,
+        user,
         needsConfirmation: !data.session,
       })
     } catch (err) {

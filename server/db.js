@@ -110,6 +110,30 @@ export async function migrate() {
 
 export async function upsertUser(user) {
   const { id, email, firstName, lastName, profileImageUrl } = user
+  if (!id) throw new Error('upsertUser: id is required')
+
+  // The `email` column has a UNIQUE constraint, so an INSERT can fail two
+  // ways: (a) a row already exists with the same id (re-login — handled by
+  // ON CONFLICT (id)), or (b) a row exists with the same email but a
+  // *different* id. Case (b) happens when the Supabase auth user was
+  // recreated (e.g. project reset, account deletion + re-signup) while our
+  // local row stuck around. If we don't handle it, the INSERT throws
+  // "duplicate key violates users_email_key", no local row is written for
+  // the new auth id, and every authenticated query for that user returns
+  // empty — the UI looks signed in to Supabase but can't load anything.
+  //
+  // Resolution: if a row exists for this email under a stale id, re-key it
+  // to the new auth id. That preserves the user's credits, decks, and any
+  // other data tied to the old id.
+  if (email) {
+    await pool.query(
+      `UPDATE users
+         SET id = $1, updated_at = NOW()
+       WHERE email = $2 AND id <> $1`,
+      [id, email],
+    )
+  }
+
   // Don't touch credits_cents in the UPDATE branch — only the INSERT path
   // grants the starter balance via the column default. Subsequent logins
   // must never reset the running balance.

@@ -1,4 +1,4 @@
-import { getAccessToken, supabase } from './supabase.js'
+import { getAccessToken, setCachedAccessToken, supabase } from './supabase.js'
 
 /**
  * API client. The Supabase session lives in localStorage (managed by
@@ -346,13 +346,21 @@ async function persistSessionLocally(session, user) {
     return
   }
 
+  // Update the in-memory access-token cache immediately. supabase-js's
+  // `getSession()` won't see our localStorage write until the next page
+  // load, so without this every authenticated request right after
+  // sign-up / sign-in would go out without a Bearer header and 401.
+  setCachedAccessToken(storedSession.access_token)
+
   // Tell anyone listening (the useAuth hook) that there's a new session,
   // without touching the network. We use a CustomEvent the hook subscribes
-  // to in addition to supabase's onAuthStateChange.
+  // to in addition to supabase's onAuthStateChange. We pass `user` on the
+  // detail so the hook can flip to "authenticated" without making a
+  // round-trip to /api/auth/user (which would also need the cache above).
   try {
     window.dispatchEvent(
       new CustomEvent('slideai:auth-changed', {
-        detail: { session: storedSession },
+        detail: { session: storedSession, user: storedSession.user || null },
       }),
     )
   } catch {
