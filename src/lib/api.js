@@ -402,4 +402,63 @@ export async function agentFiveChat({ history, message }) {
   return data
 }
 
+/**
+ * Stream an Agent Five turn over SSE.
+ *
+ * handlers:
+ *   onReplyDelta({ text, iteration, needsClarification })
+ *   onToolStart({ id, tool, args })
+ *   onToolResult({ id, tool, ok, result?, error? })
+ *   onDone({ toolResults })
+ *   onError(message)
+ */
+export async function streamAgentFive({ history, message }, handlers = {}) {
+  const headers = await authHeaders({ 'Content-Type': 'application/json' })
+  const res = await fetch('/api/agentfive/stream', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ history, message }),
+  })
+  if (res.status === 401) {
+    notifyUnauthorized()
+    handlers.onError?.('Please sign in to use Agent Five.')
+    return
+  }
+  if (!res.ok || !res.body) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `Server returned ${res.status}`)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+
+    let idx
+    while ((idx = buf.indexOf('\n\n')) >= 0) {
+      const block = buf.slice(0, idx)
+      buf = buf.slice(idx + 2)
+      let event = 'message'
+      let data = ''
+      for (const line of block.split('\n')) {
+        if (line.startsWith(':')) continue
+        if (line.startsWith('event:')) event = line.slice(6).trim()
+        else if (line.startsWith('data:')) data += line.slice(5).trim()
+      }
+      if (!data) continue
+      let parsed
+      try { parsed = JSON.parse(data) } catch { continue }
+      if (event === 'reply_delta') handlers.onReplyDelta?.(parsed)
+      else if (event === 'tool_start') handlers.onToolStart?.(parsed)
+      else if (event === 'tool_result') handlers.onToolResult?.(parsed)
+      else if (event === 'done') handlers.onDone?.(parsed)
+      else if (event === 'error') handlers.onError?.(parsed.error || 'Agent Five failed')
+    }
+  }
+}
+
 export { supabase }

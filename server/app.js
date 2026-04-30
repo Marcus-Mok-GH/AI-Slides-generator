@@ -5,7 +5,7 @@ import {
   migratePromptHistory, savePromptHistory, getPromptHistory, deletePromptHistoryItem,
 } from './db.js'
 import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
-import { agentFiveTurn } from './agentFive.js'
+import { agentFiveTurn, agentFiveStream } from './agentFive.js'
 
 const app = express()
 app.use(express.json({ limit: '20mb' }))
@@ -550,6 +550,39 @@ app.post('/api/agentfive/chat', isAuthenticated, async (req, res) => {
     res
       .status(500)
       .json({ error: err?.message || 'Agent Five failed' })
+  }
+})
+
+app.post('/api/agentfive/stream', isAuthenticated, async (req, res) => {
+  const { history = [], message = '' } = req.body || {}
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'Missing "message"' })
+  }
+  if (!Array.isArray(history)) {
+    return res.status(400).json({ error: '"history" must be an array' })
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache, no-transform')
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('X-Accel-Buffering', 'no')
+  res.flushHeaders?.()
+
+  const send = (event, data) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+  }
+
+  const ping = setInterval(() => res.write(': ping\n\n'), 15000)
+  req.on('close', () => clearInterval(ping))
+
+  try {
+    await agentFiveStream({ history, userMessage: message.trim() }, send)
+  } catch (err) {
+    console.error('[agentfive/stream] error:', err)
+    send('error', { error: err?.message || 'Agent Five failed' })
+  } finally {
+    clearInterval(ping)
+    res.end()
   }
 })
 

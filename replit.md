@@ -76,8 +76,7 @@ vite.config.js          ← Dev proxy to Express on :3001
 - `/app` Create page → prompt + format → `OptionsPage` for theme / depth / length / tone / language → Generate.
 
 ### Agent Five (`/agentfive`)
-- A conversational tool-using assistant with its own workspace. It clarifies
-  with the user before producing artifacts.
+- An **autonomous**, tool-using assistant with its own workspace. The agent runs an agentic loop (up to 6 iterations): after receiving tool results it decides whether to call more tools or give a final answer — without asking permission.
 - Tools (server-side, in `server/agentFive.js`):
   - `web_search(query)` — DuckDuckGo HTML scrape, no API key needed.
   - `create_image(prompt, aspect_ratio?)` — uses the same Fireworks Flux proxy.
@@ -85,12 +84,15 @@ vite.config.js          ← Dev proxy to Express on :3001
     structured slide draft; auto-generates an image if `imagePrompt` is set.
 - The agent contract is JSON only:
   `{ reply, needs_clarification, tool_calls: [{ id, tool, args }] }`.
-  After tools run, results are fed back as a system message and the model
-  produces a follow-up summary turn.
-- API: `POST /api/agentfive/chat` with `{ history, message }`.
-- UI: `src/components/AgentFive.jsx` — left chat pane, right Workspace pane
-  that pins each slide / image / search result. `TopBar` has an "Agent Five"
-  button on `/app`; the Agent Five page has a "← Back to Slides" button.
+  The loop: call LLM → run all tools in parallel → feed results back → repeat until no more tool calls or MAX_ITERATIONS reached.
+- **Streaming API:** `POST /api/agentfive/stream` with `{ history, message }` returns SSE events:
+  - `reply_delta` `{ text, iteration, needsClarification }` — agent's text reply (may arrive multiple times across iterations)
+  - `tool_start` `{ id, tool, args }` — a tool call has begun
+  - `tool_result` `{ id, tool, ok, result? }` — a tool finished (includes full image base64)
+  - `done` `{ ok: true }` — all iterations complete
+  - `error` `{ error }` — failure
+- **Legacy API:** `POST /api/agentfive/chat` (non-streaming, single-turn, kept for compatibility).
+- UI: `src/components/AgentFive.jsx` — left chat pane shows streaming reply text and live tool chips (⏳ running → ✓ done / ✗ failed); right Workspace pane receives artifacts in real time as each tool completes without waiting for the full run to finish.
 
 ### Responsive Design
 - Adaptive layouts at ≤1024px, ≤900px, ≤720px, ≤420px. Sidebar collapses, touch targets are sized for mobile.

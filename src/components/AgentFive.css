@@ -181,16 +181,60 @@
   margin-top: 8px;
 }
 .af-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
-  padding: 3px 8px;
+  padding: 3px 9px;
   border-radius: 999px;
   background: rgba(124, 92, 255, 0.18);
   color: var(--af-text);
   border: 1px solid rgba(124, 92, 255, 0.35);
+  transition: background 200ms ease, border-color 200ms ease;
+}
+.af-chip-running {
+  background: rgba(255, 190, 50, 0.12);
+  border-color: rgba(255, 190, 50, 0.4);
+  color: #ffc94a;
+}
+.af-chip-done {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.4);
+  color: #34d399;
 }
 .af-chip-error {
   background: rgba(255, 117, 117, 0.15);
   border-color: rgba(255, 117, 117, 0.35);
+  color: var(--af-error);
+}
+
+.af-chip-spinner {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: af-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes af-spin {
+  to { transform: rotate(360deg); }
+}
+
+.af-msg-streaming {
+  position: relative;
+}
+.af-msg-streaming::after {
+  content: '▍';
+  display: inline;
+  animation: af-cursor 0.9s step-end infinite;
+  opacity: 0.7;
+  margin-left: 1px;
+}
+@keyframes af-cursor {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.7; }
 }
 
 .af-msg-thinking {

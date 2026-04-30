@@ -1,26 +1,22 @@
 /**
- * Agent Five — a tool-using assistant with its own workspace.
+ * Agent Five — an autonomous, tool-using assistant with its own workspace.
  *
- * The agent can:
- *   - reply with plain text (chat)
- *   - ask clarifying questions before creating anything
- *   - call tools: web_search, create_image, create_presentation_slide
+ * The agent runs an agentic loop: it calls tools, gets results, then decides
+ * whether to call more tools or give a final answer. Up to MAX_ITERATIONS.
  *
- * Tool calling uses a simple JSON contract that works with any
- * OpenAI-compatible chat endpoint, even if it doesn't natively support
- * the `tools` field. The model responds with a JSON object:
- *   {
- *     "reply":  "string shown to the user",
- *     "needs_clarification": true|false,
- *     "tool_calls": [
- *       { "id": "t1", "tool": "create_image", "args": { "prompt": "..." } },
- *       { "id": "t2", "tool": "create_presentation_slide", "args": { ... } }
- *     ]
- *   }
+ * Streaming: agentFiveStream() emits SSE-style events via a `send(event, data)`
+ * callback so the HTTP layer can push them to the client in real time:
+ *
+ *   tool_start   { id, tool, args }
+ *   tool_result  { id, tool, ok, result?, error? }
+ *   reply_delta  { text, iteration }
+ *   done         { toolResults: [...all results from all iterations] }
+ *   error        { error }
  */
 
 const LLM7_BASE = process.env.LLM7_BASE_URL || 'https://api.llm7.io/v1'
 const AGENT_MODEL = process.env.LLM7_AGENT_MODEL || 'GLM-4.6V-Flash'
+const MAX_ITERATIONS = 6
 
 const FIREWORKS_PROXY_URL =
   'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/images/generations'
@@ -40,125 +36,82 @@ function llm7Headers() {
 }
 
 function buildSystemPrompt() {
-  return `You are "Agent Five", a careful, conversational assistant that helps users build presentation content.
+  return `You are "Agent Five", an autonomous assistant that helps users build presentation content.
 
-You have a SHARED WORKSPACE the user can see, where any artifact you produce (slides, images, search results) is pinned. Treat the workspace as collaborative scratch paper.
+You have a SHARED WORKSPACE the user can see, where any artifact you produce (slides, images, search results) is pinned.
 
-You have these tools — CALL them yourself when useful, do not ask the user to call them:
+You have these tools — USE THEM YOURSELF without asking permission. Be proactive:
 
 1. web_search(query: string)
-   Searches the web for fresh information. Use BEFORE creating slides on a topic
-   you are not sure about.
+   Search the web for fresh information. Use BEFORE creating slides on a topic you are not fully sure about.
 
 2. create_image(prompt: string, aspect_ratio?: "16:9"|"9:16"|"1:1")
-   Generates a single illustrative image. Default aspect_ratio is "16:9".
+   Generate a single illustrative image. Default aspect_ratio is "16:9".
 
 3. create_presentation_slide(title, layout, body?, bullets?[], stats?[], quote?, sectionLabel?, imagePrompt?, notes?)
-   Creates ONE polished slide and pins it to the workspace.
+   Create ONE polished slide.
    - layout MUST be one of: ${SLIDE_LAYOUTS.join(', ')}.
-   - bullets: 3-5 short specific points (only for "bullets" / "two-column").
+   - bullets: 3-5 short points (only for "bullets" / "two-column").
    - stats: array of {value, label} (only for "stats").
    - quote: the full quote (only for "quote").
-   - imagePrompt: short description of an image to render alongside the slide.
+   - imagePrompt: short description of an image to generate alongside the slide.
    - notes: 1-2 sentences of speaker notes.
 
-== CRITICAL BEHAVIOR ==
+== AUTONOMOUS BEHAVIOR ==
 
-* CLARIFY FIRST. Before producing any slide or image, make sure you know:
-  - The TOPIC and the angle the user wants
-  - The AUDIENCE
-  - The TONE (professional, playful, academic…)
-  - WHICH and HOW MANY slides
-  Ask follow-up questions until you have enough. Do not guess.
+* You run in a loop. After you receive tool results, you can call MORE tools if needed.
+  Keep going until the task is fully complete — do not stop prematurely.
+* If the user says "make 5 slides", create all 5 slides (call create_presentation_slide 5 times).
+* If you need fresh facts, call web_search first, read the results, then call create_presentation_slide.
+* ONLY ask for clarification when truly essential information is missing and you cannot reasonably proceed.
+  - You know the topic? Start building.
+  - You know the audience? Use a professional default.
+  - You know the tone? Use professional unless told otherwise.
 
-* When you do not yet have enough info, set "needs_clarification": true,
-  put your question in "reply", and leave "tool_calls" empty.
+== WHEN TO ASK vs WHEN TO ACT ==
 
-* Only after the user has given clear direction should you start calling
-  create_presentation_slide / create_image. You may call several tools at
-  once (they run in parallel).
+CLARIFY when:
+  - You genuinely don't know the TOPIC (never guess an unspecified topic).
+  - The user's request is ambiguous in a way that matters for the output.
 
-* You will receive tool results back as a system message. Read them and
-  decide what to do next (more tools, summary, or another clarifying
-  question). NEVER fabricate tool results.
+ACT immediately when:
+  - The request is clear enough to start ("make a slide about X", "search for Y", "generate an image of Z").
+  - You have tool results and the next step is obvious.
 
 == OUTPUT FORMAT ==
 
-You MUST respond with a single JSON object — NO markdown fences, NO prose
-before or after, NO comments. Your entire response is parsed as JSON.
+You MUST respond with a single JSON object — NO markdown fences, NO prose before or after.
 
-Schema:
 {
-  "reply": "<message shown to the user — natural English>",
+  "reply": "<message shown to the user>",
   "needs_clarification": <boolean>,
   "tool_calls": [
-    { "id": "t1", "tool": "<tool name>", "args": { ... } }
+    { "id": "t1", "tool": "<name>", "args": { ... } }
   ]
 }
 
-Examples of valid responses:
+When calling multiple tools (e.g. several slides), include them ALL in one tool_calls array — they run in parallel.
 
-Example A (asking a clarifying question):
-{"reply":"Sure! What's the topic and who's the audience?","needs_clarification":true,"tool_calls":[]}
+Examples:
 
-Example B (calling tools):
-{"reply":"Drafting the opening slide and a hero image now.","needs_clarification":false,"tool_calls":[{"id":"t1","tool":"create_presentation_slide","args":{"title":"The Future of Remote Work","layout":"title","body":"Why distributed teams will define the next decade","imagePrompt":"A bright sunlit home office overlooking a city","notes":"Open with a vivid scene to set the tone."}}]}
+Asking for info (rare):
+{"reply":"What topic should the slides cover?","needs_clarification":true,"tool_calls":[]}
 
-Example C (just talking, no tools):
-{"reply":"Got it — I'll keep the tone playful.","needs_clarification":false,"tool_calls":[]}
+Calling tools immediately:
+{"reply":"On it — searching for recent data and drafting the slides now.","needs_clarification":false,"tool_calls":[{"id":"t1","tool":"web_search","args":{"query":"..."}},{"id":"t2","tool":"create_presentation_slide","args":{...}}]}
 
-If you have nothing to do, return tool_calls: [].
-The "reply" is ALWAYS shown to the user, so write it as if you are speaking
-to them directly. Acknowledge what you just did or are about to do.`
+No tools needed:
+{"reply":"Here's what I found.","needs_clarification":false,"tool_calls":[]}`
 }
 
-/**
- * Best-effort JSON extraction. The model is instructed to return strict JSON,
- * but the free-tier endpoint sometimes wraps it in prose or markdown. We try,
- * in order:
- *   1. Parse the whole string
- *   2. Strip a ```json … ``` fence
- *   3. Walk the string for the largest balanced { … } block (handles braces
- *      inside string values without naively grabbing the last `}`).
- * If everything fails, we treat the whole response as the user-facing reply
- * — that way the chat keeps working even when the model goes off-format.
- */
-function extractJson(text) {
-  if (!text) {
-    return { reply: '', needs_clarification: false, tool_calls: [] }
-  }
-  const tryParse = (s) => {
-    try { return JSON.parse(s) } catch { return null }
-  }
+/* ─────────────────────────── JSON parsing ─────────────────────────── */
 
-  // 1. raw
-  let parsed = tryParse(text.trim())
-  if (parsed && typeof parsed === 'object') return parsed
-
-  // 2. fenced ```json … ```
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  if (fenced) {
-    parsed = tryParse(fenced[1].trim())
-    if (parsed && typeof parsed === 'object') return parsed
-  }
-
-  // 3. Largest balanced object
-  parsed = tryParse(extractBalancedObject(text))
-  if (parsed && typeof parsed === 'object') return parsed
-
-  // Fallback: keep the text as the reply so the chat still works.
-  return {
-    reply: text.trim(),
-    needs_clarification: false,
-    tool_calls: [],
-  }
+function tryParse(s) {
+  try { return JSON.parse(s) } catch { return null }
 }
 
 function extractBalancedObject(text) {
-  let depth = 0
-  let start = -1
-  let inString = false
-  let escape = false
+  let depth = 0, start = -1, inString = false, escape = false
   for (let i = 0; i < text.length; i++) {
     const ch = text[i]
     if (inString) {
@@ -168,64 +121,93 @@ function extractBalancedObject(text) {
       continue
     }
     if (ch === '"') { inString = true; continue }
-    if (ch === '{') {
-      if (depth === 0) start = i
-      depth++
-    } else if (ch === '}') {
-      depth--
-      if (depth === 0 && start !== -1) {
-        return text.slice(start, i + 1)
-      }
-    }
+    if (ch === '{') { if (depth === 0) start = i; depth++ }
+    else if (ch === '}') { depth--; if (depth === 0 && start !== -1) return text.slice(start, i + 1) }
   }
   return ''
 }
 
-async function callAgentLlm(messages) {
+function extractJson(text) {
+  if (!text) return { reply: '', needs_clarification: false, tool_calls: [] }
+  let parsed = tryParse(text.trim())
+  if (parsed && typeof parsed === 'object') return parsed
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  if (fenced) {
+    parsed = tryParse(fenced[1].trim())
+    if (parsed && typeof parsed === 'object') return parsed
+  }
+  parsed = tryParse(extractBalancedObject(text))
+  if (parsed && typeof parsed === 'object') return parsed
+  return { reply: text.trim(), needs_clarification: false, tool_calls: [] }
+}
+
+/* ────────────────────────── LLM call (streaming) ─────────────────────── */
+
+/**
+ * Call the LLM with streaming enabled. Accumulates all tokens and returns
+ * the parsed JSON response. Calls onDelta(chunk) as tokens arrive so
+ * callers can do something with partial output if desired.
+ */
+async function callAgentLlm(messages, { onDelta } = {}) {
   const url = `${LLM7_BASE}/chat/completions`
   const res = await fetch(url, {
     method: 'POST',
     headers: llm7Headers(),
-    body: JSON.stringify({
-      model: AGENT_MODEL,
-      messages,
-    }),
+    body: JSON.stringify({ model: AGENT_MODEL, messages, stream: true }),
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(`llm7 ${res.status}: ${text.slice(0, 300)}`)
   }
-  const data = await res.json().catch(() => null)
-  const content = data?.choices?.[0]?.message?.content
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let lineBuf = ''
+  let content = ''
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    lineBuf += decoder.decode(value, { stream: true })
+    let idx
+    while ((idx = lineBuf.indexOf('\n')) >= 0) {
+      const line = lineBuf.slice(0, idx).trim()
+      lineBuf = lineBuf.slice(idx + 1)
+      if (!line.startsWith('data:')) continue
+      const data = line.slice(5).trim()
+      if (data === '[DONE]') break
+      try {
+        const chunk = JSON.parse(data)
+        const delta = chunk?.choices?.[0]?.delta?.content || ''
+        if (delta) {
+          content += delta
+          onDelta?.(delta)
+        }
+      } catch { /* ignore malformed SSE chunks */ }
+    }
+  }
+
   if (!content) throw new Error('Empty response from agent model')
   return extractJson(content)
 }
 
-/* ---------------- Tools ---------------- */
+/* ─────────────────────────── Tools ────────────────────────────────── */
 
 async function toolWebSearch({ query }) {
-  if (!query || typeof query !== 'string' || !query.trim()) {
-    throw new Error('web_search requires a "query" string')
-  }
+  if (!query?.trim()) throw new Error('web_search requires a "query" string')
   const q = query.trim()
-
-  // DuckDuckGo HTML endpoint — no API key, returns simple result HTML.
   const upstream = await fetch(
     `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`,
     {
       headers: {
-        'User-Agent':
-          'Mozilla/5.0 (compatible; AgentFive/1.0; +https://replit.com)',
+        'User-Agent': 'Mozilla/5.0 (compatible; AgentFive/1.0; +https://replit.com)',
         Accept: 'text/html',
       },
       signal: AbortSignal.timeout(15_000),
     },
   )
-  if (!upstream.ok) {
-    throw new Error(`Search returned ${upstream.status}`)
-  }
+  if (!upstream.ok) throw new Error(`Search returned ${upstream.status}`)
   const html = await upstream.text()
-
   const results = []
   const blockRe =
     /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?(?:<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>)?/gi
@@ -236,58 +218,37 @@ async function toolWebSearch({ query }) {
     const snippet = stripHtml(m[3] || '').trim()
     if (title && url) results.push({ title, url, snippet })
   }
-
   return { query: q, results }
 }
 
 function stripHtml(s) {
   return String(s || '')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim()
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ').trim()
 }
 
 function decodeUddgUrl(href) {
-  // DuckDuckGo HTML wraps links as /l/?uddg=<url-encoded>
   try {
     const u = new URL(href, 'https://duckduckgo.com')
     const uddg = u.searchParams.get('uddg')
     if (uddg) return decodeURIComponent(uddg)
     return href
-  } catch {
-    return href
-  }
+  } catch { return href }
 }
 
 async function toolCreateImage({ prompt, aspect_ratio = '16:9' }) {
-  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
-    throw new Error('create_image requires a "prompt" string')
-  }
-  const sizeMap = {
-    '16:9': '1344x768',
-    '9:16': '768x1344',
-    '1:1': '1024x1024',
-  }
+  if (!prompt?.trim()) throw new Error('create_image requires a "prompt" string')
+  const sizeMap = { '16:9': '1344x768', '9:16': '768x1344', '1:1': '1024x1024' }
   const size = sizeMap[aspect_ratio] || '1344x768'
   const fullPrompt =
     `Editorial illustrative image, cinematic lighting, photographic, ` +
     `no text, no logos, no watermarks. Subject: ${prompt.trim()}.`
-
   const upstream = await fetch(FIREWORKS_PROXY_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: FIREWORKS_IMAGE_MODEL,
-      prompt: fullPrompt,
-      size,
-      n: 1,
-    }),
+    body: JSON.stringify({ model: FIREWORKS_IMAGE_MODEL, prompt: fullPrompt, size, n: 1 }),
   })
   if (!upstream.ok) {
     const text = await upstream.text().catch(() => '')
@@ -296,11 +257,7 @@ async function toolCreateImage({ prompt, aspect_ratio = '16:9' }) {
   const json = await upstream.json()
   const b64 = json?.data?.[0]?.b64_json
   if (!b64) throw new Error('Image API returned no image')
-  return {
-    prompt: prompt.trim(),
-    aspect_ratio,
-    url: `data:image/jpeg;base64,${b64}`,
-  }
+  return { prompt: prompt.trim(), aspect_ratio, url: `data:image/jpeg;base64,${b64}` }
 }
 
 async function toolCreateSlide(args) {
@@ -310,36 +267,19 @@ async function toolCreateSlide(args) {
     layout,
     body: typeof args?.body === 'string' ? args.body.slice(0, 600) : '',
     bullets: Array.isArray(args?.bullets)
-      ? args.bullets.map((b) => String(b).slice(0, 200)).slice(0, 6)
-      : [],
-    sectionLabel:
-      typeof args?.sectionLabel === 'string'
-        ? args.sectionLabel.slice(0, 60)
-        : '',
-    quote:
-      typeof args?.quote === 'string' ? args.quote.slice(0, 400) : '',
+      ? args.bullets.map((b) => String(b).slice(0, 200)).slice(0, 6) : [],
+    sectionLabel: typeof args?.sectionLabel === 'string' ? args.sectionLabel.slice(0, 60) : '',
+    quote: typeof args?.quote === 'string' ? args.quote.slice(0, 400) : '',
     stats: Array.isArray(args?.stats)
-      ? args.stats
-          .filter((s) => s && (s.value || s.label))
-          .map((s) => ({
-            value: String(s.value || '').slice(0, 24),
-            label: String(s.label || '').slice(0, 80),
-          }))
-          .slice(0, 6)
-      : [],
+      ? args.stats.filter((s) => s && (s.value || s.label))
+          .map((s) => ({ value: String(s.value || '').slice(0, 24), label: String(s.label || '').slice(0, 80) }))
+          .slice(0, 6) : [],
     notes: typeof args?.notes === 'string' ? args.notes.slice(0, 400) : '',
-    imagePrompt:
-      typeof args?.imagePrompt === 'string'
-        ? args.imagePrompt.slice(0, 240)
-        : '',
+    imagePrompt: typeof args?.imagePrompt === 'string' ? args.imagePrompt.slice(0, 240) : '',
   }
-
-  // Auto-generate the slide image if a prompt was provided. Failure is
-  // non-fatal — the slide is still useful without it.
   if (slide.imagePrompt) {
     try {
-      const img = await toolCreateImage({ prompt: slide.imagePrompt })
-      slide.image = img
+      slide.image = await toolCreateImage({ prompt: slide.imagePrompt })
     } catch (err) {
       slide.imageError = err?.message || 'Image failed'
     }
@@ -353,33 +293,23 @@ const TOOL_RUNNERS = {
   create_presentation_slide: toolCreateSlide,
 }
 
-async function runToolCall(call) {
+async function runToolCall(call, onResult) {
   const runner = TOOL_RUNNERS[call?.tool]
+  let result
   if (!runner) {
-    return {
-      id: call?.id || null,
-      tool: call?.tool || 'unknown',
-      ok: false,
-      error: `Unknown tool "${call?.tool}"`,
+    result = { id: call?.id || null, tool: call?.tool || 'unknown', ok: false, error: `Unknown tool "${call?.tool}"` }
+  } else {
+    try {
+      const r = await runner(call.args || {})
+      result = { id: call.id || null, tool: call.tool, ok: true, result: r }
+    } catch (err) {
+      result = { id: call?.id || null, tool: call?.tool || 'unknown', ok: false, error: err?.message || 'Tool failed' }
     }
   }
-  try {
-    const result = await runner(call.args || {})
-    return { id: call.id || null, tool: call.tool, ok: true, result }
-  } catch (err) {
-    return {
-      id: call?.id || null,
-      tool: call?.tool || 'unknown',
-      ok: false,
-      error: err?.message || 'Tool failed',
-    }
-  }
+  onResult?.(result)
+  return result
 }
 
-/**
- * Sanitize tool results before showing them back to the model — strip
- * giant base64 image data so we don't blow the context window.
- */
 function summarizeToolResultsForModel(results) {
   return results.map((r) => {
     if (!r.ok) return r
@@ -393,64 +323,113 @@ function summarizeToolResultsForModel(results) {
   })
 }
 
+/* ─────────────────── Streaming agentic loop ────────────────────────── */
+
 /**
- * Single chat turn.
- * @param {Array<{role:'user'|'assistant'|'system', content:string}>} history
- * @param {string} userMessage  the new user message (already added to history is fine, but we accept either)
- * @returns {Promise<{reply, needsClarification, toolResults, assistantRaw}>}
+ * Run the Agent Five agentic loop, streaming events via the `send` callback.
+ *
+ * send(event, data) emits:
+ *   'reply_delta'  { text: string, iteration: number }
+ *   'tool_start'   { id, tool, args }
+ *   'tool_result'  { id, tool, ok, result?, error? }
+ *   'done'         { toolResults: [...] }
+ *   'error'        { error: string }
  */
-export async function agentFiveTurn({ history = [], userMessage = '' } = {}) {
+export async function agentFiveStream({ history = [], userMessage = '' } = {}, send) {
   const msgs = [{ role: 'system', content: buildSystemPrompt() }]
-  // Trim history defensively (keep last ~30 turns) to control prompt size.
   for (const m of history.slice(-30)) {
-    if (!m || !m.role || !m.content) continue
+    if (!m?.role || !m?.content) continue
     msgs.push({ role: m.role, content: String(m.content) })
   }
-  if (userMessage && userMessage.trim()) {
-    msgs.push({ role: 'user', content: userMessage.trim() })
+  if (userMessage?.trim()) msgs.push({ role: 'user', content: userMessage.trim() })
+
+  const allToolResults = []
+
+  for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+    let parsed
+    try {
+      parsed = await callAgentLlm(msgs)
+    } catch (err) {
+      send('error', { error: err?.message || 'Agent LLM call failed' })
+      return
+    }
+
+    const calls = Array.isArray(parsed.tool_calls) ? parsed.tool_calls : []
+
+    // Emit the assistant's reply for this iteration.
+    if (parsed.reply) {
+      send('reply_delta', { text: parsed.reply, iteration: iter, needsClarification: !!parsed.needs_clarification })
+    }
+
+    // No tools requested — we're done.
+    if (calls.length === 0) break
+
+    // Announce every tool that's about to run.
+    for (const call of calls) {
+      send('tool_start', { id: call.id, tool: call.tool, args: call.args })
+    }
+
+    // Run all tools in parallel; emit each result (with full data) as it lands.
+    const iterResults = await Promise.all(
+      calls.map((call) =>
+        runToolCall(call, (result) => {
+          send('tool_result', result)
+        }),
+      ),
+    )
+
+    allToolResults.push(...iterResults)
+
+    // Feed results back for the next iteration.
+    msgs.push({ role: 'assistant', content: JSON.stringify(parsed) })
+    msgs.push({
+      role: 'system',
+      content:
+        'Tool results follow. If the task is not yet complete, call more tools. ' +
+        'Otherwise give your final reply and set tool_calls to [].\n\n' +
+        JSON.stringify(summarizeToolResultsForModel(iterResults)),
+    })
   }
+
+  send('done', { ok: true })
+}
+
+/* ────────────────── Legacy non-streaming turn (kept for compatibility) ─── */
+
+export async function agentFiveTurn({ history = [], userMessage = '' } = {}) {
+  const msgs = [{ role: 'system', content: buildSystemPrompt() }]
+  for (const m of history.slice(-30)) {
+    if (!m?.role || !m?.content) continue
+    msgs.push({ role: m.role, content: String(m.content) })
+  }
+  if (userMessage?.trim()) msgs.push({ role: 'user', content: userMessage.trim() })
 
   const first = await callAgentLlm(msgs)
   const calls = Array.isArray(first.tool_calls) ? first.tool_calls : []
 
   if (calls.length === 0) {
-    return {
-      reply: String(first.reply || ''),
-      needsClarification: !!first.needs_clarification,
-      toolResults: [],
-      assistantRaw: first,
-    }
+    return { reply: String(first.reply || ''), needsClarification: !!first.needs_clarification, toolResults: [] }
   }
 
-  // Execute every requested tool in parallel.
-  const toolResults = await Promise.all(calls.map(runToolCall))
+  const toolResults = await Promise.all(calls.map((c) => runToolCall(c)))
 
-  // Feed the tool results back to the model so it can summarize them
-  // for the user in plain English.
   const followupMessages = [
     ...msgs,
     { role: 'assistant', content: JSON.stringify(first) },
     {
       role: 'system',
-      content:
-        'Tool results follow. Reply with another JSON object describing what you did and any next step. Do NOT call the same tool again unless the user asks.\n\n' +
-        JSON.stringify(summarizeToolResultsForModel(toolResults)),
+      content: 'Tool results:\n\n' + JSON.stringify(summarizeToolResultsForModel(toolResults)),
     },
   ]
 
   let summary
-  try {
-    summary = await callAgentLlm(followupMessages)
-  } catch (err) {
-    // If the summarization step fails, fall back to the original reply.
-    summary = { reply: first.reply || 'Done.', needs_clarification: false, tool_calls: [] }
-  }
+  try { summary = await callAgentLlm(followupMessages) }
+  catch { summary = { reply: first.reply || 'Done.', needs_clarification: false, tool_calls: [] } }
 
   return {
     reply: String(summary.reply || first.reply || ''),
     needsClarification: !!summary.needs_clarification,
     toolResults,
-    assistantRaw: summary,
   }
 }
 

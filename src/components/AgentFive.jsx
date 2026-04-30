@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { agentFiveChat } from '../lib/api.js'
+import { streamAgentFive } from '../lib/api.js'
 import logo from '../assets/slideai-logo.svg'
 import './AgentFive.css'
 
@@ -28,12 +28,12 @@ function navigate(path) {
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
+/* ─────────────────────── Artifact renderers ─────────────────────── */
+
 function ArtifactSlide({ slide }) {
   return (
     <div className="af-slide">
-      {slide.sectionLabel ? (
-        <div className="af-slide-eyebrow">{slide.sectionLabel}</div>
-      ) : null}
+      {slide.sectionLabel ? <div className="af-slide-eyebrow">{slide.sectionLabel}</div> : null}
       <div className="af-slide-title">{slide.title}</div>
       {slide.body ? <div className="af-slide-body">{slide.body}</div> : null}
       {slide.bullets?.length ? (
@@ -51,15 +51,11 @@ function ArtifactSlide({ slide }) {
           ))}
         </div>
       ) : null}
-      {slide.quote ? (
-        <blockquote className="af-slide-quote">“{slide.quote}”</blockquote>
-      ) : null}
+      {slide.quote ? <blockquote className="af-slide-quote">"{slide.quote}"</blockquote> : null}
       {slide.image?.url ? (
         <img className="af-slide-image" src={slide.image.url} alt="" />
       ) : slide.imagePrompt && !slide.imageError ? (
-        <div className="af-slide-image-placeholder">
-          Image: {slide.imagePrompt}
-        </div>
+        <div className="af-slide-image-placeholder">Image: {slide.imagePrompt}</div>
       ) : null}
       {slide.notes ? (
         <div className="af-slide-notes">
@@ -90,15 +86,13 @@ function ArtifactSearch({ result }) {
       <ul className="af-search-results">
         {result.results.length === 0 ? (
           <li className="af-search-empty">No results.</li>
-        ) : (
-          result.results.map((r, i) => (
-            <li key={i}>
-              <a href={r.url} target="_blank" rel="noreferrer">{r.title}</a>
-              {r.snippet ? <p>{r.snippet}</p> : null}
-              <span className="af-search-url">{r.url}</span>
-            </li>
-          ))
-        )}
+        ) : result.results.map((r, i) => (
+          <li key={i}>
+            <a href={r.url} target="_blank" rel="noreferrer">{r.title}</a>
+            {r.snippet ? <p>{r.snippet}</p> : null}
+            <span className="af-search-url">{r.url}</span>
+          </li>
+        ))}
       </ul>
     </div>
   )
@@ -136,26 +130,105 @@ function Artifact({ artifact }) {
   )
 }
 
+/* ─────────────────────── Tool chip ─────────────────────────────── */
+
+function ToolChip({ tool, status }) {
+  const label = TOOL_LABEL[tool] || tool
+  const cls = [
+    'af-chip',
+    status === 'running' ? 'af-chip-running' : '',
+    status === 'failed' ? 'af-chip-error' : '',
+    status === 'done' ? 'af-chip-done' : '',
+  ].filter(Boolean).join(' ')
+
+  const icon = status === 'running' ? '⏳' : status === 'done' ? '✓' : '✗'
+  return (
+    <span className={cls}>
+      {status === 'running' ? <span className="af-chip-spinner" /> : icon} {label}
+    </span>
+  )
+}
+
+/* ─────────────────────── Pending message (streaming) ────────────── */
+
+function PendingMessage({ pending }) {
+  const tools = Object.values(pending.tools)
+  return (
+    <div className="af-msg af-msg-assistant">
+      <div className="af-msg-avatar">5</div>
+      <div className="af-msg-bubble">
+        {pending.reply ? (
+          <div className="af-msg-text af-msg-streaming">{pending.reply}</div>
+        ) : (
+          <div className="af-msg-thinking">
+            <span className="af-dot" />
+            <span className="af-dot" />
+            <span className="af-dot" />
+          </div>
+        )}
+        {tools.length > 0 ? (
+          <div className="af-msg-tools">
+            {tools.map((t) => (
+              <ToolChip key={t.id} tool={t.tool} status={t.status} />
+            ))}
+          </div>
+        ) : null}
+        {pending.needsClarification ? (
+          <div className="af-msg-meta">Needs your input ↓</div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────────────── Completed message ──────────────────────── */
+
+function CompletedMessage({ m }) {
+  return (
+    <div className={`af-msg af-msg-${m.role}`}>
+      <div className="af-msg-avatar">
+        {m.role === 'assistant' ? '5' : 'You'}
+      </div>
+      <div className="af-msg-bubble">
+        <div className="af-msg-text">{m.content}</div>
+        {m.toolSummary?.length ? (
+          <div className="af-msg-tools">
+            {m.toolSummary.map((t, i) => (
+              <ToolChip key={i} tool={t.tool} status={t.ok ? 'done' : 'failed'} />
+            ))}
+          </div>
+        ) : null}
+        {m.needsClarification ? (
+          <div className="af-msg-meta">Needs your input ↓</div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────────────────── Main component ────────────────────── */
+
 export default function AgentFive() {
   const [messages, setMessages] = useState([
     {
       id: uid(),
       role: 'assistant',
       content:
-        "Hi, I'm Agent Five. Tell me what you want to build and I'll ask a few questions before I touch the workspace. I can search the web, generate images, and draft presentation slides.",
+        "Hi, I'm Agent Five. Tell me what to build — I'll get to work right away. I can search the web, generate images, and create slides, all autonomously.",
     },
   ])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [artifacts, setArtifacts] = useState([])
+  const [pending, setPending] = useState(null)
   const scrollerRef = useRef(null)
 
   useEffect(() => {
     if (scrollerRef.current) {
       scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight
     }
-  }, [messages, busy])
+  }, [messages, pending, artifacts])
 
   async function send(text) {
     const message = (text ?? input).trim()
@@ -168,41 +241,95 @@ export default function AgentFive() {
     setMessages(nextMessages)
     setBusy(true)
 
+    const pendingId = uid()
+    setPending({ id: pendingId, reply: '', tools: {}, needsClarification: false })
+
+    const history = nextMessages
+      .slice(0, -1)
+      .map((m) => ({ role: m.role, content: m.content }))
+
+    // Collect tool results so we can build the final message summary
+    const collectedTools = []
+
     try {
-      // Send only role/content pairs as the chat history.
-      const history = nextMessages
-        .slice(0, -1) // exclude the just-added user msg; server adds it separately
-        .map((m) => ({ role: m.role, content: m.content }))
+      await streamAgentFive({ history, message }, {
+        onReplyDelta({ text, iteration, needsClarification }) {
+          setPending((prev) => {
+            if (!prev) return prev
+            const sep = prev.reply && iteration > 0 ? '\n\n' : ''
+            return {
+              ...prev,
+              reply: prev.reply + sep + text,
+              needsClarification: !!needsClarification,
+            }
+          })
+        },
+        onToolStart({ id, tool, args }) {
+          setPending((prev) => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              tools: { ...prev.tools, [id]: { id, tool, args, status: 'running' } },
+            }
+          })
+        },
+        onToolResult(result) {
+          collectedTools.push(result)
 
-      const data = await agentFiveChat({ history, message })
+          // Update chip status
+          setPending((prev) => {
+            if (!prev) return prev
+            const existing = prev.tools[result.id] || {}
+            return {
+              ...prev,
+              tools: {
+                ...prev.tools,
+                [result.id]: { ...existing, status: result.ok ? 'done' : 'failed' },
+              },
+            }
+          })
 
-      const replyMsg = {
-        id: uid(),
-        role: 'assistant',
-        content: data.reply || 'Done.',
-        needsClarification: !!data.needsClarification,
-        toolResults: data.toolResults || [],
-      }
-      setMessages((prev) => [...prev, replyMsg])
-
-      if (data.toolResults?.length) {
-        const stamped = data.toolResults.map((t) => ({
-          ...t,
-          id: t.id || uid(),
-          createdAt: Date.now(),
-        }))
-        setArtifacts((prev) => [...prev, ...stamped])
-      }
+          // Immediately add to workspace artifacts
+          if (result.ok) {
+            setArtifacts((prev) => [
+              ...prev,
+              { ...result, id: result.id || uid(), createdAt: Date.now() },
+            ])
+          }
+        },
+        onDone() {
+          // Finalize the pending message
+          setPending((prev) => {
+            if (!prev) return prev
+            const finalMsg = {
+              id: prev.id,
+              role: 'assistant',
+              content: prev.reply || 'Done.',
+              needsClarification: prev.needsClarification,
+              toolSummary: Object.values(prev.tools).map((t) => ({
+                tool: t.tool,
+                ok: t.status === 'done',
+              })),
+            }
+            setMessages((msgs) => [...msgs, finalMsg])
+            return null
+          })
+          setBusy(false)
+        },
+        onError(errMsg) {
+          setError(errMsg)
+          setPending(null)
+          setBusy(false)
+        },
+      })
     } catch (err) {
       setError(err?.message || 'Something went wrong.')
-    } finally {
+      setPending(null)
       setBusy(false)
     }
   }
 
-  function clearWorkspace() {
-    setArtifacts([])
-  }
+  function clearWorkspace() { setArtifacts([]) }
 
   return (
     <div className="af-layout">
@@ -212,7 +339,7 @@ export default function AgentFive() {
           <div className="af-topbar-titles">
             <div className="af-topbar-title">Agent Five</div>
             <div className="af-topbar-sub">
-              Conversational workspace · clarifies before it builds
+              Autonomous · tool-calling · streamed in real time
             </div>
           </div>
         </div>
@@ -239,48 +366,13 @@ export default function AgentFive() {
         <section className="af-chat">
           <div className="af-chat-scroller" ref={scrollerRef}>
             {messages.map((m) => (
-              <div key={m.id} className={`af-msg af-msg-${m.role}`}>
-                <div className="af-msg-avatar">
-                  {m.role === 'assistant' ? '5' : 'You'}
-                </div>
-                <div className="af-msg-bubble">
-                  <div className="af-msg-text">{m.content}</div>
-                  {m.toolResults?.length ? (
-                    <div className="af-msg-tools">
-                      {m.toolResults.map((t, i) => (
-                        <span
-                          key={i}
-                          className={`af-chip ${t.ok ? '' : 'af-chip-error'}`}
-                          title={t.ok ? '' : t.error}
-                        >
-                          {TOOL_LABEL[t.tool] || t.tool}
-                          {t.ok ? '' : ' · failed'}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  {m.needsClarification ? (
-                    <div className="af-msg-meta">Needs your input ↓</div>
-                  ) : null}
-                </div>
-              </div>
+              <CompletedMessage key={m.id} m={m} />
             ))}
-            {busy ? (
-              <div className="af-msg af-msg-assistant">
-                <div className="af-msg-avatar">5</div>
-                <div className="af-msg-bubble af-msg-thinking">
-                  <span className="af-dot" />
-                  <span className="af-dot" />
-                  <span className="af-dot" />
-                </div>
-              </div>
-            ) : null}
-            {error ? (
-              <div className="af-error">{error}</div>
-            ) : null}
+            {pending ? <PendingMessage pending={pending} /> : null}
+            {error ? <div className="af-error">{error}</div> : null}
           </div>
 
-          {messages.length <= 1 ? (
+          {messages.length <= 1 && !busy ? (
             <div className="af-starters">
               {STARTER_PROMPTS.map((p, i) => (
                 <button
@@ -298,21 +390,15 @@ export default function AgentFive() {
 
           <form
             className="af-composer"
-            onSubmit={(e) => {
-              e.preventDefault()
-              send()
-            }}
+            onSubmit={(e) => { e.preventDefault(); send() }}
           >
             <textarea
               className="af-composer-input"
-              placeholder="Talk to Agent Five — what should we build today?"
+              placeholder="Tell Agent Five what to build…"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  send()
-                }
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
               }}
               rows={2}
               disabled={busy}
@@ -322,7 +408,7 @@ export default function AgentFive() {
               className="af-btn af-btn-primary"
               disabled={busy || !input.trim()}
             >
-              {busy ? 'Thinking…' : 'Send'}
+              {busy ? 'Working…' : 'Send'}
             </button>
           </form>
         </section>
@@ -332,7 +418,7 @@ export default function AgentFive() {
             <div className="af-workspace-title">Workspace</div>
             <div className="af-workspace-sub">
               {artifacts.length === 0
-                ? 'Slides, images, and search results pin here.'
+                ? 'Slides, images, and search results pin here in real time.'
                 : `${artifacts.length} item${artifacts.length === 1 ? '' : 's'}`}
             </div>
           </div>
@@ -341,8 +427,7 @@ export default function AgentFive() {
               <div className="af-workspace-empty">
                 <div className="af-workspace-empty-emoji">✶</div>
                 <div>
-                  Once Agent Five gathers enough info, anything it creates
-                  will appear here.
+                  Artifacts appear here as Agent Five creates them — you don't have to wait for it to finish.
                 </div>
               </div>
             ) : (
