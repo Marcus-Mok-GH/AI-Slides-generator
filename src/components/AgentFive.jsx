@@ -22,6 +22,20 @@ const TOOL_ICON = {
   create_presentation_slide: '🖼',
 }
 
+function toolArgSummary(tool, args) {
+  if (tool === 'web_search') return args?.query || ''
+  if (tool === 'create_presentation_slide') return args?.title || ''
+  if (tool === 'create_image') return args?.prompt || ''
+  return ''
+}
+
+function toolRunningLabel(tool, args) {
+  if (tool === 'web_search') return `Searching for "${args?.query || '…'}"`
+  if (tool === 'create_image') return `Generating image…`
+  if (tool === 'create_presentation_slide') return `Creating slide "${args?.title || '…'}"`
+  return 'Working…'
+}
+
 function uid() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
   return `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
@@ -114,6 +128,37 @@ function SearchResult({ result }) {
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+/* ─────────────────────── Step progress tracker ─────────────────── */
+
+function StepTrack({ steps }) {
+  if (!steps.length) return null
+  return (
+    <div className="af-step-track">
+      {steps.map((s, i) => (
+        <div key={s.id} className={`af-step-row af-step-${s.status}`}>
+          <div className="af-step-num">{i + 1}</div>
+          <div className="af-step-icon">{TOOL_ICON[s.tool] || '🔧'}</div>
+          <div className="af-step-info">
+            <div className="af-step-label">{TOOL_LABEL[s.tool] || s.tool}</div>
+            {toolArgSummary(s.tool, s.args) ? (
+              <div className="af-step-arg">{toolArgSummary(s.tool, s.args)}</div>
+            ) : null}
+          </div>
+          <div className="af-step-badge">
+            {s.status === 'running' ? (
+              <span className="af-step-spinner" />
+            ) : s.status === 'done' ? (
+              <span className="af-step-check">✓</span>
+            ) : (
+              <span className="af-step-fail">✗</span>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -261,6 +306,7 @@ export default function AgentFive() {
   const [error, setError] = useState('')
   const [pending, setPending] = useState(null)
   const [currentTool, setCurrentTool] = useState(null)
+  const [stepLog, setStepLog] = useState([])
   const scrollerRef = useRef(null)
 
   useEffect(() => {
@@ -280,6 +326,7 @@ export default function AgentFive() {
     setMessages(nextMessages)
     setBusy(true)
     setCurrentTool(null)
+    setStepLog([])
 
     const pendingId = uid()
     setPending({ id: pendingId, reply: '', tools: {}, needsClarification: false })
@@ -298,16 +345,14 @@ export default function AgentFive() {
           })
         },
         onToolStart({ id, tool, args }) {
-          // Update pending chips
           setPending((prev) => {
             if (!prev) return prev
             return { ...prev, tools: { ...prev.tools, [id]: { id, tool, args, status: 'running' } } }
           })
-          // Replace the current tool panel
           setCurrentTool({ id, tool, args, status: 'running' })
+          setStepLog((prev) => [...prev, { id, tool, args, status: 'running' }])
         },
         onToolResult(result) {
-          // Update pending chip status
           setPending((prev) => {
             if (!prev) return prev
             const existing = prev.tools[result.id] || {}
@@ -319,7 +364,6 @@ export default function AgentFive() {
               },
             }
           })
-          // Update the panel with the result (only if this is still the displayed tool)
           setCurrentTool((prev) => {
             if (!prev || prev.id !== result.id) return prev
             return {
@@ -329,6 +373,11 @@ export default function AgentFive() {
               error: result.ok ? undefined : result.error,
             }
           })
+          setStepLog((prev) =>
+            prev.map((s) =>
+              s.id === result.id ? { ...s, status: result.ok ? 'done' : 'failed' } : s,
+            ),
+          )
         },
         onDone() {
           setPending((prev) => {
@@ -418,17 +467,26 @@ export default function AgentFive() {
 
         <aside className="af-panel-col">
           <div className="af-panel-head">
-            <div className="af-panel-title">Current tool</div>
+            <div className="af-panel-title">
+              {stepLog.length > 0
+                ? `Step ${stepLog.length}`
+                : 'Agent workspace'}
+            </div>
             <div className="af-panel-sub">
-              {currentTool
-                ? currentTool.status === 'running'
-                  ? 'Running…'
-                  : currentTool.status === 'done'
-                  ? 'Completed'
-                  : 'Failed'
-                : 'Idle'}
+              {currentTool && currentTool.status === 'running'
+                ? toolRunningLabel(currentTool.tool, currentTool.args)
+                : currentTool && currentTool.status === 'done'
+                ? 'Step complete'
+                : currentTool && currentTool.status === 'failed'
+                ? 'Step failed'
+                : 'Tool activity appears here as Agent Five works'}
             </div>
           </div>
+          {stepLog.length > 0 ? (
+            <div className="af-panel-steps">
+              <StepTrack steps={stepLog} />
+            </div>
+          ) : null}
           <div className="af-panel-body">
             <CurrentToolPanel currentTool={currentTool} />
           </div>
