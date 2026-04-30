@@ -84,8 +84,10 @@ You have these tools — CALL them yourself when useful, do not ask the user to 
 
 == OUTPUT FORMAT ==
 
-You MUST respond with a single JSON object — no markdown, no commentary:
+You MUST respond with a single JSON object — NO markdown fences, NO prose
+before or after, NO comments. Your entire response is parsed as JSON.
 
+Schema:
 {
   "reply": "<message shown to the user — natural English>",
   "needs_clarification": <boolean>,
@@ -94,24 +96,89 @@ You MUST respond with a single JSON object — no markdown, no commentary:
   ]
 }
 
+Examples of valid responses:
+
+Example A (asking a clarifying question):
+{"reply":"Sure! What's the topic and who's the audience?","needs_clarification":true,"tool_calls":[]}
+
+Example B (calling tools):
+{"reply":"Drafting the opening slide and a hero image now.","needs_clarification":false,"tool_calls":[{"id":"t1","tool":"create_presentation_slide","args":{"title":"The Future of Remote Work","layout":"title","body":"Why distributed teams will define the next decade","imagePrompt":"A bright sunlit home office overlooking a city","notes":"Open with a vivid scene to set the tone."}}]}
+
+Example C (just talking, no tools):
+{"reply":"Got it — I'll keep the tone playful.","needs_clarification":false,"tool_calls":[]}
+
 If you have nothing to do, return tool_calls: [].
 The "reply" is ALWAYS shown to the user, so write it as if you are speaking
 to them directly. Acknowledge what you just did or are about to do.`
 }
 
+/**
+ * Best-effort JSON extraction. The model is instructed to return strict JSON,
+ * but the free-tier endpoint sometimes wraps it in prose or markdown. We try,
+ * in order:
+ *   1. Parse the whole string
+ *   2. Strip a ```json … ``` fence
+ *   3. Walk the string for the largest balanced { … } block (handles braces
+ *      inside string values without naively grabbing the last `}`).
+ * If everything fails, we treat the whole response as the user-facing reply
+ * — that way the chat keeps working even when the model goes off-format.
+ */
 function extractJson(text) {
-  if (!text) throw new Error('Empty response from model')
-  try { return JSON.parse(text) } catch {}
+  if (!text) {
+    return { reply: '', needs_clarification: false, tool_calls: [] }
+  }
+  const tryParse = (s) => {
+    try { return JSON.parse(s) } catch { return null }
+  }
+
+  // 1. raw
+  let parsed = tryParse(text.trim())
+  if (parsed && typeof parsed === 'object') return parsed
+
+  // 2. fenced ```json … ```
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
   if (fenced) {
-    try { return JSON.parse(fenced[1]) } catch {}
+    parsed = tryParse(fenced[1].trim())
+    if (parsed && typeof parsed === 'object') return parsed
   }
-  const start = text.indexOf('{')
-  const end = text.lastIndexOf('}')
-  if (start !== -1 && end !== -1 && end > start) {
-    return JSON.parse(text.slice(start, end + 1))
+
+  // 3. Largest balanced object
+  parsed = tryParse(extractBalancedObject(text))
+  if (parsed && typeof parsed === 'object') return parsed
+
+  // Fallback: keep the text as the reply so the chat still works.
+  return {
+    reply: text.trim(),
+    needs_clarification: false,
+    tool_calls: [],
   }
-  throw new Error('Model did not return parseable JSON')
+}
+
+function extractBalancedObject(text) {
+  let depth = 0
+  let start = -1
+  let inString = false
+  let escape = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (inString) {
+      if (escape) { escape = false; continue }
+      if (ch === '\\') { escape = true; continue }
+      if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') { inString = true; continue }
+    if (ch === '{') {
+      if (depth === 0) start = i
+      depth++
+    } else if (ch === '}') {
+      depth--
+      if (depth === 0 && start !== -1) {
+        return text.slice(start, i + 1)
+      }
+    }
+  }
+  return ''
 }
 
 async function callAgentLlm(messages) {
