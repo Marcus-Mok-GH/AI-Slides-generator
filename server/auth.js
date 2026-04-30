@@ -183,6 +183,32 @@ export async function setupAuth(app) {
     }
   })
 
+  app.post('/api/auth/password/magic', async (req, res) => {
+    if (!supabase) {
+      return res.status(500).json({ error: 'Auth is not configured.' })
+    }
+    const { email, redirectTo } = req.body || {}
+    if (!email) return res.status(400).json({ error: 'Email is required.' })
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: String(email).trim(),
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: redirectTo ? String(redirectTo) : undefined,
+        },
+      })
+      if (error) {
+        return res
+          .status(error.status || 400)
+          .json({ error: error.message, code: error.code || error.error_code })
+      }
+      res.json({ ok: true })
+    } catch (err) {
+      console.error('[auth/magic] proxy error:', err)
+      res.status(502).json({ error: err?.message || 'Magic link failed.' })
+    }
+  })
+
   app.post('/api/auth/password/reset', async (req, res) => {
     if (!supabase) {
       return res.status(500).json({ error: 'Auth is not configured.' })

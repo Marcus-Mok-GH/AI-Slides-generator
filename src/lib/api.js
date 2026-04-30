@@ -353,6 +353,31 @@ async function persistSessionLocally(session, user) {
  * <origin>/?resetToken=<token> — the ResetPasswordModal reads that token
  * from the URL on mount and submits the new password directly to Supabase.
  */
+/**
+ * Send a passwordless "magic link" email through our backend proxy.
+ * Supabase emails the user a one-click link that signs them in when
+ * clicked. The link returns to the app's origin so the supabase-js
+ * client can pick up the session from the URL hash on load.
+ */
+export async function signInWithMagicLink(email) {
+  const res = await fetch('/api/auth/password/magic', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email,
+      redirectTo: `${window.location.origin}/`,
+    }),
+  })
+  let data = null
+  try { data = await res.json() } catch { /* empty body */ }
+  if (!res.ok) {
+    const err = new Error(data?.error || `Magic link failed (${res.status})`)
+    err.code = data?.code
+    err.status = res.status
+    throw err
+  }
+}
+
 export async function resetPasswordEmail(email) {
   const res = await fetch('/api/auth/password/reset', {
     method: 'POST',

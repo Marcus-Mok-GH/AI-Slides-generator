@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import {
   resetPasswordEmail,
+  signInWithMagicLink,
   signInWithPassword,
   signUpWithPassword,
 } from '../lib/api.js'
@@ -46,7 +47,7 @@ function formatAuthError(err) {
  * `onAuthStateChange` listener picks it up and the modal closes.
  */
 export default function SignInModal({ open, onClose }) {
-  const [mode, setMode] = useState('signin') // 'signin' | 'signup' | 'forgot'
+  const [mode, setMode] = useState('signin') // 'signin' | 'signup' | 'forgot' | 'magic'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -76,8 +77,12 @@ export default function SignInModal({ open, onClose }) {
     e.preventDefault()
     setError(null)
     setInfo(null)
-    if (!email.trim() || !password) {
-      setError('Email and password are required.')
+    if (!email.trim()) {
+      setError('Please enter your email address.')
+      return
+    }
+    if (mode !== 'forgot' && mode !== 'magic' && !password) {
+      setError('Password is required.')
       return
     }
     setBusy(true)
@@ -92,6 +97,15 @@ export default function SignInModal({ open, onClose }) {
         }
         await resetPasswordEmail(email.trim())
         setInfo('Check your email for a password reset link.')
+      } else if (mode === 'magic') {
+        if (!email.trim()) {
+          setError('Please enter your email address.')
+          return
+        }
+        await signInWithMagicLink(email.trim())
+        setInfo(
+          'Check your email for a sign-in link. Click it from this device to sign in.',
+        )
       } else {
         const data = await signUpWithPassword({
           email: email.trim(),
@@ -161,14 +175,18 @@ export default function SignInModal({ open, onClose }) {
             ? 'Welcome back'
             : mode === 'forgot'
               ? 'Reset your password'
-              : 'Create your account'}
+              : mode === 'magic'
+                ? 'Sign in with a magic link'
+                : 'Create your account'}
         </h2>
         <p className="signin-sub">
           {mode === 'signin'
             ? 'Sign in to keep building decks.'
             : mode === 'forgot'
               ? "Enter your email and we'll send you a reset link."
-              : 'Sign up to save your decks and pick up where you left off.'}
+              : mode === 'magic'
+                ? "Enter your email and we'll send you a one-click sign-in link."
+                : 'Sign up to save your decks and pick up where you left off.'}
         </p>
 
         <form className="signin-form" onSubmit={handleSubmit}>
@@ -183,7 +201,7 @@ export default function SignInModal({ open, onClose }) {
               required
             />
           </label>
-          {mode !== 'forgot' && (
+          {mode !== 'forgot' && mode !== 'magic' && (
             <label className="signin-label">
               Password
               <input
@@ -214,7 +232,9 @@ export default function SignInModal({ open, onClose }) {
                 ? 'Sign in'
                 : mode === 'forgot'
                   ? 'Send reset link'
-                  : 'Create account'}
+                  : mode === 'magic'
+                    ? 'Email me a sign-in link'
+                    : 'Create account'}
           </button>
 
           {mode === 'signin' && (
@@ -234,15 +254,30 @@ export default function SignInModal({ open, onClose }) {
           )}
         </form>
 
-        {mode !== 'forgot' && (
+        {mode !== 'forgot' && mode !== 'magic' && (
           <>
             <div className="signin-divider">or</div>
 
             <button
               type="button"
               className="signin-oauth"
+              onClick={() => {
+                setMode('magic')
+                setError(null)
+                setInfo(null)
+                setPassword('')
+              }}
+              disabled={busy}
+            >
+              Email me a magic link
+            </button>
+
+            <button
+              type="button"
+              className="signin-oauth"
               onClick={handleGoogle}
               disabled={busy}
+              style={{ marginTop: 10 }}
             >
               Continue with Google
             </button>
@@ -266,7 +301,11 @@ export default function SignInModal({ open, onClose }) {
             </>
           ) : (
             <>
-              {mode === 'forgot' ? 'Remember your password? ' : 'Already have an account? '}
+              {mode === 'forgot'
+                ? 'Remember your password? '
+                : mode === 'magic'
+                  ? 'Prefer a password? '
+                  : 'Already have an account? '}
               <button
                 type="button"
                 onClick={() => {
@@ -275,7 +314,7 @@ export default function SignInModal({ open, onClose }) {
                   setInfo(null)
                 }}
               >
-                {mode === 'forgot' ? 'Sign in' : 'Sign in'}
+                Sign in
               </button>
             </>
           )}
