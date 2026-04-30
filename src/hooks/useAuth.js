@@ -68,13 +68,41 @@ export default function useAuth() {
       window.removeEventListener('slideai:unauthorized', onUnauthorized)
   }, [])
 
+  // The proxy sign-in/up path writes the session to localStorage directly
+  // (so we never need to call supabase from the browser to validate it) and
+  // dispatches this event. Re-fetch the user from our own backend when it
+  // fires so the UI flips out of the landing page immediately.
+  useEffect(() => {
+    function onAuthChanged() {
+      refresh()
+    }
+    window.addEventListener('slideai:auth-changed', onAuthChanged)
+    return () =>
+      window.removeEventListener('slideai:auth-changed', onAuthChanged)
+  }, [refresh])
+
   const openSignIn = useCallback(() => setSignInOpen(true), [])
   const closeSignIn = useCallback(() => setSignInOpen(false), [])
   const closePasswordReset = useCallback(() => setPasswordResetOpen(false), [])
 
   const signOut = useCallback(async () => {
+    // Try the supabase client's signOut for cleanliness, but don't block on
+    // it — the user's browser may not be able to reach *.supabase.co. The
+    // local part (clearing storage) is what actually logs them out of this
+    // tab, so do it ourselves regardless.
     try {
-      await supabase.auth.signOut()
+      const p = supabase.auth.signOut({ scope: 'local' })
+      if (p && typeof p.then === 'function') {
+        await Promise.race([
+          p,
+          new Promise((resolve) => setTimeout(resolve, 800)),
+        ])
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      window.localStorage.removeItem('slideai-auth')
     } catch {
       /* ignore */
     }

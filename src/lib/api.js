@@ -242,11 +242,8 @@ export async function signInWithPassword({ email, password }) {
     err.status = res.status
     throw err
   }
-  if (data?.session?.access_token && data.session?.refresh_token) {
-    await supabase.auth.setSession({
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-    })
+  if (data?.session) {
+    await persistSessionLocally(data.session, data.user)
   }
   return data
 }
@@ -271,13 +268,82 @@ export async function signUpWithPassword({ email, password }) {
     err.status = res.status
     throw err
   }
-  if (data?.session?.access_token && data.session?.refresh_token) {
-    await supabase.auth.setSession({
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-    })
+  if (data?.session) {
+    await persistSessionLocally(data.session, data.user)
   }
   return data
+}
+
+/**
+ * Storage key used by the supabase-js singleton (see src/lib/supabase.js).
+ * We write the session here directly so getSession() can read it without
+ * making any network call to *.supabase.co — the user's browser blocks
+ * that origin, so calling supabase.auth.setSession() (which validates the
+ * token by fetching the Supabase REST API) would fail.
+ */
+const SUPABASE_STORAGE_KEY = 'slideai-auth'
+
+function decodeJwtExp(token) {
+  try {
+    const payload = JSON.parse(
+      atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')),
+    )
+    return typeof payload?.exp === 'number' ? payload.exp : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Write the session returned by our auth proxy directly to the storage
+ * slot supabase-js reads from, then notify the client so any subscribers
+ * (the useAuth hook in particular) refresh. No request leaves the browser
+ * for *.supabase.co.
+ */
+async function persistSessionLocally(session, user) {
+  if (!session?.access_token || !session?.refresh_token) return
+  const expFromToken = decodeJwtExp(session.access_token)
+  const nowSec = Math.floor(Date.now() / 1000)
+  const expires_at =
+    session.expires_at ||
+    expFromToken ||
+    nowSec + (session.expires_in || 3600)
+  const expires_in =
+    session.expires_in || Math.max(60, expires_at - nowSec)
+
+  const storedSession = {
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+    token_type: session.token_type || 'bearer',
+    expires_in,
+    expires_at,
+    user: user || session.user || null,
+    provider_token: session.provider_token || null,
+    provider_refresh_token: session.provider_refresh_token || null,
+  }
+
+  try {
+    window.localStorage.setItem(
+      SUPABASE_STORAGE_KEY,
+      JSON.stringify(storedSession),
+    )
+  } catch (err) {
+    console.warn('[auth] could not persist session to localStorage:', err)
+    return
+  }
+
+  // Tell anyone listening (the useAuth hook) that there's a new session,
+  // without touching the network. We use a CustomEvent the hook subscribes
+  // to in addition to supabase's onAuthStateChange.
+  try {
+    window.dispatchEvent(
+      new CustomEvent('slideai:auth-changed', {
+        detail: { session: storedSession },
+      }),
+    )
+  } catch {
+    /* ignore */
+  }
 }
 
 /**
