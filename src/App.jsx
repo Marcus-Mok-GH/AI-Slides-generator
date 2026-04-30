@@ -546,9 +546,11 @@ export default function App() {
     )
   }
 
-  // Agent Five lives at /agentfive — own full-screen workspace.
+  // Agent Five lives at /agentfive and /agentfive/[chatId]
   if (currentPath.startsWith('/agentfive')) {
-    return <AgentFive />
+    const chatIdMatch = currentPath.match(/^\/agentfive\/([^/?#]+)/)
+    const chatId = chatIdMatch ? decodeURIComponent(chatIdMatch[1]) : null
+    return <AgentFive chatId={chatId} />
   }
 
   if (deck) {

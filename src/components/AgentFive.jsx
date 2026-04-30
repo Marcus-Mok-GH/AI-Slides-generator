@@ -1,5 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
-import { streamAgentFive } from '../lib/api.js'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  streamAgentFive,
+  listAgentChats,
+  createAgentChat,
+  getAgentChat,
+  updateAgentChat,
+  deleteAgentChat,
+} from '../lib/api.js'
 import logo from '../assets/slideai-logo.svg'
 import './AgentFive.css'
 
@@ -91,10 +98,10 @@ function SlideResult({ slide }) {
       ) : slide.imagePrompt && !slide.imageError ? (
         <div className="af-slide-image-placeholder">Image: {slide.imagePrompt}</div>
       ) : null}
-      {slide.notes ? (
+      {(slide.speakerNotes || slide.notes) ? (
         <div className="af-slide-notes">
           <span className="af-slide-notes-label">Notes</span>
-          {slide.notes}
+          {slide.speakerNotes || slide.notes}
         </div>
       ) : null}
       <div className="af-slide-footer">
@@ -290,17 +297,53 @@ function CompletedMessage({ m }) {
   )
 }
 
+/* ─────────────────────── Chat sidebar ───────────────────────────── */
+
+function ChatSidebar({ chats, activeChatId, onNew, onSelect, onDelete }) {
+  return (
+    <aside className="af-chat-sidebar">
+      <div className="af-sidebar-head">
+        <button type="button" className="af-sidebar-new" onClick={onNew}>
+          <span className="af-sidebar-new-icon">+</span>
+          New chat
+        </button>
+      </div>
+      <div className="af-sidebar-list">
+        {chats.length === 0 ? (
+          <div className="af-sidebar-empty">No chats yet</div>
+        ) : chats.map((c) => (
+          <div
+            key={c.id}
+            className={`af-sidebar-item${c.id === activeChatId ? ' af-sidebar-item-active' : ''}`}
+            onClick={() => onSelect(c.id)}
+          >
+            <div className="af-sidebar-item-title">{c.title || 'Untitled'}</div>
+            <button
+              type="button"
+              className="af-sidebar-delete"
+              onClick={(e) => { e.stopPropagation(); onDelete(c.id) }}
+              title="Delete chat"
+            >✕</button>
+          </div>
+        ))}
+      </div>
+    </aside>
+  )
+}
+
 /* ─────────────────────────── Main component ────────────────────── */
 
-export default function AgentFive() {
-  const [messages, setMessages] = useState([
-    {
-      id: uid(),
-      role: 'assistant',
-      content:
-        "Hi, I'm Agent Five. Tell me what to build — I'll get to work right away. I can search the web, generate images, and create slides, all autonomously.",
-    },
-  ])
+const WELCOME_MSG = {
+  id: 'welcome',
+  role: 'assistant',
+  content: "Hi, I'm Agent Five. Tell me what to build — I'll get to work right away. I can search the web, generate images, and create slides, all autonomously.",
+}
+
+export default function AgentFive({ chatId: propChatId }) {
+  const [messages, setMessages] = useState([WELCOME_MSG])
+  const [activeChatId, setActiveChatId] = useState(propChatId || null)
+  const [chats, setChats] = useState([])
+  const [chatLoading, setChatLoading] = useState(false)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -309,11 +352,70 @@ export default function AgentFive() {
   const [stepLog, setStepLog] = useState([])
   const scrollerRef = useRef(null)
 
+  const refreshChats = useCallback(async () => {
+    try {
+      const list = await listAgentChats()
+      setChats(list)
+    } catch { /* silent */ }
+  }, [])
+
+  useEffect(() => { refreshChats() }, [refreshChats])
+
+  useEffect(() => {
+    const newId = propChatId || null
+    if (newId === activeChatId) return
+    setActiveChatId(newId)
+    if (!newId) {
+      setMessages([WELCOME_MSG])
+      return
+    }
+    setChatLoading(true)
+    getAgentChat(newId).then((chat) => {
+      if (chat && Array.isArray(chat.messages) && chat.messages.length > 0) {
+        setMessages(chat.messages)
+      } else {
+        setMessages([WELCOME_MSG])
+      }
+    }).catch(() => setMessages([WELCOME_MSG]))
+      .finally(() => setChatLoading(false))
+  }, [propChatId])
+
   useEffect(() => {
     if (scrollerRef.current) {
       scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight
     }
   }, [messages, pending])
+
+  function handleNewChat() {
+    navigate('/agentfive')
+    setActiveChatId(null)
+    setMessages([WELCOME_MSG])
+    setCurrentTool(null)
+    setStepLog([])
+    setError('')
+  }
+
+  function handleSelectChat(id) {
+    navigate(`/agentfive/${encodeURIComponent(id)}`)
+  }
+
+  async function handleDeleteChat(id) {
+    try {
+      await deleteAgentChat(id)
+      setChats((prev) => prev.filter((c) => c.id !== id))
+      if (id === activeChatId) handleNewChat()
+    } catch { /* silent */ }
+  }
+
+  async function saveChat(chatId, allMessages, title) {
+    const storable = allMessages.filter((m) => m.id !== 'welcome')
+    try {
+      await updateAgentChat(chatId, { title, messages: storable })
+      setChats((prev) => prev.map((c) =>
+        c.id === chatId ? { ...c, title: title || c.title, updatedAt: new Date() } : c,
+      ).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)))
+    } catch { /* silent */ }
+  }
 
   async function send(text) {
     const message = (text ?? input).trim()
@@ -332,8 +434,22 @@ export default function AgentFive() {
     setPending({ id: pendingId, reply: '', tools: {}, needsClarification: false })
 
     const history = nextMessages
+      .filter((m) => m.id !== 'welcome')
       .slice(0, -1)
       .map((m) => ({ role: m.role, content: m.content }))
+
+    let currentChatId = activeChatId
+    const chatTitle = message.slice(0, 60)
+
+    if (!currentChatId) {
+      try {
+        const newId = await createAgentChat({ title: chatTitle, messages: [] })
+        currentChatId = newId
+        setActiveChatId(newId)
+        navigate(`/agentfive/${encodeURIComponent(newId)}`)
+        setChats((prev) => [{ id: newId, title: chatTitle, updatedAt: new Date() }, ...prev])
+      } catch { /* proceed without persistence */ }
+    }
 
     try {
       await streamAgentFive({ history, message }, {
@@ -392,7 +508,11 @@ export default function AgentFive() {
                 ok: t.status === 'done',
               })),
             }
-            setMessages((msgs) => [...msgs, finalMsg])
+            setMessages((msgs) => {
+              const updated = [...msgs, finalMsg]
+              if (currentChatId) saveChat(currentChatId, updated, chatTitle)
+              return updated
+            })
             return null
           })
           setBusy(false)
@@ -432,14 +552,29 @@ export default function AgentFive() {
       </header>
 
       <div className="af-main">
-        <section className="af-chat">
-          <div className="af-chat-scroller" ref={scrollerRef}>
-            {messages.map((m) => <CompletedMessage key={m.id} m={m} />)}
-            {pending ? <PendingMessage pending={pending} /> : null}
-            {error ? <div className="af-error">{error}</div> : null}
-          </div>
+        <ChatSidebar
+          chats={chats}
+          activeChatId={activeChatId}
+          onNew={handleNewChat}
+          onSelect={handleSelectChat}
+          onDelete={handleDeleteChat}
+        />
 
-          {messages.length <= 1 && !busy ? (
+        <section className="af-chat">
+          {chatLoading ? (
+            <div className="af-chat-loading">
+              <span className="af-chip-spinner" style={{ width: 18, height: 18 }} />
+              Loading chat…
+            </div>
+          ) : (
+            <div className="af-chat-scroller" ref={scrollerRef}>
+              {messages.map((m) => <CompletedMessage key={m.id} m={m} />)}
+              {pending ? <PendingMessage pending={pending} /> : null}
+              {error ? <div className="af-error">{error}</div> : null}
+            </div>
+          )}
+
+          {messages.length <= 1 && !busy && !chatLoading ? (
             <div className="af-starters">
               {STARTER_PROMPTS.map((p, i) => (
                 <button key={i} type="button" className="af-starter" onClick={() => send(p)} disabled={busy}>
@@ -457,9 +592,9 @@ export default function AgentFive() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
               rows={2}
-              disabled={busy}
+              disabled={busy || chatLoading}
             />
-            <button type="submit" className="af-btn af-btn-primary" disabled={busy || !input.trim()}>
+            <button type="submit" className="af-btn af-btn-primary" disabled={busy || chatLoading || !input.trim()}>
               {busy ? 'Working…' : 'Send'}
             </button>
           </form>

@@ -402,6 +402,45 @@ export async function agentFiveChat({ history, message }) {
   return data
 }
 
+export async function listAgentChats() {
+  const headers = await authHeaders()
+  const res = await fetch('/api/agentfive/chats', { headers })
+  if (res.status === 401) { notifyUnauthorized(); throw new UnauthorizedError() }
+  const data = await res.json()
+  return data.chats || []
+}
+
+export async function createAgentChat({ title, messages = [] } = {}) {
+  const data = await postJson('/api/agentfive/chats', { title, messages })
+  return data.id
+}
+
+export async function getAgentChat(id) {
+  const headers = await authHeaders()
+  const res = await fetch(`/api/agentfive/chats/${encodeURIComponent(id)}`, { headers })
+  if (res.status === 401) { notifyUnauthorized(); throw new UnauthorizedError() }
+  if (res.status === 404) return null
+  const data = await res.json()
+  return data.chat || null
+}
+
+export async function updateAgentChat(id, { title, messages } = {}) {
+  const headers = await authHeaders({ 'Content-Type': 'application/json' })
+  await fetch(`/api/agentfive/chats/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({ title, messages }),
+  })
+}
+
+export async function deleteAgentChat(id) {
+  const headers = await authHeaders()
+  await fetch(`/api/agentfive/chats/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers,
+  })
+}
+
 /**
  * Stream an Agent Five turn over SSE.
  *

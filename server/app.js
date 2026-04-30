@@ -3,6 +3,7 @@ import { generateDeck, streamGenerateDeck, regenerateSlide, redesignSlide } from
 import {
   listDecks, getDeck, saveDeck, deleteDeck, renameDeck, migrate,
   migratePromptHistory, savePromptHistory, getPromptHistory, deletePromptHistoryItem,
+  migrateAgentChats, listAgentChats, getAgentChat, createAgentChat, updateAgentChat, deleteAgentChat,
 } from './db.js'
 import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
 import { agentFiveTurn, agentFiveStream } from './agentFive.js'
@@ -14,6 +15,7 @@ app.use(express.json({ limit: '20mb' }))
 // Vercel this runs once per cold-start; locally it runs once at boot.
 await migrate()
 await migratePromptHistory()
+await migrateAgentChats()
 await setupAuth(app)
 
 app.get('/api/health', (_req, res) => {
@@ -583,6 +585,66 @@ app.post('/api/agentfive/stream', isAuthenticated, async (req, res) => {
   } finally {
     clearInterval(ping)
     res.end()
+  }
+})
+
+/* ---------------- Agent Five Chats CRUD ---------------- */
+
+app.get('/api/agentfive/chats', isAuthenticated, async (req, res) => {
+  try {
+    const userId = await currentUserId(req)
+    const chats = await listAgentChats(userId)
+    res.json({ chats })
+  } catch (err) {
+    console.error('[agentfive/chats list]', err)
+    res.status(500).json({ error: 'Failed to list chats' })
+  }
+})
+
+app.post('/api/agentfive/chats', isAuthenticated, async (req, res) => {
+  try {
+    const userId = await currentUserId(req)
+    const { title = 'New chat', messages = [] } = req.body || {}
+    const id = await createAgentChat(userId, title, messages)
+    res.json({ id })
+  } catch (err) {
+    console.error('[agentfive/chats create]', err)
+    res.status(500).json({ error: 'Failed to create chat' })
+  }
+})
+
+app.get('/api/agentfive/chats/:id', isAuthenticated, async (req, res) => {
+  try {
+    const userId = await currentUserId(req)
+    const chat = await getAgentChat(req.params.id, userId)
+    if (!chat) return res.status(404).json({ error: 'Chat not found' })
+    res.json({ chat })
+  } catch (err) {
+    console.error('[agentfive/chats get]', err)
+    res.status(500).json({ error: 'Failed to get chat' })
+  }
+})
+
+app.put('/api/agentfive/chats/:id', isAuthenticated, async (req, res) => {
+  try {
+    const userId = await currentUserId(req)
+    const { title, messages } = req.body || {}
+    await updateAgentChat(req.params.id, userId, { title, messages })
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[agentfive/chats update]', err)
+    res.status(500).json({ error: 'Failed to update chat' })
+  }
+})
+
+app.delete('/api/agentfive/chats/:id', isAuthenticated, async (req, res) => {
+  try {
+    const userId = await currentUserId(req)
+    await deleteAgentChat(req.params.id, userId)
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[agentfive/chats delete]', err)
+    res.status(500).json({ error: 'Failed to delete chat' })
   }
 })
 

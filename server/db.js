@@ -242,3 +242,88 @@ export async function deletePromptHistoryItem(id, userId) {
   if (!userId) return
   await pool.query(`DELETE FROM prompt_history WHERE id = $1 AND user_id = $2`, [id, userId])
 }
+
+/* ---------------- agent_chats ---------------- */
+
+export async function migrateAgentChats() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS agent_chats (
+      id         VARCHAR PRIMARY KEY,
+      user_id    VARCHAR NOT NULL,
+      title      VARCHAR,
+      messages   JSONB NOT NULL DEFAULT '[]',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `)
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_agent_chats_user_updated
+     ON agent_chats (user_id, updated_at DESC);`,
+  )
+}
+
+export async function listAgentChats(userId, limit = 40) {
+  if (!userId) return []
+  const { rows } = await pool.query(
+    `SELECT id, title, created_at, updated_at
+     FROM agent_chats
+     WHERE user_id = $1
+     ORDER BY updated_at DESC
+     LIMIT $2`,
+    [userId, limit],
+  )
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }))
+}
+
+export async function getAgentChat(id, userId) {
+  if (!userId) return null
+  const { rows } = await pool.query(
+    `SELECT id, title, messages, created_at, updated_at
+     FROM agent_chats
+     WHERE id = $1 AND user_id = $2`,
+    [id, userId],
+  )
+  if (!rows.length) return null
+  return {
+    id: rows[0].id,
+    title: rows[0].title,
+    messages: rows[0].messages || [],
+    createdAt: rows[0].created_at,
+    updatedAt: rows[0].updated_at,
+  }
+}
+
+export async function createAgentChat(userId, title, messages = []) {
+  if (!userId) throw new Error('createAgentChat requires userId')
+  const id = await generateId()
+  await pool.query(
+    `INSERT INTO agent_chats (id, user_id, title, messages)
+     VALUES ($1, $2, $3, $4::jsonb)`,
+    [id, userId, title || 'New chat', JSON.stringify(messages)],
+  )
+  return id
+}
+
+export async function updateAgentChat(id, userId, { title, messages } = {}) {
+  if (!userId) return
+  const sets = []
+  const vals = [id, userId]
+  if (title !== undefined) { sets.push(`title = $${vals.length + 1}`); vals.push(title) }
+  if (messages !== undefined) { sets.push(`messages = $${vals.length + 1}::jsonb`); vals.push(JSON.stringify(messages)) }
+  sets.push('updated_at = NOW()')
+  if (sets.length === 1) return
+  await pool.query(
+    `UPDATE agent_chats SET ${sets.join(', ')} WHERE id = $1 AND user_id = $2`,
+    vals,
+  )
+}
+
+export async function deleteAgentChat(id, userId) {
+  if (!userId) return
+  await pool.query(`DELETE FROM agent_chats WHERE id = $1 AND user_id = $2`, [id, userId])
+}
