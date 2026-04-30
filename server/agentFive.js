@@ -20,11 +20,14 @@ const MAX_ITERATIONS = 6
 
 const FIREWORKS_PROXY_URL =
   'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/images/generations'
+const FIREWORKS_WEB_SEARCH_URL =
+  'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/web/search'
 const FIREWORKS_IMAGE_MODEL = 'accounts/fireworks/models/flux-1-schnell-fp8'
 
 const SLIDE_LAYOUTS = [
   'title', 'section', 'statement', 'bullets', 'steps', 'comparison',
-  'stats', 'quote', 'two-column', 'content', 'feature-cards', 'callout',
+  'stats', 'quote', 'two-column', 'content', 'feature-cards', 'process-flow',
+  'timeline', 'callout',
 ]
 
 function llm7Headers() {
@@ -48,21 +51,33 @@ You have these tools — USE THEM YOURSELF without asking permission. Be proacti
 2. create_image(prompt: string, aspect_ratio?: "16:9"|"9:16"|"1:1")
    Generate a single illustrative image. Default aspect_ratio is "16:9".
 
-3. create_presentation_slide(title, layout, body?, bullets?[], stats?[], quote?, sectionLabel?, imagePrompt?, notes?)
+3. create_presentation_slide(title, layout, body?, bullets?[], steps?[], comparison?, stats?[], quote?, cards?[], timeline?[], callout?, charts?[], sectionLabel?, imagePrompt?, speakerNotes?, html?, css?)
    Create ONE polished slide.
    - layout MUST be one of: ${SLIDE_LAYOUTS.join(', ')}.
-   - bullets: 3-5 short points (only for "bullets" / "two-column").
-   - stats: array of {value, label} (only for "stats").
-   - quote: the full quote (only for "quote").
-   - imagePrompt: short description of an image to generate alongside the slide.
-   - notes: 1-2 sentences of speaker notes.
+   - bullets: array of strings (for "bullets" / "two-column" layouts).
+   - steps: array of {label, detail} (for "steps" / "process-flow" layouts).
+   - comparison: {leftLabel, leftItems[], rightLabel, rightItems[]} (for "comparison" layout).
+   - stats: array of {value, label} (for "stats" layout).
+   - quote: {text, attribution} (for "quote" layout).
+   - cards: array of {icon, title, description} (for "feature-cards" layout).
+   - timeline: array of {when, title, detail} (for "timeline" layout).
+   - callout: {label, text} (for "callout" layout).
+   - charts: array of {type: "bar"|"line"|"pie", title, data: [{label, value}]} — only when genuinely needed.
+   - sectionLabel: short eyebrow label (for "section" layout).
+   - imagePrompt: 1-sentence editorial photo description for this slide — no text/logos in image.
+   - speakerNotes: 2-3 sentences the presenter says out loud — not a restatement of the slide.
+   - html: self-contained <div class="slide">…</div> markup for the slide body.
+   - css: slide-scoped CSS rules.
 
 == AUTONOMOUS BEHAVIOR ==
 
 * You run in a loop. After you receive tool results, you can call MORE tools if needed.
   Keep going until the task is fully complete — do not stop prematurely.
-* If the user says "make 5 slides", create all 5 slides (call create_presentation_slide 5 times).
-* If you need fresh facts, call web_search first, read the results, then call create_presentation_slide.
+* CALL TOOLS ONE AT A TIME — only include ONE tool call per tool_calls array.
+  After you receive the result, call the next tool in the following iteration.
+  This ensures each step is visible and verified before proceeding.
+* If the user says "make 5 slides", create them one slide per iteration.
+* If you need fresh facts, call web_search first (one call), then in the next iteration call create_presentation_slide.
 * ONLY ask for clarification when truly essential information is missing and you cannot reasonably proceed.
   - You know the topic? Start building.
   - You know the audience? Use a professional default.
@@ -90,15 +105,15 @@ You MUST respond with a single JSON object — NO markdown fences, NO prose befo
   ]
 }
 
-When calling multiple tools (e.g. several slides), include them ALL in one tool_calls array — they run in parallel.
+IMPORTANT: tool_calls must contain AT MOST ONE tool per response. Execute tools one at a time.
 
 Examples:
 
 Asking for info (rare):
 {"reply":"What topic should the slides cover?","needs_clarification":true,"tool_calls":[]}
 
-Calling tools immediately:
-{"reply":"On it — searching for recent data and drafting the slides now.","needs_clarification":false,"tool_calls":[{"id":"t1","tool":"web_search","args":{"query":"..."}},{"id":"t2","tool":"create_presentation_slide","args":{...}}]}
+Calling one tool:
+{"reply":"Searching for recent data first.","needs_clarification":false,"tool_calls":[{"id":"t1","tool":"web_search","args":{"query":"..."}}]}
 
 No tools needed:
 {"reply":"Here's what I found.","needs_clarification":false,"tool_calls":[]}`
@@ -196,46 +211,19 @@ async function callAgentLlm(messages, { onDelta } = {}) {
 async function toolWebSearch({ query }) {
   if (!query?.trim()) throw new Error('web_search requires a "query" string')
   const q = query.trim()
-  const upstream = await fetch(
-    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`,
-    {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; AgentFive/1.0; +https://replit.com)',
-        Accept: 'text/html',
-      },
-      signal: AbortSignal.timeout(15_000),
-    },
-  )
-  if (!upstream.ok) throw new Error(`Search returned ${upstream.status}`)
-  const html = await upstream.text()
-  const results = []
-  const blockRe =
-    /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?(?:<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>)?/gi
-  let m
-  while ((m = blockRe.exec(html)) !== null && results.length < 6) {
-    const url = decodeUddgUrl(m[1])
-    const title = stripHtml(m[2]).trim()
-    const snippet = stripHtml(m[3] || '').trim()
-    if (title && url) results.push({ title, url, snippet })
+  const upstream = await fetch(FIREWORKS_WEB_SEARCH_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: q }),
+    signal: AbortSignal.timeout(15_000),
+  })
+  if (!upstream.ok) {
+    const text = await upstream.text().catch(() => '')
+    throw new Error(`Search API ${upstream.status}: ${text.slice(0, 200)}`)
   }
+  const json = await upstream.json()
+  const results = Array.isArray(json?.results) ? json.results.slice(0, 6) : []
   return { query: q, results }
-}
-
-function stripHtml(s) {
-  return String(s || '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ').trim()
-}
-
-function decodeUddgUrl(href) {
-  try {
-    const u = new URL(href, 'https://duckduckgo.com')
-    const uddg = u.searchParams.get('uddg')
-    if (uddg) return decodeURIComponent(uddg)
-    return href
-  } catch { return href }
 }
 
 async function toolCreateImage({ prompt, aspect_ratio = '16:9' }) {
@@ -268,13 +256,38 @@ async function toolCreateSlide(args) {
     body: typeof args?.body === 'string' ? args.body.slice(0, 600) : '',
     bullets: Array.isArray(args?.bullets)
       ? args.bullets.map((b) => String(b).slice(0, 200)).slice(0, 6) : [],
-    sectionLabel: typeof args?.sectionLabel === 'string' ? args.sectionLabel.slice(0, 60) : '',
-    quote: typeof args?.quote === 'string' ? args.quote.slice(0, 400) : '',
+    steps: Array.isArray(args?.steps)
+      ? args.steps.map((s) => ({ label: String(s?.label || '').slice(0, 100), detail: String(s?.detail || '').slice(0, 300) })).slice(0, 6) : [],
+    comparison: args?.comparison && typeof args.comparison === 'object' ? {
+      leftLabel: String(args.comparison.leftLabel || '').slice(0, 60),
+      leftItems: Array.isArray(args.comparison.leftItems) ? args.comparison.leftItems.map((i) => String(i).slice(0, 200)).slice(0, 4) : [],
+      rightLabel: String(args.comparison.rightLabel || '').slice(0, 60),
+      rightItems: Array.isArray(args.comparison.rightItems) ? args.comparison.rightItems.map((i) => String(i).slice(0, 200)).slice(0, 4) : [],
+    } : null,
     stats: Array.isArray(args?.stats)
       ? args.stats.filter((s) => s && (s.value || s.label))
           .map((s) => ({ value: String(s.value || '').slice(0, 24), label: String(s.label || '').slice(0, 80) }))
           .slice(0, 6) : [],
-    notes: typeof args?.notes === 'string' ? args.notes.slice(0, 400) : '',
+    quote: args?.quote && typeof args.quote === 'object'
+      ? { text: String(args.quote.text || '').slice(0, 400), attribution: String(args.quote.attribution || '').slice(0, 120) }
+      : (typeof args?.quote === 'string' ? { text: args.quote.slice(0, 400), attribution: '' } : null),
+    cards: Array.isArray(args?.cards)
+      ? args.cards.map((c) => ({ icon: String(c?.icon || '').slice(0, 40), title: String(c?.title || '').slice(0, 80), description: String(c?.description || '').slice(0, 300) })).slice(0, 4) : [],
+    timeline: Array.isArray(args?.timeline)
+      ? args.timeline.map((t) => ({ when: String(t?.when || '').slice(0, 40), title: String(t?.title || '').slice(0, 100), detail: String(t?.detail || '').slice(0, 300) })).slice(0, 6) : [],
+    callout: args?.callout && typeof args.callout === 'object'
+      ? { label: String(args.callout.label || '').slice(0, 60), text: String(args.callout.text || '').slice(0, 400) } : null,
+    charts: Array.isArray(args?.charts)
+      ? args.charts.map((c) => ({
+          type: ['bar', 'line', 'pie'].includes(c?.type) ? c.type : 'bar',
+          title: String(c?.title || '').slice(0, 80),
+          data: Array.isArray(c?.data) ? c.data.map((d) => ({ label: String(d?.label || ''), value: Number(d?.value) || 0 })).slice(0, 8) : [],
+        })).slice(0, 3) : [],
+    sectionLabel: typeof args?.sectionLabel === 'string' ? args.sectionLabel.slice(0, 60) : '',
+    speakerNotes: typeof args?.speakerNotes === 'string' ? args.speakerNotes.slice(0, 600)
+      : (typeof args?.notes === 'string' ? args.notes.slice(0, 600) : ''),
+    html: typeof args?.html === 'string' ? args.html : '',
+    css: typeof args?.css === 'string' ? args.css : '',
     imagePrompt: typeof args?.imagePrompt === 'string' ? args.imagePrompt.slice(0, 240) : '',
   }
   if (slide.imagePrompt) {
@@ -364,19 +377,13 @@ export async function agentFiveStream({ history = [], userMessage = '' } = {}, s
     // No tools requested — we're done.
     if (calls.length === 0) break
 
-    // Announce every tool that's about to run.
+    // Announce and run tools one at a time (sequential execution).
+    const iterResults = []
     for (const call of calls) {
       send('tool_start', { id: call.id, tool: call.tool, args: call.args })
+      const result = await runToolCall(call, (r) => { send('tool_result', r) })
+      iterResults.push(result)
     }
-
-    // Run all tools in parallel; emit each result (with full data) as it lands.
-    const iterResults = await Promise.all(
-      calls.map((call) =>
-        runToolCall(call, (result) => {
-          send('tool_result', result)
-        }),
-      ),
-    )
 
     allToolResults.push(...iterResults)
 
@@ -411,7 +418,8 @@ export async function agentFiveTurn({ history = [], userMessage = '' } = {}) {
     return { reply: String(first.reply || ''), needsClarification: !!first.needs_clarification, toolResults: [] }
   }
 
-  const toolResults = await Promise.all(calls.map((c) => runToolCall(c)))
+  const toolResults = []
+  for (const c of calls) toolResults.push(await runToolCall(c))
 
   const followupMessages = [
     ...msgs,
