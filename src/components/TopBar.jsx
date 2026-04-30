@@ -101,6 +101,18 @@ export default function TopBar({
       <div className="topbar-actions">
         <button
           type="button"
+          className="ghost-btn agent-five-btn"
+          title="Open Agent Five — clarify and build with tools"
+          onClick={() => {
+            window.history.pushState({}, '', '/agentfive')
+            window.dispatchEvent(new PopStateEvent('popstate'))
+          }}
+        >
+          <span className="agent-five-spark" aria-hidden>✶</span>
+          Agent Five
+        </button>
+        <button
+          type="button"
           className={`ghost-btn icon-only theme-toggle-topbar theme-toggle-${themeMode}`}
           aria-label={`Theme: ${THEME_LABELS[themeMode]}`}
           title={`${THEME_LABELS[themeMode]} — click to switch`}

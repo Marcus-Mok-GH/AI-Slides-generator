@@ -397,4 +397,9 @@ export async function resetPasswordEmail(email) {
   }
 }
 
+export async function agentFiveChat({ history, message }) {
+  const data = await postJson('/api/agentfive/chat', { history, message })
+  return data
+}
+
 export { supabase }

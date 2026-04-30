@@ -9,6 +9,7 @@ import MyDecksPage from './components/MyDecksPage.jsx'
 import RecentGallery from './components/RecentGallery.jsx'
 import SlideViewer from './components/SlideViewer.jsx'
 import Landing from './components/Landing.jsx'
+import AgentFive from './components/AgentFive.jsx'
 import {
   streamGenerateDeck,
   saveDeck as saveDeckApi,
@@ -83,6 +84,11 @@ export default function App() {
   const [routeLoading, setRouteLoading] = useState(
     () => deckIdFromLocation() !== null,
   )
+  // Tracks the current pathname so navigating between /app and /agentfive
+  // re-renders. window.history.pushState alone doesn't trigger React updates.
+  const [currentPath, setCurrentPath] = useState(() =>
+    typeof window === 'undefined' ? '/' : window.location.pathname,
+  )
   const { mode: themeMode, setMode: setThemeMode, cycle: cycleTheme } = useTheme()
   const saveTimer = useRef(null)
   const heroRef = useRef(null)
@@ -140,14 +146,27 @@ export default function App() {
     if (isAuthenticated) {
       if (window.location.pathname === '/') {
         window.history.replaceState({}, '', '/app')
+        setCurrentPath('/app')
       }
       return
     }
-    // Logged-out visitors should stay on the public landing page.
-    if (window.location.pathname === '/app') {
+    // Logged-out visitors should stay on the public landing page (also
+    // bounce them off any protected route like /agentfive).
+    const p = window.location.pathname
+    if (p === '/app' || p.startsWith('/agentfive')) {
       window.history.replaceState({}, '', '/')
+      setCurrentPath('/')
     }
   }, [authLoading, isAuthenticated])
+
+  // Keep `currentPath` in sync with browser back/forward and any
+  // pushState navigations (which we accompany with a `popstate` event).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const sync = () => setCurrentPath(window.location.pathname)
+    window.addEventListener('popstate', sync)
+    return () => window.removeEventListener('popstate', sync)
+  }, [])
 
   // If the visitor typed a prompt on the public landing page, kick off
   // generation for them as soon as they're signed in.
@@ -525,6 +544,11 @@ export default function App() {
         <SignInModal open={signInOpen} onClose={closeSignIn} />
       </>
     )
+  }
+
+  // Agent Five lives at /agentfive — own full-screen workspace.
+  if (currentPath.startsWith('/agentfive')) {
+    return <AgentFive />
   }
 
   if (deck) {

@@ -122,6 +122,28 @@
   position: relative;
   font-size: 15px;
 }
+.agent-five-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(120deg, rgba(124, 92, 255, 0.18), rgba(255, 110, 160, 0.14));
+  border: 1px solid rgba(124, 92, 255, 0.45);
+  color: var(--text);
+  font-weight: 600;
+}
+.agent-five-btn:hover {
+  background: linear-gradient(120deg, rgba(124, 92, 255, 0.28), rgba(255, 110, 160, 0.22));
+  border-color: rgba(124, 92, 255, 0.7);
+  color: var(--text);
+}
+.agent-five-spark {
+  display: inline-block;
+  background: linear-gradient(120deg, #7c5cff, #ff6ea0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 14px;
+}
 .ghost-btn.is-on {
   background: var(--accent-soft);
   color: var(--accent);

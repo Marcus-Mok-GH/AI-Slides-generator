@@ -75,6 +75,23 @@ vite.config.js          ← Dev proxy to Express on :3001
 - `/` Landing page (logged-out) with hero CTA → opens sign-in modal.
 - `/app` Create page → prompt + format → `OptionsPage` for theme / depth / length / tone / language → Generate.
 
+### Agent Five (`/agentfive`)
+- A conversational tool-using assistant with its own workspace. It clarifies
+  with the user before producing artifacts.
+- Tools (server-side, in `server/agentFive.js`):
+  - `web_search(query)` — DuckDuckGo HTML scrape, no API key needed.
+  - `create_image(prompt, aspect_ratio?)` — uses the same Fireworks Flux proxy.
+  - `create_presentation_slide(title, layout, body?, bullets?, stats?, quote?, sectionLabel?, imagePrompt?, notes?)` —
+    structured slide draft; auto-generates an image if `imagePrompt` is set.
+- The agent contract is JSON only:
+  `{ reply, needs_clarification, tool_calls: [{ id, tool, args }] }`.
+  After tools run, results are fed back as a system message and the model
+  produces a follow-up summary turn.
+- API: `POST /api/agentfive/chat` with `{ history, message }`.
+- UI: `src/components/AgentFive.jsx` — left chat pane, right Workspace pane
+  that pins each slide / image / search result. `TopBar` has an "Agent Five"
+  button on `/app`; the Agent Five page has a "← Back to Slides" button.
+
 ### Responsive Design
 - Adaptive layouts at ≤1024px, ≤900px, ≤720px, ≤420px. Sidebar collapses, touch targets are sized for mobile.
 

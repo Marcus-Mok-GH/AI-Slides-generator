@@ -5,6 +5,7 @@ import {
   migratePromptHistory, savePromptHistory, getPromptHistory, deletePromptHistoryItem,
 } from './db.js'
 import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
+import { agentFiveTurn } from './agentFive.js'
 
 const app = express()
 app.use(express.json({ limit: '20mb' }))
@@ -521,6 +522,34 @@ app.post('/api/regenerate-slide', isAuthenticated, async (req, res) => {
     res.status(500).json({
       error: err?.message || 'Failed to regenerate slide',
     })
+  }
+})
+
+/* ---------------- Agent Five ---------------- */
+
+app.post('/api/agentfive/chat', isAuthenticated, async (req, res) => {
+  try {
+    const { history = [], message = '' } = req.body || {}
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ error: 'Missing "message"' })
+    }
+    if (!Array.isArray(history)) {
+      return res.status(400).json({ error: '"history" must be an array' })
+    }
+    const turn = await agentFiveTurn({
+      history,
+      userMessage: message,
+    })
+    res.json({
+      reply: turn.reply,
+      needsClarification: turn.needsClarification,
+      toolResults: turn.toolResults,
+    })
+  } catch (err) {
+    console.error('[agentfive] error:', err)
+    res
+      .status(500)
+      .json({ error: err?.message || 'Agent Five failed' })
   }
 })
 
