@@ -48,6 +48,11 @@ export const supabase =
   globalThis[SUPABASE_SINGLETON_KEY] ||
   (globalThis[SUPABASE_SINGLETON_KEY] = buildClient())
 
+if (typeof window !== 'undefined' && !globalThis.__slideai_auth_logged__) {
+  globalThis.__slideai_auth_logged__ = true
+  console.info('[supabase] client init →', { url, hasAnonKey: !!anonKey })
+}
+
 /**
  * Resolve the current access token (or null). Used by the API client to
  * attach an `Authorization: Bearer …` header to every request.
