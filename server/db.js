@@ -2,19 +2,17 @@ import pg from 'pg'
 
 const { Pool } = pg
 
-// Prefer Supabase when configured; fall back to the local DATABASE_URL.
+// Prefer Supabase when configured; fall back to the Replit DATABASE_URL.
 const connectionString =
   process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL
 
 const isSupabase = /supabase\.(co|com)/i.test(connectionString || '')
 
-// Tight pool sized for serverless (Vercel) — each function instance only
-// needs one or two open connections; otherwise we exhaust Supabase's pooler.
 export const pool = new Pool({
   connectionString,
   ssl: isSupabase ? { rejectUnauthorized: false } : undefined,
-  max: 2,
-  idleTimeoutMillis: 10_000,
+  max: 5,
+  idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 10_000,
 })
 
