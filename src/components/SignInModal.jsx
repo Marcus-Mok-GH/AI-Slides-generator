@@ -4,6 +4,37 @@ import { resetPasswordEmail } from '../lib/api.js'
 import './SignInModal.css'
 
 /**
+ * Convert any thrown auth error into a friendly, accurate message.
+ * Supabase responses include a `code` / `error_code`; network failures
+ * surface as TypeError with messages like "Load failed" or "fetch failed".
+ */
+function formatAuthError(err) {
+  if (!err) return null
+  const code = err.code || err.error_code || err.status
+  const msg = (err.message || '').trim()
+
+  if (
+    err instanceof TypeError ||
+    /load failed|fetch failed|networkerror|failed to fetch/i.test(msg)
+  ) {
+    return 'Cannot reach the authentication server. Check your network and try again.'
+  }
+  if (code === 429 || /rate limit|over_email_send_rate_limit/i.test(msg)) {
+    return 'Too many sign-up attempts. Please wait an hour and try again, or disable email confirmation in your Supabase dashboard.'
+  }
+  if (/invalid login credentials/i.test(msg)) {
+    return 'That email and password combination did not match. Try again or reset your password.'
+  }
+  if (/user already registered|already_exists/i.test(msg)) {
+    return 'An account with that email already exists. Try signing in instead.'
+  }
+  if (/email not confirmed/i.test(msg)) {
+    return 'Please confirm your email address before signing in (check your inbox).'
+  }
+  return msg
+}
+
+/**
  * Sign-in / sign-up modal backed by Supabase Auth. Supports email +
  * password flows plus Google OAuth. The Supabase client manages the
  * session in localStorage; once a user signs in, `useAuth`'s
@@ -76,13 +107,8 @@ export default function SignInModal({ open, onClose }) {
         }
       }
     } catch (err) {
-      // Distinguish network/TypeError ("Load failed") from Supabase errors.
-      const msg = err?.message || ''
-      if (msg.includes('fetch failed') || msg.includes('Load failed') || err instanceof TypeError) {
-        setError('Cannot reach the server. Please check your connection and try again.')
-      } else {
-        setError(err?.message || 'Something went wrong.')
-      }
+      console.error('[auth] sign-in/up failed', err)
+      setError(formatAuthError(err) || 'Something went wrong.')
     } finally {
       setBusy(false)
     }
@@ -104,12 +130,8 @@ export default function SignInModal({ open, onClose }) {
       if (error) throw error
       // Browser navigates away to Google.
     } catch (err) {
-      const msg = err?.message || ''
-      if (msg.includes('fetch failed') || msg.includes('Load failed') || err instanceof TypeError) {
-        setError('Cannot reach the server. Please check your connection and try again.')
-      } else {
-        setError(err?.message || 'Google sign-in failed.')
-      }
+      console.error('[auth] Google sign-in failed', err)
+      setError(formatAuthError(err) || 'Google sign-in failed.')
       setBusy(false)
     }
   }
