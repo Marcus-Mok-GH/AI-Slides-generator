@@ -52,18 +52,50 @@ app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
 })
 
 /**
- * Layouts that get an auto-generated image during streaming. Steps and
- * comparison have no room in their layout for imagery, so we skip them.
+ * Last-resort image prompt when the LLM forgets to emit `imagePrompt`
+ * for a slide. Uses the slide title + first body sentence + deck topic so
+ * the picture still looks relevant to that specific slide.
+ */
+function buildFallbackImagePrompt(slide, deckTitle, deckPrompt) {
+  const subject =
+    slide?.title?.trim() ||
+    deckTitle?.trim() ||
+    deckPrompt?.trim()?.slice(0, 80) ||
+    'editorial concept'
+  const firstBodySentence = String(slide?.body || '')
+    .split(/[.!?]/)[0]
+    .trim()
+    .slice(0, 120)
+  const detail = firstBodySentence ? `, ${firstBodySentence}` : ''
+  return (
+    `Editorial photograph evoking "${subject}"${detail}. ` +
+    `Cinematic lighting, atmospheric depth, photographic, ` +
+    `no text, no logos, no captions in the image.`
+  )
+}
+
+/**
+ * Layouts that get an auto-generated image during streaming. We image
+ * EVERY layout — even steps/comparison/feature-cards/process-flow/timeline
+ * — so each slide has its own appropriate visual. The HtmlSlide renderer
+ * decides where to place the image (background, side panel, accent strip)
+ * based on the layout.
  */
 const AUTO_IMAGE_LAYOUTS = new Set([
   'title',
   'section',
   'statement',
   'bullets',
+  'steps',
+  'comparison',
   'stats',
   'quote',
   'two-column',
   'content',
+  'feature-cards',
+  'process-flow',
+  'timeline',
+  'callout',
 ])
 
 app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
@@ -155,7 +187,13 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
       onPartial: ({ index, partial }) => send('partial', { index, partial }),
       onSlide: ({ slide, index }) => {
         send('slide', { slide, index })
-        if (slide.imagePrompt && AUTO_IMAGE_LAYOUTS.has(slide.layout)) {
+        if (AUTO_IMAGE_LAYOUTS.has(slide.layout)) {
+          // Fall back to a title-derived prompt if the model forgot to
+          // emit one — every slide gets an image.
+          const slidePrompt =
+            slide.imagePrompt ||
+            buildFallbackImagePrompt(slide, liveDeckTitle, ctx.prompt)
+
           // Tell the client to render a shimmer placeholder while we work.
           send('slide-image-pending', { index })
 
@@ -165,7 +203,7 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
             // AI picks: generate a unique image for every slide using its
             // specific imagePrompt so each slide has distinct visuals.
             imageP = generateSlideImageData({
-              prompt: slide.imagePrompt,
+              prompt: slidePrompt,
               theme: liveTheme,
               aspectRatio: '16:9',
             })

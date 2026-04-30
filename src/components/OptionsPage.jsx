@@ -55,9 +55,9 @@ export default function OptionsPage({ initialFormat = 'presentation', onBack, on
       userTheme: chosen
         ? { name: chosen.name, primary: chosen.primary, accent: chosen.accent, background: chosen.background }
         : null,
-      // When AI picks the theme, generate a unique image per slide.
-      // When a preset theme is chosen, one shared background is reused.
-      perSlideImages: !chosen,
+      // Always generate a unique image per slide (using each slide's own
+      // imagePrompt) so every slide has its own appropriate visual.
+      perSlideImages: true,
     })
   }
 

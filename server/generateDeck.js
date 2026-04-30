@@ -221,9 +221,8 @@ DESIGN LAW — follow strictly:
    non-empty html and css (see section 9). NEVER ship a slide where bullets,
    steps, or stats arrays are empty for a layout that needs them.
 
-   ALWAYS include "imagePrompt" for EVERY slide EXCEPT "steps" and
-   "comparison" (which have no room for imagery). The image is the
-   visual hook of the slide — make it vivid and specific.
+   ALWAYS include "imagePrompt" for EVERY single slide — no exceptions.
+   The image is the visual hook of the slide; make it vivid and specific.
    Write a 1-sentence editorial photograph description tied to the slide
    content: concrete subject, mood, lighting, environment.
    NO text, NO logos, NO words inside the image.
@@ -554,7 +553,7 @@ Rules:
 - Tone: ${tone}.
 - Output language: ${language}.
 - Always include rich "speakerNotes" — the full spoken script, not a summary.
-- Always include "imagePrompt" UNLESS layout is "steps" or "comparison".
+- Always include "imagePrompt" — every slide must have one.
 
 HTML / CSS — DESIGN A REAL SLIDE, NOT A WIREFRAME (1280×720 sandbox):
 - Use the host CSS vars: --bg, --primary, --accent, --fg (#fff), --muted,
