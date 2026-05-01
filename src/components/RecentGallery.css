@@ -112,10 +112,22 @@
   .deck-subline {
     display: none;
   }
+  .deck-more {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+  }
+  .deck-menu button {
+    padding: 12px 14px;
+    min-height: 44px;
+  }
 }
 @media (max-width: 420px) {
   .deck-grid {
     grid-template-columns: 1fr;
+  }
+  .deck-card {
+    gap: 8px;
   }
 }
 

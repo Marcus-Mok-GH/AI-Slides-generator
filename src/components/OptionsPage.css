@@ -365,7 +365,13 @@
 @media (max-width: 720px) {
   .opts-page { padding: 4px 0 60px; }
   .theme-grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
-  .opts-generate-btn { width: 100%; justify-content: center; }
+  .theme-card { min-height: 80px; }
+  .opts-generate-btn { width: 100%; justify-content: center; min-height: 48px; }
   .opts-footer { justify-content: stretch; }
   .seg { flex-wrap: wrap; }
+  .seg-btn { min-height: 40px; padding: 8px 14px; }
+  .opts-format-tab { min-height: 40px; }
+  .opts-select { font-size: 16px; padding: 10px 14px; min-height: 44px; }
+  .opts-back { min-height: 40px; }
+  .surprise-btn { min-height: 36px; }
 }

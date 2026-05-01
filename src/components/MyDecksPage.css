@@ -163,6 +163,9 @@
   .my-decks-title { font-size: 22px; }
   .my-decks-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
   .deck-card--list .deck-thumb { width: 92px; }
+  .my-decks-controls { flex-wrap: wrap; gap: 8px; }
+  .sort-select { font-size: 16px; padding: 10px 30px 10px 13px; min-height: 44px; }
+  .empty-cta { padding: 12px 22px; min-height: 44px; font-size: 14px; }
 }
 @media (max-width: 420px) {
   .my-decks-grid { grid-template-columns: 1fr; }

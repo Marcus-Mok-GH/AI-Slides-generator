@@ -335,9 +335,16 @@
   }
   .theme-toggle-topbar {
     display: grid;
+    min-height: 44px;
+    min-width: 44px;
   }
   .ghost-btn:not(.icon-only) {
     display: none;
+  }
+  .ghost-btn.icon-only {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
   }
   .kbd {
     display: none;
@@ -345,6 +352,7 @@
   .search {
     padding: 8px 12px;
     border-radius: 10px;
+    min-height: 44px;
   }
   .search input {
     font-size: 16px; /* iOS won't zoom on focus */
@@ -352,10 +360,21 @@
   .search input::placeholder {
     font-size: 13px;
   }
+  .avatar {
+    width: 38px;
+    height: 38px;
+  }
+  .credits-pill {
+    min-height: 36px;
+  }
 }
 @media (max-width: 420px) {
-  .ghost-btn.icon-only {
+  .ghost-btn.icon-only.agent-five-btn {
     display: none;
+  }
+  .topbar {
+    padding: 8px 12px;
+    gap: 8px;
   }
 }
 

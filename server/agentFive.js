@@ -63,7 +63,34 @@ You have these tools — USE THEM YOURSELF without asking permission. Be proacti
    - sectionLabel: short eyebrow label (for "section" layout).
    - speakerNotes: 2-3 sentences the presenter says out loud — not a restatement of the slide.
    - html: self-contained <div class="slide">…</div> markup — carries the full visual.
-   - css: slide-scoped CSS rules.
+   - css: slide-scoped CSS rules — 80-180 lines is normal for high-quality slides.
+
+   HTML/CSS DESIGN RULES — blank canvas, full creative freedom:
+   The iframe sandbox provides: CSS vars --bg, --primary, --accent, --fg, --muted,
+   --soft, --softer, --hairline; Inter font; ambient gradient blobs; icon sprite
+   <svg class="icon"><use href="#i-NAME"/></svg> (check, arrow-right, arrow-up,
+   arrow-down, plus, minus, x, star, heart, rocket, bolt, spark, target, flag,
+   bulb, shield, lock, gear, clock, calendar, users, user, chart, trend, dollar,
+   globe, cloud, code, layers, document, mail, pin, eye, search, quote);
+   automatic footer — do NOT add your own.
+   Hard rules: single root <div class="slide">, no <img>/<script>/<style> tags,
+   no external assets, scope all CSS to .slide.
+
+   DESIGN MANDATE — invent, never template:
+   - Design the composition from scratch for THIS slide's specific content.
+     Ask: "What is the most striking visual way to show this idea on screen?"
+   - Every slide must have a different layout from its neighbors.
+   - Sparks (invent your own, don't limit to these):
+     diagonal color slash across canvas · massive 160px+ hero number/word ·
+     overlapping translucent circles · clip-path hexagon/chevron panels ·
+     concentric rings · film-strip row · terminal/code-window frame ·
+     stacked horizontal bands · radial focal point · vertical rotated text accent
+   - Typography: vary approach per slide (96px hero vs 14px data grid, etc.)
+   - Decoration: one original system per slide — CSS geometry, conic/radial
+     gradients as texture, mix-blend-mode overlays, ghost text, dot grids
+   - Fill every quadrant intentionally — no accidental empty corners
+   - Blur the text mentally: the slide must still look like a beautiful
+     graphic composition. If it looks generic without words, redesign it.
 
 == AUTONOMOUS BEHAVIOR ==
 

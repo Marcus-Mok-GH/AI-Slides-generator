@@ -274,76 +274,95 @@ ${themeBlock}
    - No <img> tags. No external assets of any kind. No speaker notes on screen. No page numbers.
    - Charts: place <div data-chart="N"></div> where a chart should render.
 
-   DESIGN MANDATE — follow these every time:
+   DESIGN MANDATE — full creative freedom, zero templates:
 
-   A. LAYOUT ORIGINALITY
-      Design the layout from scratch for THIS slide's content. Ask: what
-      composition makes this specific information look most impressive?
-      Options (pick the right one, mix and match):
-      - Bold split: 55% content left, 45% accent panel right (or reversed)
-      - Oversized hero stat or quote filling 60% of canvas with a supporting
-        column of context items on the right
-      - Card grid: 2-4 glass cards in a row or 2×2 grid with icons + text
-      - Full-bleed headline with a subtle text wall / dot grid behind it
-      - Asymmetric timeline running diagonally or left-to-right with dates
-      - Process steps as connected pill nodes across the horizontal center
-      - Two-column: narrative paragraph left, bullets / stats right
-      Every slide must have a different compositional approach from its neighbors.
+   A. INVENT A UNIQUE LAYOUT FOR EVERY SINGLE SLIDE
+      You have an empty 1280×720 px canvas and zero constraints on composition.
+      Do NOT copy standard presentation templates. Do NOT repeat the same
+      structure you used on any other slide in this deck.
 
-   B. TYPOGRAPHY HIERARCHY (use these sizes, never deviate far)
-      - Eyebrow: 12-13px, letter-spacing 0.18-0.22em, UPPERCASE, color var(--accent)
-      - H1 hero: 72-100px, font-weight 800, letter-spacing -0.03em, line-height 1.0
-      - H2 section: 48-64px, font-weight 700, letter-spacing -0.02em
-      - H3 card/item title: 20-26px, font-weight 600
-      - Body / lede: 20-26px, line-height 1.5, color var(--muted)
-      - Caption / meta: 13-16px, color rgba(255,255,255,0.45)
-      Never let body text be larger than the headline. No centered paragraphs.
+      Think like a creative director, not a template picker. Before writing HTML,
+      ask: "What is the single most striking way to communicate THIS idea on a
+      screen?" Then build it from scratch.
 
-   C. DEPTH & DECORATION (mandatory, one strong treatment per slide)
-      Choose one and execute it well:
-      1. Ghost number / word — huge (140-220px), gradient text, opacity 0.08-0.14,
-         positioned absolute behind content (z-index 0), cropped by overflow hidden
-      2. Accent vertical bar — 3-5px wide, 60-80px tall, gradient primary→accent,
-         positioned left of or above the headline block
-      3. Geometric accent — thin border circle or partial arc (border-radius),
-         position absolute, 200-400px, border 1-2px solid rgba primary 0.15,
-         top-right or bottom-left corner, clipped by overflow hidden
-      4. Glass hero card — a featured card with gradient background from
-         color-mix(in oklab, var(--primary) 20-28%, transparent) that houses the
-         main content; surrounding elements complement it
-      5. Color band / stripe — a solid or gradient panel behind 35-45% of the
-         canvas (left or right column), using color-mix(in oklab, var(--primary)
-         12%, transparent)
+      Ideas to spark — but never limit — your thinking:
+      - A massive single number (400px+) as the background texture, real data
+        floating over it in a tight column
+      - Full-width diagonal color slash dividing two zones of content
+      - Content radiating outward from a central focal point
+      - A ruled notebook / graph-paper texture drawn entirely in CSS
+      - Overlapping translucent circles that each contain a key point
+      - A film-strip or polaroid row of moments / steps
+      - Content set inside CSS clip-path shapes — hexagon, diamond, chevron
+      - A terminal / code-window aesthetic for technical topics
+      - Vertical text rotated 90° as a structural accent column
+      - Concentric rings or target circles conveying hierarchy or focus
+      - A split-screen with dramatically different type sizes on each side
+      - A single powerful word broken across two lines at 180px+ as the canvas
+      - Content set over a CSS-drawn isometric grid or perspective floor
+      - Stacked horizontal bands with alternating light/dark tints
+      - A radial progress clock or pie drawn purely with conic-gradient
+      These are sparks, not a menu. Invent your own.
 
-   D. GLASS CARD RECIPE (use whenever you render cards)
+   B. TYPOGRAPHY — expressive and intentional
+      Vary your typographic approach per slide. Some slides scream with a single
+      96px hero word; others whisper with tight 14px labels on a dense data grid.
+      General guidance (break rules when it serves the design):
+      - Eyebrow labels: 11-14px, letter-spacing 0.15-0.25em, UPPERCASE
+      - Hero text: 64-120px, weight 700-900, tight tracking
+      - Body / lede: 18-26px, line-height 1.45-1.6, var(--muted)
+      - Supporting/caption: 12-16px, color rgba(255,255,255,0.4-0.55)
+      Mix weights, sizes, and spacing deliberately. Every typographic decision
+      should communicate something — hierarchy, emphasis, mood.
+
+   C. DECORATION — invent something fresh every slide
+      Do NOT rotate through a fixed list of treatments. Design one original
+      decorative system per slide that reinforces the idea.
+
+      Techniques you may combine freely:
+      - CSS-drawn geometric primitives (circles, lines, polygons, arcs)
+      - conic-gradient, radial-gradient, linear-gradient as texture or fill
+      - clip-path for non-rectangular panels or cutout shapes
+      - mix-blend-mode for overlay effects
+      - border-only shapes (rings, partial arcs, dashed outlines)
+      - pseudo-elements (::before, ::after) for layered depth
+      - CSS grid with named areas for intentional negative space
+      - Large typographic "ghost" elements at very low opacity as texture
+      - Dot grids, line rules, hatching built with repeating-linear-gradient
+      - box-shadow stacks for complex glow or neon effects
+      The only rule: execute it precisely. Sloppy decoration is worse than none.
+
+   D. GLASSMORPHISM — use when appropriate, not by default
+      When a card or panel needs depth:
       background: color-mix(in oklab, #fff 4%, transparent);
-      border: 1px solid rgba(255,255,255,0.09);
-      border-radius: 18-24px;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16-28px;
       backdrop-filter: blur(16px);
-      padding: 20-28px;
+      Do NOT default to glass cards on every slide — reserve it for slides where
+      the frosted-glass effect genuinely adds to the composition.
 
-   E. FILL EVERY PIXEL
-      - Never leave the lower-right quadrant empty.
-      - If the main content sits top-left, add a decorative element bottom-right:
-        ghost text, subtle grid, accent shape, or a supporting data point.
-      - Generous but intentional whitespace — use padding 56-80px on the outer .slide.
+   E. FILL THE CANVAS COMPLETELY
+      Every quadrant of the 1280×720 canvas must be intentional.
+      If content lives in one zone, something — a shape, a ghost element, a data
+      point, a rule line — must anchor every other zone. Empty space must be
+      deliberate (breathing room), not accidental (forgot to fill it).
+      Outer padding on .slide: 52-80px (vary it; not every slide needs 72px).
 
-   F. COLOR DISCIPLINE
-      - Backgrounds: var(--bg) or very subtle tints (color-mix ≤ 10% primary)
-      - Headline text: #ffffff or var(--fg)
-      - Body/support text: var(--muted)
-      - Accent moments: var(--accent) — eyebrows, active indicators, icon fills, borders
-      - Primary moments: var(--primary) — gradient stops, featured card fills
-      - Never use raw black (#000) or pure white backgrounds
+   F. COLOR — precise and bold
+      - Backgrounds: var(--bg) or deep tints (color-mix, ≤ 14% primary)
+      - Headline: #ffffff / var(--fg)
+      - Body: var(--muted)
+      - Accent moments: var(--accent)
+      - Primary moments: var(--primary)
+      Push contrast. Be brave with gradient directions. Use color to create zones.
 
-   WRITE AS MUCH CSS AS NEEDED. There is no line limit. Good slides often need
-   80-150 lines of CSS. Sparse CSS = poor design. Do not reuse generic class
-   names — always scope to .slide so styles cannot leak.
+   WRITE AS MUCH CSS AS NEEDED — no line limit. Sophisticated slides often
+   need 100-180 lines. Sparse CSS always means poor design.
 
-   GOLDEN RULE: if you blurred all the text to illegibility, the slide should
-   still look like a beautiful designed composition. Spacing, color, and
-   decorative elements carry the visual quality. An empty-looking or
-   wireframe-looking output is a failure.
+   GOLDEN RULE: blur all the text to illegibility. The slide must still look
+   like a museum-quality graphic composition. If it looks generic without words,
+   redesign it. No two slides in this deck should be visually mistakable
+   for each other.
 
 Return strictly valid JSON. Do not wrap in markdown.`
 }
@@ -423,39 +442,55 @@ HARD RULES:
 - "css": scoped to .slide selectors. No @import, no external url().
 - Charts: <div data-chart="N"></div> placeholder where chart goes.
 
-DESIGN MANDATE:
-A. Invent the layout — don't copy a generic template. Ask: what visual
-   composition makes THIS content most striking on a 1280×720 stage?
-   Good options: bold split-panel, oversized hero number/quote,
-   glass card grid, full-bleed headline with ghost text behind,
-   asymmetric timeline, process pill row, two-column with accent panel.
+DESIGN MANDATE — blank canvas, full creative freedom:
 
-B. Typography hierarchy:
-   - Eyebrow: 12-13px, letter-spacing 0.18em, UPPERCASE, color var(--accent)
-   - H1/H2: 52-96px, font-weight 800, letter-spacing -0.02em to -0.03em
-   - H3 card titles: 20-26px, font-weight 600
-   - Body/lede: 20-26px, line-height 1.5, color var(--muted)
-   - Meta/caption: 13-16px, color rgba(255,255,255,0.45)
+A. INVENT THE LAYOUT FROM SCRATCH
+   You have an empty 1280×720 px canvas and no constraints on composition.
+   Do NOT default to a standard template. Before writing HTML, ask:
+   "What is the single most striking visual way to communicate THIS idea?"
+   Then build it. No two slides in the deck should share the same structure.
 
-C. ONE strong decorative treatment (mandatory):
-   - Oversized ghost text: position absolute, 140-220px, gradient,
-     opacity 0.08-0.14, behind content (z-index 0)
-   - Accent bar: 3-5px × 60-80px gradient vertical bar left of headline
-   - Partial arc / circle border: position absolute, 200-400px circle
-     border 1-2px solid rgba primary 0.15, clipped by overflow hidden
-   - Glass hero card: color-mix(in oklab, var(--primary) 22%, transparent)
-     background, border 1px solid hairline, border-radius 20-24px
-   - Color band: a left/right column panel at 12% primary tint
+   Sparks (not a menu — invent your own):
+   - Diagonal color slash dividing the canvas into two content zones
+   - A massive single word or number (160px+) as the visual centrepiece
+   - Content radiating from a central focal circle
+   - Stacked horizontal bands with contrasting tints
+   - CSS clip-path shapes (hexagon, chevron, diamond) enclosing key content
+   - Overlapping translucent circles each holding a point
+   - A terminal / code-window frame for technical content
+   - Vertical rotated text as a structural sidebar accent
+   - Concentric rings conveying focus or hierarchy
+   - A film-strip row of steps / moments
 
-D. Fill every quadrant — never leave bottom-right empty.
+B. TYPOGRAPHY — expressive and slide-specific
+   Vary approach: some slides use a single 110px hero word; others use a
+   dense 14px data grid. General guidance:
+   - Eyebrow: 11-14px, letter-spacing 0.15-0.25em, UPPERCASE
+   - Hero: 64-120px, weight 700-900, tight tracking
+   - Body: 18-26px, line-height 1.45-1.6, var(--muted)
+   - Caption: 12-16px, color rgba(255,255,255,0.45)
 
-E. Glass card recipe: background color-mix(in oklab, #fff 4%, transparent);
-   border 1px solid rgba(255,255,255,0.09); border-radius 18-24px;
-   backdrop-filter blur(16px).
+C. DECORATION — invent, don't recycle
+   Create one original decorative system per slide. Combine freely:
+   - CSS geometric primitives (circles, arcs, polygons)
+   - conic-gradient / radial-gradient as texture or fill
+   - clip-path panels and cutouts
+   - mix-blend-mode overlays
+   - repeating-linear-gradient dot grids or hatching
+   - box-shadow neon / glow stacks
+   - pseudo-elements for layered depth
+   - Low-opacity ghost typography as texture
 
-Write as much CSS as the design requires — 60-150 lines is normal.
-Scope every selector to .slide. Good slides look designed even with
-text blurred; spacing and color carry the visual quality.
+D. Fill every quadrant intentionally — no accidental empty corners.
+
+E. Glass card recipe (use when appropriate, not by default):
+   background: color-mix(in oklab, #fff 4%, transparent);
+   border: 1px solid rgba(255,255,255,0.09); border-radius: 18-24px;
+   backdrop-filter: blur(16px).
+
+Write as much CSS as the design requires — 80-180 lines is typical for
+bold designs. Scope every selector to .slide. Blur the text mentally:
+the slide must still look like a beautiful graphic composition.
 
 Return strictly valid JSON. No markdown.`
 }

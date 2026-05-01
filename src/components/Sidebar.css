@@ -158,10 +158,12 @@
   }
   .theme-switch-option {
     padding: 8px 4px;
+    min-height: 40px;
   }
   .nav-item {
     justify-content: center;
     padding: 10px 6px;
+    min-height: 44px;
   }
   .nav-item.is-active::before {
     display: none;

@@ -1611,6 +1611,10 @@
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
   }
+  .viewer-body.with-editor {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
   .viewer-side {
     display: none;
   }
@@ -1624,6 +1628,7 @@
     border-bottom: 1px solid var(--border);
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
   .thumb-strip::-webkit-scrollbar {
     height: 0;
@@ -1753,14 +1758,58 @@
   .viewer-bar .vbar-status {
     display: none;
   }
-  .stage {
-    padding: 14px 12px 24px;
+  .stage-slide-area {
+    padding: 10px 8px 20px;
   }
-  .slide {
-    padding: 22px 20px;
+  .stage-nav {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
   }
-  .stats {
-    grid-template-columns: 1fr;
+  .stage-nav.prev { left: 4px; }
+  .stage-nav.next { right: 4px; }
+  .stage-counter-pill {
+    bottom: 8px;
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+  .notes-toggle {
+    bottom: 8px;
+    right: 10px;
+    min-height: 36px;
+  }
+  .thumb-strip {
+    padding: 8px 10px;
+    gap: 4px;
+  }
+  .strip-thumb {
+    padding: 6px 8px;
+    font-size: 12px;
+    max-width: 140px;
+  }
+  .strip-num {
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+  }
+}
+
+/* Landscape phone — maximize slide viewing area */
+@media (max-width: 900px) and (orientation: landscape) {
+  .viewer-bar {
+    padding: 6px 14px;
+  }
+  .vbar-title {
+    gap: 4px;
+  }
+  .stage-slide-area {
+    padding: 8px 12px 12px;
+  }
+  .thumb-strip {
+    padding: 6px 10px;
+  }
+  .notes-panel.is-open {
+    height: 110px;
   }
 }
 

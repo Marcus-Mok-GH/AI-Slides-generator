@@ -112,6 +112,36 @@ select {
     background-color var(--duration-fast) ease;
 }
 
+/* ── Global mobile helpers ── */
+@media (max-width: 720px) {
+  /* Prevent iOS auto-zoom on inputs with font-size < 16px.
+     Component-level 16px rules take priority; this catches any that were missed.
+     Uses high specificity but NOT !important so components can still override. */
+  :root input[type="text"],
+  :root input[type="email"],
+  :root input[type="password"],
+  :root input[type="search"],
+  :root input[type="number"],
+  :root input[type="tel"],
+  :root input[type="url"],
+  :root textarea,
+  :root select {
+    font-size: 16px;
+  }
+  /* Minimum touch target for primary interactive elements.
+     Excludes small utility buttons (close/X icons, delete dots) that have
+     sufficient padding or are adjacent to larger tap areas. */
+  button:not(.row-x):not(.search-clear):not(.af-sidebar-delete):not(.deck-more):not(.editor-close):not(.notes-drawer-close):not(.notes-panel-close),
+  [role="button"],
+  a {
+    min-height: 44px;
+  }
+  button:where([class*="chip"], [class*="tag"], [class*="pill"]),
+  a:where([class*="chip"], [class*="tag"], [class*="pill"]) {
+    min-height: 36px;
+  }
+}
+
 /* Utility animations */
 @keyframes fadeInUp {
   from {
