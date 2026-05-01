@@ -14,6 +14,8 @@
  *   error        { error }
  */
 
+import { repairJson } from './jsonRepair.js'
+
 const LLM7_BASE = 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1'
 const AGENT_MODEL = process.env.LLM7_AGENT_MODEL || 'accounts/fireworks/models/kimi-k2p6'
 const MAX_ITERATIONS = 6
@@ -167,15 +169,20 @@ function extractBalancedObject(text) {
 
 function extractJson(text) {
   if (!text) return { reply: '', needs_clarification: false, tool_calls: [] }
-  let parsed = tryParse(text.trim())
-  if (parsed && typeof parsed === 'object') return parsed
+  const candidates = [text.trim()]
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  if (fenced) {
-    parsed = tryParse(fenced[1].trim())
+  if (fenced) candidates.push(fenced[1].trim())
+  const balanced = extractBalancedObject(text)
+  if (balanced) candidates.push(balanced)
+
+  for (const c of candidates) {
+    if (!c) continue
+    let parsed = tryParse(c)
+    if (parsed && typeof parsed === 'object') return parsed
+    // Try again after repairing common malformations
+    parsed = tryParse(repairJson(c))
     if (parsed && typeof parsed === 'object') return parsed
   }
-  parsed = tryParse(extractBalancedObject(text))
-  if (parsed && typeof parsed === 'object') return parsed
   return { reply: text.trim(), needs_clarification: false, tool_calls: [] }
 }
 

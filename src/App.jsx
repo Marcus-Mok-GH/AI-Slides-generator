@@ -11,6 +11,8 @@ import SlideViewer from './components/SlideViewer.jsx'
 import Landing from './components/Landing.jsx'
 import AgentFive from './components/AgentFive.jsx'
 import {
+  startBackgroundDeck,
+  connectToJob,
   streamGenerateDeck,
   saveDeck as saveDeckApi,
   loadDeck,
@@ -116,6 +118,39 @@ export default function App() {
     if (isAuthenticated) refreshDecks()
     else setSavedDecks([])
   }, [isAuthenticated, refreshDecks])
+
+  // Resume any background generation job that was running when the tab
+  // was closed. We check localStorage on every authentication, but only
+  // act when we're not already streaming something.
+  useEffect(() => {
+    if (!isAuthenticated || status === 'streaming') return
+    let saved = null
+    try { saved = JSON.parse(localStorage.getItem('slideai:activeJob') || 'null') } catch {}
+    if (!saved?.jobId) return
+
+    const { jobId, deckId, expectedCount, userTheme, prompt } = saved
+
+    // Show the viewer with a stub so the user isn't left on a blank screen.
+    setDeck({
+      id: deckId || jobId,
+      title: 'Resuming…',
+      subtitle: prompt?.slice(0, 120) || '',
+      theme: userTheme ? { ...DEFAULT_THEME, ...userTheme } : DEFAULT_THEME,
+      slides: [],
+      streaming: true,
+      expectedCount: expectedCount || 8,
+    })
+    setStatus('streaming')
+
+    connectToJob(jobId, buildJobHandlers(userTheme || null, deckId || jobId, expectedCount || 8))
+      .catch((e) => {
+        console.warn('[resume] failed to reconnect to job:', e?.message)
+        try { localStorage.removeItem('slideai:activeJob') } catch {}
+        setStatus('idle')
+        setDeck(null)
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated])
 
   // After a successful login redirect, restore the deck URL the user was on
   // before they were sent to /api/login. Sign-in breaks out of the workspace
@@ -311,6 +346,81 @@ export default function App() {
     }
   }, [deck, refreshDecks])
 
+  // Shared SSE event handlers for both fresh generation and job resume.
+  // Returns a handlers object compatible with connectToJob().
+  function buildJobHandlers(userTheme, deckId, expectedCount) {
+    const clearJob = () => {
+      try { localStorage.removeItem('slideai:activeJob') } catch {}
+    }
+    return {
+      onThinking: ({ text }) => {
+        setDeck((prev) => prev ? { ...prev, thinkingText: (prev.thinkingText || '') + text } : prev)
+      },
+      onMeta: ({ title, subtitle, theme }) => {
+        setDeck((prev) => {
+          if (!prev) return prev
+          const merged = { ...prev.theme, ...(theme || {}) }
+          return {
+            ...prev,
+            title: title || prev.title,
+            subtitle: subtitle || prev.subtitle,
+            theme: userTheme ? { ...merged, ...userTheme } : merged,
+          }
+        })
+      },
+      onPartial: ({ index, partial }) => {
+        setDeck((prev) => {
+          if (!prev) return prev
+          const slides = prev.slides.slice()
+          const existing = slides[index] || {}
+          if (existing && !existing.partial && existing.title) return prev
+          slides[index] = {
+            partial: true,
+            title: partial.title || existing.title || '',
+            layout: partial.layout || existing.layout || '',
+            body: partial.body || existing.body || '',
+            bullets: partial.bullets || existing.bullets || [],
+            sectionLabel: partial.sectionLabel || existing.sectionLabel || '',
+          }
+          return { ...prev, slides }
+        })
+      },
+      onSlide: ({ slide, index }) => {
+        setDeck((prev) => {
+          if (!prev) return prev
+          const slides = prev.slides.slice()
+          slides[index] = slide
+          return { ...prev, slides }
+        })
+      },
+      onCredits: ({ balanceCents }) => {
+        if (typeof balanceCents === 'number') credits.setBalanceCents(balanceCents)
+      },
+      onDone: (finalDeck) => {
+        setDeck({
+          ...finalDeck,
+          id: finalDeck.id || deckId,
+          streaming: false,
+          theme: userTheme ? { ...finalDeck.theme, ...userTheme } : finalDeck.theme,
+        })
+        setStatus('idle')
+        refreshDecks()
+        clearJob()
+      },
+      onError: (msg, parsed) => {
+        if (parsed?.code === 'insufficient_credits') {
+          if (typeof parsed.balanceCents === 'number') credits.setBalanceCents(parsed.balanceCents)
+          setError("You're out of credits — top up to keep generating decks.")
+        } else {
+          setError(msg || 'Failed to generate')
+        }
+        setStatus('error')
+        setDeck(null)
+        clearJob()
+      },
+    }
+  }
+
   async function handleGenerate(payload) {
     setError('')
     setStatus('streaming')
@@ -318,15 +428,11 @@ export default function App() {
     const expectedCount = parseLength(payload.length)
     const userTheme = payload.userTheme || null
 
-    // Mint a client-side id up front so we can navigate to /app/slide/{id}
-    // immediately instead of waiting for the server to persist the deck.
-    // The server reuses this id when it saves so the URL stays stable.
     const newDeckId =
       (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
         ? crypto.randomUUID()
         : `d_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
 
-    // Open the viewer immediately with a streaming stub.
     setDeck({
       id: newDeckId,
       title: 'Generating…',
@@ -334,7 +440,6 @@ export default function App() {
       theme: userTheme ? { ...DEFAULT_THEME, ...userTheme } : DEFAULT_THEME,
       slides: [],
       meta: {
-        model: 'claude-sonnet-4.6',
         prompt: payload.prompt,
         format: payload.format,
         length: payload.length,
@@ -348,96 +453,33 @@ export default function App() {
     })
 
     try {
-      await streamGenerateDeck({ ...payload, deckId: newDeckId }, {
-        onThinking: ({ text }) => {
-          setDeck((prev) => {
-            if (!prev) return prev
-            return { ...prev, thinkingText: (prev.thinkingText || '') + text }
-          })
-        },
-        onMeta: ({ title, subtitle, theme }) => {
-          setDeck((prev) => {
-            if (!prev) return prev
-            // Merge AI theme first, then apply user override on top if set.
-            const merged = { ...prev.theme, ...(theme || {}) }
-            return {
-              ...prev,
-              title: title || prev.title,
-              subtitle: subtitle || prev.subtitle,
-              theme: userTheme ? { ...merged, ...userTheme } : merged,
-            }
-          })
-        },
-        onPartial: ({ index, partial }) => {
-          setDeck((prev) => {
-            if (!prev) return prev
-            const slides = prev.slides.slice()
-            const existing = slides[index] || {}
-            // If the slide already arrived as a full slide, ignore late partials.
-            if (existing && !existing.partial && existing.title) return prev
-            slides[index] = {
-              partial: true,
-              title: partial.title || existing.title || '',
-              layout: partial.layout || existing.layout || '',
-              body: partial.body || existing.body || '',
-              bullets: partial.bullets || existing.bullets || [],
-              sectionLabel:
-                partial.sectionLabel || existing.sectionLabel || '',
-            }
-            return { ...prev, slides }
-          })
-        },
-        onSlide: ({ slide, index }) => {
-          setDeck((prev) => {
-            if (!prev) return prev
-            const slides = prev.slides.slice()
-            slides[index] = slide
-            return { ...prev, slides }
-          })
-        },
-        onCredits: ({ balanceCents }) => {
-          if (typeof balanceCents === 'number') {
-            credits.setBalanceCents(balanceCents)
-          }
-        },
-        onDone: (finalDeck) => {
-          setDeck({
-            ...finalDeck,
-            // Prefer the id the server persisted; fall back to the client id
-            // we minted up front so the URL stays valid in either case.
-            id: finalDeck.id || newDeckId,
-            streaming: false,
-            // Re-apply user theme override — the server's finalDeck carries
-            // the AI-generated theme which must not overwrite the user's pick.
-            theme: userTheme
-              ? { ...finalDeck.theme, ...userTheme }
-              : finalDeck.theme,
-          })
-          setStatus('idle')
-          refreshDecks()
-        },
-        onError: (msg, parsed) => {
-          // The server reports out-of-credits via this same SSE error event.
-          // Pull the live balance off the payload so the topbar pill stays
-          // accurate even when the user just dropped to zero.
-          if (parsed?.code === 'insufficient_credits') {
-            if (typeof parsed.balanceCents === 'number') {
-              credits.setBalanceCents(parsed.balanceCents)
-            }
-            setError(
-              "You're out of credits — top up to keep generating decks.",
-            )
-          } else {
-            setError(msg || 'Failed to generate')
-          }
-          setStatus('error')
-          setDeck(null)
-        },
-      })
+      // Start job on the server — returns a jobId immediately.
+      // Generation continues server-side even if the tab is closed.
+      const jobId = await startBackgroundDeck({ ...payload, deckId: newDeckId })
+
+      // Persist enough info to resume if the user navigates away.
+      try {
+        localStorage.setItem('slideai:activeJob', JSON.stringify({
+          jobId,
+          deckId: newDeckId,
+          expectedCount,
+          userTheme: userTheme || null,
+          prompt: payload.prompt,
+        }))
+      } catch {}
+
+      // Connect to the live SSE stream and replay any events already stored.
+      await connectToJob(jobId, buildJobHandlers(userTheme, newDeckId, expectedCount))
     } catch (e) {
-      setError(e.message || 'Something went wrong')
+      if (e.code === 'insufficient_credits') {
+        if (typeof e.balanceCents === 'number') credits.setBalanceCents(e.balanceCents)
+        setError("You're out of credits — top up to keep generating decks.")
+      } else {
+        setError(e.message || 'Something went wrong')
+      }
       setStatus('error')
       setDeck(null)
+      try { localStorage.removeItem('slideai:activeJob') } catch {}
     }
   }
 

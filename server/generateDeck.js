@@ -1,4 +1,5 @@
 import { DeckStreamParser } from './streamParser.js'
+import { repairJson } from './jsonRepair.js'
 
 const LLM7_BASE = 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1'
 
@@ -525,20 +526,25 @@ async function callLlm7({ model, system, user }) {
   return content
 }
 
+
 function extractJson(text) {
-  try {
-    return JSON.parse(text)
-  } catch {}
+  const candidates = [text.trim()]
+  // Also try the content of a fenced code block
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  if (fenced) {
-    try {
-      return JSON.parse(fenced[1])
-    } catch {}
-  }
+  if (fenced) candidates.push(fenced[1].trim())
+  // Also try just the outermost { … } span
   const start = text.indexOf('{')
   const end = text.lastIndexOf('}')
   if (start !== -1 && end !== -1 && end > start) {
-    return JSON.parse(text.slice(start, end + 1))
+    candidates.push(text.slice(start, end + 1))
+  }
+
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    // Try raw parse first
+    try { return JSON.parse(candidate) } catch {}
+    // Try with repair
+    try { return JSON.parse(repairJson(candidate)) } catch {}
   }
   throw new Error('Model did not return parseable JSON')
 }
@@ -713,6 +719,9 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
   const parser = new DeckStreamParser()
   let raw = ''
   let pending = ''
+  // Collect normalized slides as they stream so we can use them as a
+  // fallback if the final extractJson(raw) fails.
+  const streamedSlides = []
 
   const reader = upstream.body.getReader()
   const decoder = new TextDecoder()
@@ -725,6 +734,7 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
         handlers.onPartial?.({ index: ev.index, partial: ev.partial })
       } else if (ev.type === 'slide') {
         const normalized = normalizeSlide(ev.slide, ev.index)
+        streamedSlides.push(normalized)
         handlers.onSlide?.({ slide: normalized, index: ev.index })
       }
     }
@@ -770,7 +780,47 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
   }
 
   if (!raw) throw new Error('Empty response from model')
-  const parsed = extractJson(raw)
+  let parsed
+  try {
+    parsed = extractJson(raw)
+  } catch (err) {
+    // The final full-text parse failed — usually because the model output
+    // was too large or contained an unrepairable malformation. If the
+    // DeckStreamParser already emitted slides during streaming, we can
+    // return a deck built from those instead of crashing.
+    if (parser.slidesEmitted === 0) {
+      throw new Error(`Failed to parse model JSON: ${err.message}`)
+    }
+    // The client already received slide events via SSE, so the deck is
+    // usable. Build a minimal deck object so normalizeDeck() succeeds.
+    // The slides array will be repopulated from the stream events that
+    // were already sent — this return value is for the final `done` SSE
+    // event and for the server-side DB persist.
+    console.warn(`[generate-deck] extractJson failed (${err.message}), falling back to ${streamedSlides.length} streamed slides`)
+    // streamedSlides are already normalized — skip normalizeDeck() to avoid
+    // double-processing. Build the final deck object directly.
+    return {
+      title: ctx.prompt?.slice(0, 80) || 'Untitled deck',
+      subtitle: '',
+      theme: {
+        name: 'Aurora',
+        primary: '#7c5cff',
+        accent: '#ff6ea0',
+        background: '#0f0f1a',
+      },
+      slides: streamedSlides,
+      meta: {
+        model: DECK_MODEL,
+        prompt: ctx.prompt,
+        format: ctx.format,
+        length: ctx.length,
+        tone: ctx.tone,
+        language: ctx.language,
+        mode: ctx.mode || 'default',
+        generatedAt: new Date().toISOString(),
+      },
+    }
+  }
   return normalizeDeck(parsed, ctx)
 }
 

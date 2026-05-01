@@ -5,11 +5,13 @@ import {
   migratePromptHistory, savePromptHistory, getPromptHistory, deletePromptHistoryItem,
   migrateAgentChats, listAgentChats, getAgentChat, createAgentChat, updateAgentChat, deleteAgentChat,
   getCredits, deductCredits, DECK_GENERATION_CENTS,
+  migrateGenerationJobs, createGenerationJob, getGenerationJob,
 } from './db.js'
 import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
 import { agentFiveTurn, agentFiveStream } from './agentFive.js'
 import { buildPptxBuffer } from './exportPptx.js'
 import { buildPdfBuffer } from './exportPdf.js'
+import { runGenerationJob } from './jobRunner.js'
 
 const app = express()
 app.use(express.json({ limit: '50mb' }))
@@ -19,6 +21,7 @@ app.use(express.json({ limit: '50mb' }))
 await migrate()
 await migratePromptHistory()
 await migrateAgentChats()
+await migrateGenerationJobs()
 await setupAuth(app)
 
 app.get('/api/health', (_req, res) => {
@@ -145,6 +148,141 @@ app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
     })
   }
 })
+
+/* ────────────────── Background generation ────────────────── */
+
+/**
+ * POST /api/generate-deck/background
+ *
+ * Kicks off a generation job that runs entirely server-side, decoupled from
+ * the HTTP connection. Returns a jobId immediately; the client can close the
+ * tab and reconnect later using the job SSE endpoint to get all events.
+ */
+app.post('/api/generate-deck/background', isAuthenticated, async (req, res) => {
+  const {
+    prompt,
+    format    = 'presentation',
+    length    = '8 cards',
+    tone      = 'Professional',
+    language  = 'English',
+    mode      = 'default',
+    deckId,
+    userTheme = null,
+  } = req.body || {}
+
+  const userId = currentUserId(req)
+
+  if (!prompt?.trim()) {
+    return res.status(400).json({ error: 'Missing prompt' })
+  }
+
+  const startBalance = await getCredits(userId)
+  if (startBalance < DECK_GENERATION_CENTS) {
+    return res.status(402).json({
+      error: 'Out of credits',
+      code: 'insufficient_credits',
+      balanceCents: startBalance,
+      deckCostCents: DECK_GENERATION_CENTS,
+    })
+  }
+
+  const jobId = (typeof deckId === 'string' && deckId.trim()) ? deckId.trim() : crypto.randomUUID()
+  await createGenerationJob(jobId, userId)
+
+  if (userId && prompt?.trim()) {
+    savePromptHistory(userId, prompt.trim(), format).catch(() => {})
+  }
+
+  const ctx = {
+    prompt: prompt.trim(),
+    format, length, tone, language, mode,
+    userTheme: userTheme?.primary ? userTheme : null,
+    deckId: jobId,
+  }
+
+  // Fire off generation WITHOUT awaiting — it runs as a background task
+  runGenerationJob(jobId, ctx, userId, startBalance)
+    .catch((err) => console.error('[background-gen] unhandled error:', err))
+
+  res.json({ jobId })
+})
+
+/**
+ * GET /api/generate-deck/job/:jobId   (SSE)
+ *
+ * Replays every stored event since generation started (catch-up), then
+ * streams new events as they arrive until the job completes or fails.
+ * Clients that closed the tab can reconnect and receive the full history.
+ */
+app.get('/api/generate-deck/job/:jobId', isAuthenticated, async (req, res) => {
+  const { jobId } = req.params
+  const userId = currentUserId(req)
+
+  let job
+  try {
+    job = await getGenerationJob(jobId, userId)
+  } catch (e) {
+    return res.status(500).json({ error: 'DB error' })
+  }
+  if (!job) return res.status(404).json({ error: 'Job not found' })
+
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache, no-transform')
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('X-Accel-Buffering', 'no')
+  res.flushHeaders?.()
+
+  const send = (event, data) => {
+    try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`) } catch {}
+  }
+
+  let closed = false
+  req.on('close', () => { closed = true })
+
+  // Track how many events we've already sent (used for efficient catch-up)
+  let cursor = 0
+  const flush = (events) => {
+    for (let i = cursor; i < events.length; i++) {
+      if (closed) return
+      const { event, data } = events[i]
+      send(event, data)
+    }
+    cursor = events.length
+  }
+
+  // Replay all events accumulated so far
+  flush(job.events || [])
+
+  if (job.status === 'completed' || job.status === 'failed') {
+    return res.end()
+  }
+
+  // Keep-alive ping so proxies don't time out during long generations
+  const ping = setInterval(() => { if (!closed) res.write(': ping\n\n') }, 15000)
+
+  const poll = async () => {
+    if (closed) { clearInterval(ping); return }
+    try {
+      const updated = await getGenerationJob(jobId, userId)
+      if (!updated) { clearInterval(ping); return res.end() }
+
+      flush(updated.events || [])
+
+      if (updated.status === 'completed' || updated.status === 'failed') {
+        clearInterval(ping)
+        return res.end()
+      }
+    } catch (e) {
+      console.error('[job-sse] poll error:', e?.message)
+    }
+
+    if (!closed) setTimeout(poll, 500)
+  }
+
+  setTimeout(poll, 500)
+})
+
+/* ─────────────────────────────────────────────────────────── */
 
 app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
   const {

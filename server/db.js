@@ -424,3 +424,67 @@ export async function deleteAgentChat(id, userId) {
   if (!userId) return
   await pool.query(`DELETE FROM agent_chats WHERE id = $1 AND user_id = $2`, [id, userId])
 }
+
+/* ---------------- generation_jobs ---------------- */
+
+export async function migrateGenerationJobs() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS generation_jobs (
+      id         VARCHAR PRIMARY KEY,
+      user_id    VARCHAR NOT NULL,
+      status     VARCHAR NOT NULL DEFAULT 'pending',
+      events     JSONB    NOT NULL DEFAULT '[]',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `)
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_generation_jobs_user
+    ON generation_jobs (user_id, created_at DESC);
+  `)
+}
+
+export async function createGenerationJob(id, userId) {
+  await pool.query(
+    `INSERT INTO generation_jobs (id, user_id, status, events)
+     VALUES ($1, $2, 'pending', '[]')`,
+    [id, userId],
+  )
+}
+
+export async function appendJobEvent(jobId, event, data) {
+  await pool.query(
+    `UPDATE generation_jobs
+     SET events     = events || $1::jsonb,
+         updated_at = NOW()
+     WHERE id = $2`,
+    [JSON.stringify([{ event, data }]), jobId],
+  )
+}
+
+export async function updateJobStatus(jobId, status) {
+  await pool.query(
+    `UPDATE generation_jobs SET status = $1, updated_at = NOW() WHERE id = $2`,
+    [status, jobId],
+  )
+}
+
+export async function getGenerationJob(jobId, userId) {
+  const { rows } = await pool.query(
+    `SELECT id, user_id, status, events, created_at
+     FROM generation_jobs WHERE id = $1`,
+    [jobId],
+  )
+  if (!rows.length) return null
+  const job = rows[0]
+  if (job.user_id !== userId) return null
+  return job
+}
+
+export async function pruneGenerationJobs() {
+  await pool.query(
+    `DELETE FROM generation_jobs
+     WHERE status IN ('completed', 'failed')
+       AND created_at < NOW() - INTERVAL '24 hours'`,
+  )
+}

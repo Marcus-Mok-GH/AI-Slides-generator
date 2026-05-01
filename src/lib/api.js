@@ -82,6 +82,95 @@ export async function redesignSlide({ deck, slideIndex, instruction }) {
   return data.slide
 }
 
+/**
+ * Start a background generation job. Returns a jobId immediately.
+ * Generation continues on the server even if the browser tab is closed.
+ * Use connectToJob(jobId, handlers) to receive events.
+ */
+export async function startBackgroundDeck(payload) {
+  const headers = await authHeaders({ 'Content-Type': 'application/json' })
+  const res = await fetch('/api/generate-deck/background', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  })
+  if (res.status === 401) {
+    notifyUnauthorized()
+    throw new UnauthorizedError()
+  }
+  if (res.status === 402) {
+    const data = await res.json().catch(() => ({}))
+    throw Object.assign(
+      new Error(data.error || 'Out of credits'),
+      { code: data.code, balanceCents: data.balanceCents, deckCostCents: data.deckCostCents },
+    )
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `Server returned ${res.status}`)
+  }
+  const { jobId } = await res.json()
+  return jobId
+}
+
+/**
+ * Connect to a running (or completed) background job via SSE.
+ * Replays all events emitted since generation started, then streams
+ * new events live. Works the same as streamGenerateDeck's handlers.
+ */
+export async function connectToJob(jobId, handlers = {}) {
+  const headers = await authHeaders({})
+  const res = await fetch(`/api/generate-deck/job/${encodeURIComponent(jobId)}`, { headers })
+  if (res.status === 401) {
+    notifyUnauthorized()
+    handlers.onError?.('Please sign in.')
+    return
+  }
+  if (res.status === 404) {
+    handlers.onError?.('Job not found — it may have expired.')
+    return
+  }
+  if (!res.ok || !res.body) {
+    handlers.onError?.(`Could not connect to job (${res.status})`)
+    return
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    let idx
+    while ((idx = buf.indexOf('\n\n')) >= 0) {
+      const block = buf.slice(0, idx)
+      buf = buf.slice(idx + 2)
+      let event = 'message'
+      let data = ''
+      for (const line of block.split('\n')) {
+        if (line.startsWith(':')) continue
+        if (line.startsWith('event:')) event = line.slice(6).trim()
+        else if (line.startsWith('data:')) data += line.slice(5).trim()
+      }
+      if (!data) continue
+      let parsed
+      try { parsed = JSON.parse(data) } catch { continue }
+      if (event === 'thinking') handlers.onThinking?.(parsed)
+      else if (event === 'meta') handlers.onMeta?.(parsed)
+      else if (event === 'partial') handlers.onPartial?.(parsed)
+      else if (event === 'slide') handlers.onSlide?.(parsed)
+      else if (event === 'credits') handlers.onCredits?.(parsed)
+      else if (event === 'done') handlers.onDone?.(parsed.deck)
+      else if (event === 'error') {
+        handlers.onError?.(parsed.error || 'Failed to generate', parsed)
+        return
+      }
+    }
+  }
+}
+
 export async function streamGenerateDeck(payload, handlers = {}) {
   const headers = await authHeaders({ 'Content-Type': 'application/json' })
   const res = await fetch('/api/generate-deck/stream', {
