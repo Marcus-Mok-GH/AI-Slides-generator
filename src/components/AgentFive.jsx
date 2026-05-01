@@ -526,7 +526,7 @@ export default function AgentFive({ chatId: propChatId }) {
   }
 
   return (
-    <div className="af-layout">
+    <div className={`af-layout${currentTool?.status === 'running' ? ' af-tool-active' : ''}`}>
       <header className="af-topbar">
         <div className="af-topbar-brand">
           <img src={logo} alt="" />

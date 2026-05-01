@@ -575,6 +575,15 @@
   cursor: not-allowed;
   transform: none !important;
 }
+.vbar-btn.is-active {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.vbar-btn.is-active:hover {
+  background: var(--surface-3, var(--surface-2));
+  border-color: var(--accent);
+}
 
 /* Export button — show full label on wide screens, icon only on narrow */
 .vbar-export-icon {
@@ -689,8 +698,16 @@
 }
 
 .stage {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.stage-slide-area {
   position: relative;
   padding: 20px 24px;
+  flex: 1;
   min-height: 0;
   overflow: hidden;
   display: flex;
@@ -713,7 +730,7 @@
   border: 1px solid var(--border);
   transition: box-shadow var(--duration-base) ease;
 }
-.stage:hover .stage-frame {
+.stage-slide-area:hover .stage-frame {
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
@@ -857,6 +874,65 @@
   border-color: var(--border-strong);
   box-shadow: var(--shadow-sm);
 }
+
+/* ── Persistent speaker-notes panel (below the slide) ── */
+.notes-panel {
+  flex-shrink: 0;
+  height: 0;
+  overflow: hidden;
+  border-top: 1px solid transparent;
+  background: var(--surface);
+  transition: height 280ms var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)),
+    border-color 280ms ease;
+  display: flex;
+  flex-direction: column;
+}
+.notes-panel.is-open {
+  height: 150px;
+  border-top-color: var(--border);
+}
+.notes-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px 6px;
+  flex-shrink: 0;
+}
+.notes-panel-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+.notes-panel-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: background-color var(--duration-fast) ease,
+    color var(--duration-fast) ease;
+}
+.notes-panel-close:hover {
+  color: var(--text);
+  background: var(--hover-overlay);
+}
+.notes-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px 12px;
+}
+.notes-panel-body p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
 .notes p {
   margin: 4px 0 0;
   font-size: 13px;
@@ -1610,7 +1686,7 @@
     width: 60px;
   }
 
-  .stage {
+  .stage-slide-area {
     padding: 18px 16px 24px;
   }
   .stage-frame {

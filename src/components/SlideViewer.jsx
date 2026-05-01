@@ -1001,6 +1001,23 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
           >
             Share
           </button>
+          <button
+            type="button"
+            className={`vbar-btn vbar-only-wide ${showNotes ? 'is-active' : ''}`}
+            onClick={() => setShowNotes((v) => !v)}
+            disabled={isStreaming || !hasNotes}
+            title={
+              isStreaming
+                ? 'Available when generation completes'
+                : !hasNotes
+                ? 'No speaker notes on this slide'
+                : showNotes
+                ? 'Hide speaker notes'
+                : 'Show speaker notes'
+            }
+          >
+            ☰ Notes
+          </button>
           <div className="export-menu-wrap" ref={exportMenuRef}>
             <button
               type="button"
@@ -1115,90 +1132,84 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
           ))}
         </div>
 
-        <main className="stage" ref={stageRef}>
-          {showGenerating ? (
-            <ThinkingPanel
-              theme={deck.theme || {}}
-              expectedCount={expectedCount}
-              slidesSoFar={completedCount}
-              prompt={deck.meta?.prompt || ''}
-              deckTitle={deck.title}
-              thinkingText={deck.thinkingText || ''}
-            />
-          ) : (
-            <div
-              className="stage-frame"
-              style={{
-                width: `${SLIDE_WIDTH}px`,
-                height: `${SLIDE_HEIGHT}px`,
-                transform: `translate(-50%, -50%) scale(${stageScale || 0.0001})`,
-                visibility: stageScale > 0 ? 'visible' : 'hidden',
-              }}
-            >
-              <Slide
-                key={active}
-                slide={slide}
-                theme={deck.theme}
-                index={active}
-                total={Math.max(slideCount, expectedCount)}
+        <main className="stage">
+          <div className="stage-slide-area" ref={stageRef}>
+            {showGenerating ? (
+              <ThinkingPanel
+                theme={deck.theme || {}}
+                expectedCount={expectedCount}
+                slidesSoFar={completedCount}
+                prompt={deck.meta?.prompt || ''}
                 deckTitle={deck.title}
+                thinkingText={deck.thinkingText || ''}
               />
-            </div>
-          )}
-
-          {!showGenerating && (
-            <>
-              <button
-                className="stage-nav prev"
-                onClick={() => userJump(Math.max(active - 1, 0))}
-                disabled={active === 0 || slideCount === 0}
-                aria-label="Previous slide"
+            ) : (
+              <div
+                className="stage-frame"
+                style={{
+                  width: `${SLIDE_WIDTH}px`,
+                  height: `${SLIDE_HEIGHT}px`,
+                  transform: `translate(-50%, -50%) scale(${stageScale || 0.0001})`,
+                  visibility: stageScale > 0 ? 'visible' : 'hidden',
+                }}
               >
-                ‹
-              </button>
-              <button
-                className="stage-nav next"
-                onClick={() => userJump(Math.min(active + 1, slideCount - 1))}
-                disabled={slideCount === 0 || active >= slideCount - 1}
-                aria-label="Next slide"
-              >
-                ›
-              </button>
-            </>
-          )}
+                <Slide
+                  key={active}
+                  slide={slide}
+                  theme={deck.theme}
+                  index={active}
+                  total={Math.max(slideCount, expectedCount)}
+                  deckTitle={deck.title}
+                />
+              </div>
+            )}
 
-          {!showNotes && !showGenerating && (
-            <div className="stage-counter-pill">
-              {slideCount === 0
-                ? 'Drafting…'
-                : `${active + 1} / ${Math.max(slideCount, expectedCount)}`}
-            </div>
-          )}
+            {!showGenerating && (
+              <>
+                <button
+                  className="stage-nav prev"
+                  onClick={() => userJump(Math.max(active - 1, 0))}
+                  disabled={active === 0 || slideCount === 0}
+                  aria-label="Previous slide"
+                >
+                  ‹
+                </button>
+                <button
+                  className="stage-nav next"
+                  onClick={() => userJump(Math.min(active + 1, slideCount - 1))}
+                  disabled={slideCount === 0 || active >= slideCount - 1}
+                  aria-label="Next slide"
+                >
+                  ›
+                </button>
+              </>
+            )}
 
-          {hasNotes && !showNotes && (
-            <button
-              className="notes-toggle"
-              onClick={() => setShowNotes(true)}
-              title="Show speaker notes"
-            >
-              <span aria-hidden>☰</span> Notes
-            </button>
-          )}
+            {!showGenerating && (
+              <div className="stage-counter-pill">
+                {slideCount === 0
+                  ? 'Drafting…'
+                  : `${active + 1} / ${Math.max(slideCount, expectedCount)}`}
+              </div>
+            )}
+          </div>
 
-          {showNotes && hasNotes && (
-            <div className="notes-drawer">
-              <div className="notes-drawer-head">
-                <span className="notes-drawer-label">Speaker notes</span>
+          {hasNotes && (
+            <div className={`notes-panel ${showNotes ? 'is-open' : ''}`}>
+              <div className="notes-panel-head">
+                <span className="notes-panel-label">Speaker notes</span>
                 <button
                   type="button"
-                  className="notes-drawer-close"
+                  className="notes-panel-close"
                   onClick={() => setShowNotes(false)}
-                  aria-label="Close notes"
+                  aria-label="Hide speaker notes"
                 >
                   ×
                 </button>
               </div>
-              <p>{slide.speakerNotes}</p>
+              <div className="notes-panel-body">
+                <p>{slide?.speakerNotes || ''}</p>
+              </div>
             </div>
           )}
         </main>

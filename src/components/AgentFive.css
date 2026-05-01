@@ -113,6 +113,102 @@
   .af-main {
     grid-template-columns: 1fr;
     height: auto;
+    min-height: 0;
+  }
+  .af-chat-sidebar {
+    display: none;
+  }
+  .af-panel-col {
+    display: none;
+  }
+  .af-chat {
+    border-right: none;
+  }
+  .af-chat-scroller {
+    padding: 20px 16px 8px;
+  }
+  .af-msg-bubble {
+    max-width: 88%;
+  }
+  .af-starters {
+    padding: 0 16px 12px;
+  }
+  .af-starter {
+    flex: 1 1 100%;
+  }
+  .af-composer {
+    padding: 12px 16px 20px;
+    gap: 8px;
+  }
+  .af-composer-input {
+    font-size: 16px; /* iOS zoom fix */
+    padding: 12px 14px;
+    min-height: 48px;
+  }
+  .af-composer .af-btn {
+    padding: 12px 18px;
+    min-height: 48px;
+  }
+  .af-topbar {
+    padding: 12px 16px;
+  }
+  .af-topbar-sub {
+    display: none;
+  }
+  .af-topbar-actions .af-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
+/* Mobile tool panel — slides up from bottom when a tool is active */
+@media (max-width: 760px) {
+  .af-main.af-tool-active .af-panel-col {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    max-height: 55vh;
+    border-radius: 20px 20px 0 0;
+    border-top: 1px solid var(--af-border);
+    background: var(--af-card);
+    box-shadow: 0 -12px 48px rgba(0,0,0,0.35);
+    z-index: 40;
+    animation: af-drawer-up 280ms var(--ease-out-expo, cubic-bezier(0.16,1,0.3,1)) forwards;
+    overflow: hidden;
+  }
+  .af-main.af-tool-active .af-panel-col::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--af-border);
+    margin: 12px auto 0;
+    flex-shrink: 0;
+  }
+  .af-main.af-tool-active .af-panel-body {
+    padding: 12px 16px 24px;
+  }
+  @keyframes af-drawer-up {
+    from { transform: translateY(100%); opacity: 0.4; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+}
+
+/* Landscape phone — keep chat visible */
+@media (max-width: 760px) and (orientation: landscape) {
+  .af-topbar { padding: 8px 16px; }
+  .af-main {
+    height: calc(100vh - 48px);
+  }
+  .af-chat-scroller {
+    padding: 12px 16px 4px;
+  }
+  .af-composer {
+    padding: 8px 16px 12px;
   }
 }
 
