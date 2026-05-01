@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "npx concurrently -k -n server,vite -c magenta,cyan \"npm:dev:server\" \"npm:dev:vite\"",
+    "dev": "concurrently -k -n server,vite -c magenta,cyan \"npm:dev:server\" \"npm:dev:vite\"",
     "dev:vite": "vite --host 0.0.0.0 --port 5000",
     "dev:server": "node api/index.js",
     "build": "vite build",
