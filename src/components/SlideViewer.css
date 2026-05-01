@@ -1855,6 +1855,9 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.35);
 }
+.thinking-stream--inline {
+  margin-top: 0;
+}
 
 .thinking-stream-header {
   display: flex;
@@ -1893,6 +1896,9 @@
   padding: 12px 14px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.12) transparent;
+}
+.thinking-stream-body--tall {
+  max-height: 260px;
 }
 
 .thinking-stream-body::-webkit-scrollbar {

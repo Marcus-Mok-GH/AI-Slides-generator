@@ -552,7 +552,17 @@ function ThinkingPanel({ theme, expectedCount, slidesSoFar, prompt, deckTitle, t
         <h1 className="thinking-headline">{headline}</h1>
         <p className="thinking-sub">{subhead}</p>
 
-        {prompt ? (
+        {thinkingText ? (
+          <div className="thinking-stream thinking-stream--inline">
+            <div className="thinking-stream-header">
+              <span className="thinking-stream-dot" aria-hidden />
+              <span className="thinking-stream-label">Reasoning</span>
+            </div>
+            <div className="thinking-stream-body thinking-stream-body--tall" ref={streamRef}>
+              <pre className="thinking-stream-text">{thinkingText}<span className="thinking-stream-caret">▌</span></pre>
+            </div>
+          </div>
+        ) : prompt ? (
           <div className="thinking-prompt">
             <span className="thinking-prompt-label">Your prompt</span>
             <p className="thinking-prompt-text">
@@ -594,18 +604,6 @@ function ThinkingPanel({ theme, expectedCount, slidesSoFar, prompt, deckTitle, t
           <div className="thinking-deck-title" title={deckTitle}>
             <span className="thinking-deck-title-label">Working title</span>
             <span className="thinking-deck-title-text">{deckTitle}</span>
-          </div>
-        ) : null}
-
-        {thinkingText ? (
-          <div className="thinking-stream">
-            <div className="thinking-stream-header">
-              <span className="thinking-stream-dot" aria-hidden />
-              <span className="thinking-stream-label">Reasoning stream</span>
-            </div>
-            <div className="thinking-stream-body" ref={streamRef}>
-              <pre className="thinking-stream-text">{thinkingText}<span className="thinking-stream-caret">▌</span></pre>
-            </div>
           </div>
         ) : null}
       </div>
