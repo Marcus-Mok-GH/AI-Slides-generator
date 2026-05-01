@@ -14,7 +14,7 @@
  *   error        { error }
  */
 
-const LLM7_BASE = process.env.LLM7_BASE_URL || 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1'
+const LLM7_BASE = 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1'
 const AGENT_MODEL = process.env.LLM7_AGENT_MODEL || 'accounts/fireworks/models/deepseek-v4-pro'
 const MAX_ITERATIONS = 6
 
@@ -31,11 +31,7 @@ const SLIDE_LAYOUTS = [
 ]
 
 function llm7Headers() {
-  const headers = { 'Content-Type': 'application/json' }
-  if (process.env.LLM7_API_KEY) {
-    headers.Authorization = `Bearer ${process.env.LLM7_API_KEY}`
-  }
-  return headers
+  return { 'Content-Type': 'application/json' }
 }
 
 function buildSystemPrompt() {

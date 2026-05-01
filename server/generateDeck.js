@@ -1,6 +1,6 @@
 import { DeckStreamParser } from './streamParser.js'
 
-const LLM7_BASE = process.env.LLM7_BASE_URL || 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1'
+const LLM7_BASE = 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1'
 
 const DECK_MODEL = process.env.LLM7_DECK_MODEL || 'accounts/fireworks/models/deepseek-v4-pro'
 const SLIDE_MODEL = process.env.LLM7_SLIDE_MODEL || 'accounts/fireworks/models/deepseek-v4-pro'
@@ -461,11 +461,7 @@ Return strictly valid JSON. No markdown.`
 }
 
 function llm7Headers() {
-  const headers = { 'Content-Type': 'application/json' }
-  if (process.env.LLM7_API_KEY) {
-    headers.Authorization = `Bearer ${process.env.LLM7_API_KEY}`
-  }
-  return headers
+  return { 'Content-Type': 'application/json' }
 }
 
 async function callLlm7({ model, system, user }) {

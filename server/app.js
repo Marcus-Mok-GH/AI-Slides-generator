@@ -21,7 +21,7 @@ await migrateAgentChats()
 await setupAuth(app)
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, hasKey: !!process.env.LLM7_API_KEY })
+  res.json({ ok: true })
 })
 
 /**

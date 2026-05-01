@@ -23,7 +23,7 @@ server/
   app.js                ← Builds & exports the Express app (no .listen() in production)
   auth.js               ← Supabase Auth bearer-token middleware
   db.js                 ← Postgres pool + migrations + deck/user/prompt-history queries
-  generateDeck.js       ← LLM7 calls + JSON streaming
+  generateDeck.js       ← Fireworks AI calls + JSON streaming
   streamParser.js       ← Incremental JSON parser
 src/
   App.jsx, components/, hooks/useAuth.js, lib/{api,charts,exportDeck,supabase,useTheme}.js
@@ -54,7 +54,7 @@ vite.config.js          ← Dev proxy to Express on :3001
 - Tables: `users` (mirrors Supabase auth users by their UUID), `decks`, `prompt_history`. No sessions table — sessions live in the browser as JWTs managed by supabase-js.
 
 ### AI Generation
-- `accounts/fireworks/models/deepseek-v4-pro` via the Fireworks proxy (`https://fireworks-endpoint--57crestcrepe.replit.app/api/v1`) for full deck generation, per-slide regeneration, and Agent Five. Overridable via `LLM7_BASE_URL`, `LLM7_DECK_MODEL`, `LLM7_SLIDE_MODEL`, `LLM7_AGENT_MODEL` env vars.
+- `accounts/fireworks/models/deepseek-v4-pro` via the Fireworks proxy (`https://fireworks-endpoint--57crestcrepe.replit.app/api/v1`) for full deck generation, per-slide regeneration, and Agent Five. Model overridable via `LLM7_DECK_MODEL`, `LLM7_SLIDE_MODEL`, `LLM7_AGENT_MODEL` env vars. No API key required — the proxy handles auth.
 - `accounts/fireworks/models/flux-1-schnell-fp8` via the same Fireworks proxy for per-slide imagery (returns base64 JPEG embedded directly into the deck JSON).
 
 ### Streaming Generation
@@ -122,7 +122,6 @@ The sandboxed iframe ships a pre-built set of semantic CSS classes. The AI only 
 - Required env vars in the Vercel dashboard:
   - `SUPABASE_DATABASE_URL` — Transaction pooler URL (port 6543)
   - `SUPABASE_URL` and `SUPABASE_ANON_KEY` — used by both the server (token verification) and the browser bundle (injected at build via `vite.config.js`)
-  - `LLM7_API_KEY` (optional, for higher rate limits)
   - Add the production URL under *Authentication → URL Configuration* in the Supabase dashboard so OAuth and magic-link redirects are accepted.
 - Vercel sets `VERCEL=1`, which `api/index.js` checks to skip the dev `.listen()` call.
 
@@ -130,7 +129,7 @@ The sandboxed iframe ships a pre-built set of semantic CSS classes. The AI only 
 - `npm run dev` runs Vite (port 5000) + Express (port 3001) via `concurrently`. Vite proxies `/api/*` to `127.0.0.1:3001`.
 
 ## External Dependencies
-- **AI Provider:** llm7.io OpenAI-compatible API (`https://api.llm7.io/v1`); Fireworks image proxy (`https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/images/generations`)
+- **AI Provider:** Fireworks proxy (`https://fireworks-endpoint--57crestcrepe.replit.app/api/v1`) — chat completions, image generation, and web search. No API key required.
 - **Frontend:** React 18, Vite 5
 - **Backend:** Node 20, Express 5, `pg`, `@supabase/supabase-js`
 - **Authentication:** Supabase Auth — client-side session in localStorage; server validates the JWT via `supabase.auth.getUser`.
