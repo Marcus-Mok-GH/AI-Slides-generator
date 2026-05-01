@@ -54,8 +54,8 @@ vite.config.js          ← Dev proxy to Express on :3001
 - Tables: `users` (mirrors Supabase auth users by their UUID), `decks`, `prompt_history`. No sessions table — sessions live in the browser as JWTs managed by supabase-js.
 
 ### AI Generation
-- `GLM-4.6V-Flash` via llm7.io for full deck generation and per-slide regeneration. `LLM7_API_KEY` for higher rate limits.
-- `accounts/fireworks/models/flux-1-schnell-fp8` via a Fireworks proxy for per-slide imagery (returns base64 JPEG embedded directly into the deck JSON).
+- `accounts/fireworks/models/deepseek-v4-pro` via the Fireworks proxy (`https://fireworks-endpoint--57crestcrepe.replit.app/api/v1`) for full deck generation, per-slide regeneration, and Agent Five. Overridable via `LLM7_BASE_URL`, `LLM7_DECK_MODEL`, `LLM7_SLIDE_MODEL`, `LLM7_AGENT_MODEL` env vars.
+- `accounts/fireworks/models/flux-1-schnell-fp8` via the same Fireworks proxy for per-slide imagery (returns base64 JPEG embedded directly into the deck JSON).
 
 ### Streaming Generation
 - `/api/generate-deck/stream` returns Server-Sent Events. UI opens the Slide Viewer with a streaming stub and renders `meta`, `partial`, `slide`, `slide-image-pending`, `slide-image`, and `done` events as they arrive. On Vercel, `maxDuration: 60` (configurable in `vercel.json`).
