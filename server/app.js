@@ -9,6 +9,7 @@ import {
 import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
 import { agentFiveTurn, agentFiveStream } from './agentFive.js'
 import { buildPptxBuffer } from './exportPptx.js'
+import { buildPdfBuffer } from './exportPdf.js'
 
 const app = express()
 app.use(express.json({ limit: '50mb' }))
@@ -74,6 +75,30 @@ app.post('/api/export/pptx', isAuthenticated, async (req, res) => {
   } catch (err) {
     console.error('[export/pptx] error:', err)
     res.status(500).json({ error: err?.message || 'PPTX export failed' })
+  }
+})
+
+app.post('/api/export/pdf', isAuthenticated, async (req, res) => {
+  try {
+    const { deck } = req.body || {}
+    if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
+      return res.status(400).json({ error: 'deck.slides is required' })
+    }
+
+    const buf = await buildPdfBuffer(deck)
+
+    const safeName = (deck.title || 'deck')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '') || 'deck'
+
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}.pdf"`)
+    res.setHeader('Content-Length', buf.length)
+    res.send(buf)
+  } catch (err) {
+    console.error('[export/pdf] error:', err)
+    res.status(500).json({ error: err?.message || 'PDF export failed' })
   }
 })
 

@@ -73,10 +73,10 @@ vite.config.js          ← Dev proxy to Express on :3001
 - Right-side `SlideEditor` allows layout changes, inline edits, and AI regeneration. Autosave debounces to Postgres.
 
 ### Exports
-- **PDF** — `exportDeckToPdf` rasterizes each slide via `html2canvas` against the same `HtmlSlide` document and stitches them into a 16:9 `jsPDF`.
-- **PPTX** — `exportDeckToPptx` ships the rasterized slide as a full-bleed image per slide (opens cleanly in PowerPoint and Google Slides) and attaches the speaker notes as PPTX notes.
-- **JSON** — raw deck data for archival.
-- All exports flow through `buildSlideDocument(slide, theme, {index, total, deckTitle})` so the page footer is preserved in downloads.
+- **PDF** — `POST /api/export/pdf` — server-side via `jsPDF` on Node.js. `server/exportPdf.js` builds a 1280×720 pt landscape PDF with text-based layout builders for all 14 slide types. No html2canvas or browser sandbox involved.
+- **PPTX** — `POST /api/export/pptx` — server-side via `pptxgenjs`. `server/exportPptx.js` maps all 14 layout types to fully editable text elements. Opens cleanly in PowerPoint and Google Slides.
+- **JSON** — client-side blob download of the raw deck object.
+- Both PDF and PPTX include a footer (slide # / total · deck title) and honour the deck theme colours.
 
 ### Two-Step Creation Flow
 - `/` Landing page (logged-out) with hero CTA → opens sign-in modal.
@@ -135,4 +135,5 @@ The sandboxed iframe ships a pre-built set of semantic CSS classes. The AI only 
 - **Authentication:** Supabase Auth — client-side session in localStorage; server validates the JWT via `supabase.auth.getUser`.
 - **Database:** Supabase Postgres (Transaction Pooler).
 - **Export Libraries:** `html2canvas`, `jspdf`, `pptxgenjs`, `node-html-parser`.
+- **PDF Export:** Server-side in `server/exportPdf.js` — `buildPdfBuffer(deck)` uses `jsPDF` on Node.js to build a text-based 1280×720 pt PDF for all 14 layout types.
 - **PPTX Export:** Server-side in `server/exportPptx.js` — `buildPptxBuffer(deck)` maps all 14 layout types (title, section, statement, bullets, steps, comparison, stats, quote, callout, feature-cards, timeline, process-flow, two-column, content) to editable pptxgenjs text elements. Slides are fully editable in PowerPoint and Google Slides.
