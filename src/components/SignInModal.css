@@ -161,9 +161,19 @@
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 .signin-oauth:hover { background: rgba(120, 130, 180, 0.10); }
 .signin-oauth:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.signin-oauth-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
 
 .signin-switch {
   margin: 16px 0 0;
