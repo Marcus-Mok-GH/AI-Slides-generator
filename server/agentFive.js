@@ -51,8 +51,9 @@ You have these tools — USE THEM YOURSELF without asking permission. Be proacti
 2. create_image(prompt: string, aspect_ratio?: "16:9"|"9:16"|"1:1")
    Generate a single illustrative image. Default aspect_ratio is "16:9".
 
-3. create_presentation_slide(title, layout, body?, bullets?[], steps?[], comparison?, stats?[], quote?, cards?[], timeline?[], callout?, charts?[], sectionLabel?, imagePrompt?, speakerNotes?, html?, css?)
-   Create ONE polished slide.
+3. create_presentation_slide(title, layout, body?, bullets?[], steps?[], comparison?, stats?[], quote?, cards?[], timeline?[], callout?, charts?[], sectionLabel?, speakerNotes?, html?, css?)
+   Create ONE polished slide. Slides do NOT carry background photos — the
+   slide's visual is entirely carried by its html + css.
    - layout MUST be one of: ${SLIDE_LAYOUTS.join(', ')}.
    - bullets: array of strings (for "bullets" / "two-column" layouts).
    - steps: array of {label, detail} (for "steps" / "process-flow" layouts).
@@ -64,9 +65,8 @@ You have these tools — USE THEM YOURSELF without asking permission. Be proacti
    - callout: {label, text} (for "callout" layout).
    - charts: array of {type: "bar"|"line"|"pie", title, data: [{label, value}]} — only when genuinely needed.
    - sectionLabel: short eyebrow label (for "section" layout).
-   - imagePrompt: 1-sentence editorial photo description for this slide — no text/logos in image.
    - speakerNotes: 2-3 sentences the presenter says out loud — not a restatement of the slide.
-   - html: self-contained <div class="slide">…</div> markup for the slide body.
+   - html: self-contained <div class="slide">…</div> markup — carries the full visual.
    - css: slide-scoped CSS rules.
 
 == AUTONOMOUS BEHAVIOR ==
@@ -288,14 +288,6 @@ async function toolCreateSlide(args) {
       : (typeof args?.notes === 'string' ? args.notes.slice(0, 600) : ''),
     html: typeof args?.html === 'string' ? args.html : '',
     css: typeof args?.css === 'string' ? args.css : '',
-    imagePrompt: typeof args?.imagePrompt === 'string' ? args.imagePrompt.slice(0, 240) : '',
-  }
-  if (slide.imagePrompt) {
-    try {
-      slide.image = await toolCreateImage({ prompt: slide.imagePrompt })
-    } catch (err) {
-      slide.imageError = err?.message || 'Image failed'
-    }
   }
   return slide
 }

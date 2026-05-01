@@ -5,8 +5,6 @@
  * presentation. Every slide gets:
  *
  *   - A solid background colour (from deck.theme.background).
- *   - A full-bleed background image when slide.image.url is a data-URL.
- *   - A translucent dark scrim over the image so text stays legible.
  *   - Editable text objects for title, subtitle/body, and all content
  *     specific to the slide layout (bullets, stats, quote, cards, etc.).
  *   - Speaker notes from slide.speakerNotes.
@@ -31,8 +29,6 @@ const CW = W - ML - MR // usable content width
 function hex(raw, fallback = 'FFFFFF') {
   return String(raw || fallback).replace(/^#/, '').toUpperCase() || fallback
 }
-function alpha(pct) { return String(Math.round(pct)).padStart(2, '0') }
-
 // ─── Text option builders ────────────────────────────────────────────────────
 function titleOpts(color, size = 36, bold = true) {
   return { bold, fontSize: size, color, fontFace: 'Calibri', fit: 'shrink', valign: 'top' }
@@ -45,30 +41,6 @@ function labelOpts(color, size = 11) {
 }
 
 // ─── Slide components ────────────────────────────────────────────────────────
-
-/**
- * Embed the background image (data-URL) as a full-bleed element.
- * pptxgenjs `data` prop expects `mime/type;base64,...` (no leading "data:").
- */
-function addBgImage(pSlide, imgUrl) {
-  if (!imgUrl || !imgUrl.startsWith('data:')) return
-  pSlide.addImage({
-    data: imgUrl.slice('data:'.length),
-    x: 0, y: 0, w: W, h: H,
-  })
-}
-
-/**
- * Semi-transparent scrim to keep text readable over photos.
- * Opacity 0–100 (0 = fully transparent, 100 = fully opaque).
- */
-function addScrim(pSlide, bgHex, opacity = 55) {
-  pSlide.addShape('rect', {
-    x: 0, y: 0, w: W, h: H,
-    fill: { type: 'solid', color: bgHex, alpha: opacity },
-    line: { type: 'none' },
-  })
-}
 
 /**
  * Footer bar: slide number on the right, deck title on the left.
@@ -604,14 +576,7 @@ export async function buildPptxBuffer(deck) {
     // 1. Solid-colour background (always)
     pSlide.background = { color: bgHex }
 
-    // 2. Background image + scrim
-    const hasImage = slide?.image?.url?.startsWith('data:')
-    if (hasImage) {
-      addBgImage(pSlide, slide.image.url)
-      addScrim(pSlide, bgHex, 58)
-    }
-
-    // 3. Editable text content (layout-specific)
+    // 2. Editable text content (layout-specific)
     const layout  = slide.layout || 'bullets'
     const builder = LAYOUT_BUILDERS[layout] || buildBullets
     try {
@@ -627,10 +592,10 @@ export async function buildPptxBuffer(deck) {
       }
     }
 
-    // 4. Footer
+    // 3. Footer
     addFooter(pSlide, i, total, deck.title, colors.fg)
 
-    // 5. Speaker notes
+    // 4. Speaker notes
     if (slide.speakerNotes) {
       pSlide.addNotes(String(slide.speakerNotes))
     }

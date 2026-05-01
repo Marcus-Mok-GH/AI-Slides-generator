@@ -344,7 +344,6 @@ export default function App() {
         generatedAt: new Date().toISOString(),
       },
       streaming: true,
-      imagesGenerating: true,
       expectedCount,
     })
 
@@ -384,8 +383,6 @@ export default function App() {
               bullets: partial.bullets || existing.bullets || [],
               sectionLabel:
                 partial.sectionLabel || existing.sectionLabel || '',
-              imagePrompt:
-                partial.imagePrompt || existing.imagePrompt || '',
             }
             return { ...prev, slides }
           })
@@ -394,44 +391,7 @@ export default function App() {
           setDeck((prev) => {
             if (!prev) return prev
             const slides = prev.slides.slice()
-            // Preserve any imageStatus already set for this index.
-            const existing = slides[index] || {}
-            slides[index] = {
-              ...slide,
-              imageStatus: existing.imageStatus || slide.imageStatus || '',
-            }
-            return { ...prev, slides }
-          })
-        },
-        onSlideImagePending: ({ index }) => {
-          setDeck((prev) => {
-            if (!prev) return prev
-            const slides = prev.slides.slice()
-            const existing = slides[index] || { partial: true }
-            slides[index] = { ...existing, imageStatus: 'pending' }
-            return { ...prev, slides }
-          })
-        },
-        onSlideImage: ({ index, image }) => {
-          setDeck((prev) => {
-            if (!prev) return prev
-            const slides = prev.slides.slice()
-            const existing = slides[index] || {}
-            slides[index] = {
-              ...existing,
-              image,
-              imagePrompt: existing.imagePrompt || image?.prompt || '',
-              imageStatus: 'ready',
-            }
-            return { ...prev, slides }
-          })
-        },
-        onSlideImageFailed: ({ index }) => {
-          setDeck((prev) => {
-            if (!prev) return prev
-            const slides = prev.slides.slice()
-            const existing = slides[index] || {}
-            slides[index] = { ...existing, imageStatus: 'failed' }
+            slides[index] = slide
             return { ...prev, slides }
           })
         },
@@ -447,7 +407,6 @@ export default function App() {
             // we minted up front so the URL stays valid in either case.
             id: finalDeck.id || newDeckId,
             streaming: false,
-            imagesGenerating: false,
             // Re-apply user theme override — the server's finalDeck carries
             // the AI-generated theme which must not overwrite the user's pick.
             theme: userTheme

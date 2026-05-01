@@ -3,7 +3,7 @@
  *
  * Feeds streaming text from the model and emits events:
  *   { type: 'meta',    meta: { title, subtitle, theme } }   (once)
- *   { type: 'partial', index, partial: { title?, layout?, body?, bullets?, sectionLabel?, imagePrompt? } }
+ *   { type: 'partial', index, partial: { title?, layout?, body?, bullets?, sectionLabel? } }
  *                                                            (during in-progress slide)
  *   { type: 'slide',   slide: {...}, index: n }              (per completed slide)
  *
@@ -23,7 +23,6 @@ const PARTIAL_STRING_FIELDS = [
   'layout',
   'body',
   'sectionLabel',
-  'imagePrompt',
 ]
 
 function extractCompletedStringField(snippet, key) {

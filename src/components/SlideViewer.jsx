@@ -39,51 +39,6 @@ function useFitScale(containerRef) {
   return scale
 }
 
-/* ----------------------------------------------------------------
-   Helpers — image rendering varies a lot by layout. Each slide can
-   carry a generated image (slide.image.url). Some layouts use it as
-   a full-bleed background; others as a side panel.
-   ---------------------------------------------------------------- */
-
-function HeroBackground({ image, status }) {
-  if (image?.url) {
-    return (
-      <div className="slide-bg-image" aria-hidden>
-        <img src={image.url} alt="" />
-        <div className="slide-bg-tint" />
-      </div>
-    )
-  }
-  if (status === 'pending') {
-    return (
-      <div className="slide-bg-image is-loading" aria-hidden>
-        <div className="img-shimmer" />
-        <div className="slide-bg-tint" />
-      </div>
-    )
-  }
-  return null
-}
-
-function SidePanelImage({ image, status }) {
-  if (image?.url) {
-    return (
-      <div className="slide-side-image" aria-hidden>
-        <img src={image.url} alt="" />
-      </div>
-    )
-  }
-  if (status === 'pending') {
-    return (
-      <div className="slide-side-image is-loading" aria-hidden>
-        <div className="img-shimmer" />
-        <div className="img-shimmer-label">Generating image…</div>
-      </div>
-    )
-  }
-  return null
-}
-
 /**
  * Renders inline text plus a blinking caret when `caret` is true. Used to
  * give the currently-streaming text field a "still typing" indicator.
@@ -113,7 +68,6 @@ function TitleSlide({ slide, theme }) {
   const typingOn = activeTypingField(slide)
   return (
     <>
-      <HeroBackground image={slide.image} status={slide.imageStatus} />
       <div className="slide-title-block">
         <div className="slide-eyebrow">{theme.name || 'Deck'}</div>
         <h1 className="slide-h1">
@@ -133,7 +87,6 @@ function SectionSlide({ slide }) {
   const typingOn = activeTypingField(slide)
   return (
     <>
-      <HeroBackground image={slide.image} status={slide.imageStatus} />
       <div className="slide-section">
         <div className="slide-section-rule" aria-hidden />
         <div className="slide-section-eyebrow">
@@ -151,7 +104,6 @@ function StatementSlide({ slide }) {
   const typingOn = activeTypingField(slide)
   return (
     <>
-      <HeroBackground image={slide.image} status={slide.imageStatus} />
       <div className="slide-statement">
         <div className="statement-quote-mark" aria-hidden>“</div>
         <h2 className="statement-text">
@@ -169,11 +121,10 @@ function StatementSlide({ slide }) {
 
 function BulletsSlide({ slide }) {
   const items = slide.bullets || []
-  const hasImg = !!slide.image?.url
   const typingOn = activeTypingField(slide)
   const lastIdx = items.length - 1
   return (
-    <div className={`split ${hasImg || slide.imageStatus === 'pending' ? 'has-image' : ''}`}>
+    <div className="split">
       <div className="split-text">
         <h2 className="slide-h2">
           <TypingText text={slide.title} caret={typingOn === 'title'} />
@@ -192,9 +143,6 @@ function BulletsSlide({ slide }) {
           ))}
         </ul>
       </div>
-      {(hasImg || slide.imageStatus === 'pending') && (
-        <SidePanelImage image={slide.image} status={slide.imageStatus} />
-      )}
     </div>
   )
 }
@@ -266,10 +214,9 @@ function ComparisonSlide({ slide }) {
 }
 
 function StatsSlide({ slide }) {
-  const hasImg = !!slide.image?.url
   const typingOn = activeTypingField(slide)
   return (
-    <div className={`split ${hasImg || slide.imageStatus === 'pending' ? 'has-image' : ''}`}>
+    <div className="split">
       <div className="split-text">
         <h2 className="slide-h2">
           <TypingText text={slide.title} caret={typingOn === 'title'} />
@@ -283,19 +230,15 @@ function StatsSlide({ slide }) {
           ))}
         </div>
       </div>
-      {(hasImg || slide.imageStatus === 'pending') && (
-        <SidePanelImage image={slide.image} status={slide.imageStatus} />
-      )}
     </div>
   )
 }
 
 function QuoteSlide({ slide }) {
   const q = slide.quote || { text: '', attribution: '' }
-  const hasImg = !!slide.image?.url
   const typingOn = activeTypingField(slide)
   return (
-    <div className={`split ${hasImg || slide.imageStatus === 'pending' ? 'has-image' : ''}`}>
+    <div className="split">
       <div className="split-text">
         {slide.title ? (
           <div className="quote-eyebrow">
@@ -307,9 +250,6 @@ function QuoteSlide({ slide }) {
           {q.attribution ? <footer>— {q.attribution}</footer> : null}
         </blockquote>
       </div>
-      {(hasImg || slide.imageStatus === 'pending') && (
-        <SidePanelImage image={slide.image} status={slide.imageStatus} />
-      )}
     </div>
   )
 }
@@ -349,10 +289,9 @@ function TwoColumnSlide({ slide }) {
 }
 
 function ContentSlide({ slide }) {
-  const hasImg = !!slide.image?.url
   const typingOn = activeTypingField(slide)
   return (
-    <div className={`split ${hasImg || slide.imageStatus === 'pending' ? 'has-image' : ''}`}>
+    <div className="split">
       <div className="split-text">
         <h2 className="slide-h2">
           <TypingText text={slide.title} caret={typingOn === 'title'} />
@@ -363,9 +302,6 @@ function ContentSlide({ slide }) {
           </p>
         ) : null}
       </div>
-      {(hasImg || slide.imageStatus === 'pending') && (
-        <SidePanelImage image={slide.image} status={slide.imageStatus} />
-      )}
     </div>
   )
 }
@@ -458,23 +394,18 @@ function Slide({ slide, theme, index, total, deckTitle }) {
       )
   }
 
-  const hasFullBleed =
-    (isHero || isSection || isStatement) && !!slide.image?.url
-
   return (
     <div
       className={`slide layout-${slide.layout} ${
         isHero ? 'is-hero' : ''
       } ${isSection ? 'is-section' : ''} ${
         isStatement ? 'is-statement' : ''
-      } ${hasFullBleed ? 'has-bg-image' : ''} ${
-        slide.partial ? 'is-typing' : ''
-      }`}
+      } ${slide.partial ? 'is-typing' : ''}`}
       style={style}
     >
       <div className="slide-grain" aria-hidden />
-      {!hasFullBleed && <div className="slide-glow" aria-hidden />}
-      {!hasFullBleed && isSection ? (
+      <div className="slide-glow" aria-hidden />
+      {isSection ? (
         <div className="slide-glow alt" aria-hidden />
       ) : null}
 

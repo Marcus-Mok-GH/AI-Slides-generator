@@ -3,9 +3,9 @@ import { renderChartSvg } from '../lib/charts.js'
 
 /**
  * Renders an AI-generated slide (slide.html + slide.css) inside a sandboxed
- * iframe sized to the canonical 1280x720 slide canvas. The host frame paints
- * the hero background image (when present) so the AI doesn't have to embed
- * <img> tags or worry about caching the data URL.
+ * iframe sized to the canonical 1280x720 slide canvas. The AI generates the
+ * entire slide visual from scratch — there is no background photo layered
+ * behind it; every pixel is carried by the model's HTML and CSS.
  *
  * Design language: Gamma-inspired. Every slide gets:
  *   - A built-in icon sprite the AI can reference with <svg class="icon"><use href="#i-NAME"/></svg>
@@ -23,10 +23,9 @@ import { renderChartSvg } from '../lib/charts.js'
 const SLIDE_W = 1280
 const SLIDE_H = 720
 
-function escapeAttr(s) {
+function escapeText(s) {
   return String(s)
     .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
 }
@@ -97,7 +96,6 @@ function buildDocument({
   css,
   charts,
   theme,
-  image,
   index,
   total,
   deckTitle,
@@ -107,12 +105,9 @@ function buildDocument({
   const accent = theme?.accent || '#ff6ea0'
   const safeHtml = injectCharts(html || '', charts, theme)
   const userCss = String(css || '')
-  const heroImg = image?.url
-    ? `<div class="__bg-image" aria-hidden><img src="${escapeAttr(image.url)}" alt="" /><div class="__bg-tint"></div></div>`
-    : ''
 
   const showFooter = typeof index === 'number' && typeof total === 'number'
-  const footerLeft = deckTitle ? escapeAttr(deckTitle) : ''
+  const footerLeft = deckTitle ? escapeText(deckTitle) : ''
   const footer = showFooter
     ? `<div class="__page-footer" aria-hidden>
          ${footerLeft ? `<span class="__footer-title">${footerLeft}</span>` : ''}
@@ -166,16 +161,6 @@ function buildDocument({
   body::after {
     bottom: -280px; right: -200px;
     background: radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--accent) 60%, transparent) 0%, transparent 60%);
-  }
-
-  .__bg-image { position: absolute; inset: 0; z-index: 0; }
-  .__bg-image img {
-    width: 100%; height: 100%; object-fit: cover;
-    filter: saturate(1.05) brightness(0.85);
-  }
-  .__bg-tint {
-    position: absolute; inset: 0;
-    background: linear-gradient(135deg, color-mix(in oklab, var(--bg) 88%, transparent) 0%, color-mix(in oklab, var(--bg) 50%, transparent) 100%);
   }
 
   /* Page footer (slide # / total · deck title) — Gamma-style */
@@ -632,7 +617,6 @@ function buildDocument({
 </head>
 <body>
 ${ICON_SPRITE}
-${heroImg}
 ${safeHtml}
 ${footer}
 </body>
@@ -649,7 +633,6 @@ export default function HtmlSlide({ slide, theme, index, total, deckTitle }) {
         css: slide?.css,
         charts: slide?.charts,
         theme,
-        image: slide?.image,
         index,
         total,
         deckTitle,
@@ -658,7 +641,6 @@ export default function HtmlSlide({ slide, theme, index, total, deckTitle }) {
       slide?.html,
       slide?.css,
       slide?.charts,
-      slide?.image,
       theme?.background,
       theme?.primary,
       theme?.accent,
@@ -699,7 +681,6 @@ export function buildSlideDocument(slide, theme, opts = {}) {
     css: slide?.css,
     charts: slide?.charts,
     theme,
-    image: slide?.image,
     index: opts.index,
     total: opts.total,
     deckTitle: opts.deckTitle,

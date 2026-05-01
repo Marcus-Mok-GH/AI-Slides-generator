@@ -121,53 +121,6 @@ app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
   }
 })
 
-/**
- * Last-resort image prompt when the LLM forgets to emit `imagePrompt`
- * for a slide. Uses the slide title + first body sentence + deck topic so
- * the picture still looks relevant to that specific slide.
- */
-function buildFallbackImagePrompt(slide, deckTitle, deckPrompt) {
-  const subject =
-    slide?.title?.trim() ||
-    deckTitle?.trim() ||
-    deckPrompt?.trim()?.slice(0, 80) ||
-    'editorial concept'
-  const firstBodySentence = String(slide?.body || '')
-    .split(/[.!?]/)[0]
-    .trim()
-    .slice(0, 120)
-  const detail = firstBodySentence ? `, ${firstBodySentence}` : ''
-  return (
-    `Editorial photograph evoking "${subject}"${detail}. ` +
-    `Cinematic lighting, atmospheric depth, photographic, ` +
-    `no text, no logos, no captions in the image.`
-  )
-}
-
-/**
- * Layouts that get an auto-generated image during streaming. We image
- * EVERY layout — even steps/comparison/feature-cards/process-flow/timeline
- * — so each slide has its own appropriate visual. The HtmlSlide renderer
- * decides where to place the image (background, side panel, accent strip)
- * based on the layout.
- */
-const AUTO_IMAGE_LAYOUTS = new Set([
-  'title',
-  'section',
-  'statement',
-  'bullets',
-  'steps',
-  'comparison',
-  'stats',
-  'quote',
-  'two-column',
-  'content',
-  'feature-cards',
-  'process-flow',
-  'timeline',
-  'callout',
-])
-
 app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
   const {
     prompt,
@@ -178,7 +131,6 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
     mode = 'default',
     deckId,
     userTheme = null,
-    perSlideImages = false,
   } = req.body || {}
 
   const userId = currentUserId(req)
@@ -231,111 +183,18 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
       userTheme: userTheme && userTheme.primary ? userTheme : null,
     }
 
-    // One background image is generated per deck (batch) as soon as the deck
-    // metadata (title + theme) arrives. Every slide that needs imagery reuses
-    // this same image so the visual feel is consistent throughout the deck.
-    let liveTheme = null
-    let liveDeckTitle = ''
-    let backgroundImagePromise = null   // resolves to { url, prompt }
-    const imagePromises = []
-    const imageByIndex = {}
-
     const deck = await streamGenerateDeck(ctx, {
       onThinking: ({ text, type }) => {
         send('thinking', { text, type })
       },
       onMeta: (meta) => {
-        if (meta?.theme) liveTheme = meta.theme
-        if (meta?.title) liveDeckTitle = meta.title
         send('meta', meta)
-
-        // Kick off the shared background image (only when using a preset theme).
-        // In per-slide image mode (AI picks), each slide generates its own image.
-        if (!perSlideImages && !backgroundImagePromise && liveTheme) {
-          const bgPrompt =
-            `${liveDeckTitle || ctx.prompt}. ` +
-            `Abstract, atmospheric, cinematic wide-angle scene that evokes ` +
-            `the overall theme. Editorial mood, dramatic lighting, no text, ` +
-            `no logos, no people faces, photographic.`
-          backgroundImagePromise = generateSlideImageData({
-            prompt: bgPrompt,
-            theme: (userTheme && userTheme.primary) ? userTheme : liveTheme,
-            aspectRatio: '16:9',
-          })
-          backgroundImagePromise.catch((err) => {
-            console.warn('[stream] background image gen failed:', err?.message)
-          })
-        }
       },
       onPartial: ({ index, partial }) => send('partial', { index, partial }),
       onSlide: ({ slide, index }) => {
         send('slide', { slide, index })
-        if (AUTO_IMAGE_LAYOUTS.has(slide.layout)) {
-          // Fall back to a title-derived prompt if the model forgot to
-          // emit one — every slide gets an image.
-          const slidePrompt =
-            slide.imagePrompt ||
-            buildFallbackImagePrompt(slide, liveDeckTitle, ctx.prompt)
-
-          // Tell the client to render a shimmer placeholder while we work.
-          send('slide-image-pending', { index })
-
-          let imageP
-
-          if (perSlideImages) {
-            // AI picks: generate a unique image for every slide using its
-            // specific imagePrompt so each slide has distinct visuals.
-            imageP = generateSlideImageData({
-              prompt: slidePrompt,
-              theme: liveTheme,
-              aspectRatio: '16:9',
-            })
-            imageP.catch((err) => {
-              console.warn(`[stream] per-slide image failed for slide ${index}:`, err?.message)
-            })
-          } else {
-            // Preset theme: one shared background image reused across all slides.
-            // If onMeta didn't trigger it yet (theme arrived late), start it now.
-            if (!backgroundImagePromise) {
-              const bgPrompt =
-                `${liveDeckTitle || ctx.prompt}. ` +
-                `Abstract, atmospheric, cinematic wide-angle scene that evokes ` +
-                `the overall theme. Editorial mood, dramatic lighting, no text, ` +
-                `no logos, no people faces, photographic.`
-              backgroundImagePromise = generateSlideImageData({
-                prompt: bgPrompt,
-                theme: (userTheme && userTheme.primary) ? userTheme : liveTheme,
-                aspectRatio: '16:9',
-              })
-              backgroundImagePromise.catch((err) => {
-                console.warn('[stream] background image gen failed (fallback):', err?.message)
-              })
-            }
-            imageP = backgroundImagePromise
-          }
-
-          const p = imageP
-            .then((image) => {
-              imageByIndex[index] = image
-              send('slide-image', { index, image })
-            })
-            .catch((err) => {
-              console.warn(`[stream] image failed for slide ${index}:`, err?.message)
-              send('slide-image-failed', { index })
-            })
-          imagePromises.push(p)
-        }
       },
     })
-
-    // Wait for any pending images so the persisted deck includes them.
-    if (imagePromises.length) {
-      await Promise.allSettled(imagePromises)
-    }
-    for (const [iStr, image] of Object.entries(imageByIndex)) {
-      const i = Number(iStr)
-      if (deck.slides[i]) deck.slides[i].image = image
-    }
 
     // If the user chose a preset theme, override the AI-generated theme so
     // the persisted deck (and the finalDeck sent to the client) use the
@@ -457,79 +316,6 @@ app.delete('/api/decks/:id', isAuthenticated, async (req, res) => {
   } catch (err) {
     console.error('[delete deck] error:', err)
     res.status(500).json({ error: err?.message || 'Failed to delete deck' })
-  }
-})
-
-/**
- * Generate an AI image for a single slide using the hosted Fireworks
- * OpenAI-compatible proxy. The proxy returns base64 JPEG, which we
- * embed directly as a data URL inside the deck's JSON.
- *
- * Used by:
- *  - The streaming deck endpoint (auto-image per slide).
- *  - The "Generate image" button in the slide editor.
- */
-const FIREWORKS_PROXY_URL =
-  'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/images/generations'
-const FIREWORKS_IMAGE_MODEL = 'accounts/fireworks/models/flux-1-schnell-fp8'
-
-async function generateSlideImageData({ prompt, theme, aspectRatio = '16:9' }) {
-  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
-    throw new Error('Missing image prompt')
-  }
-  // Flux works best at ~1MP resolutions in the standard buckets.
-  const sizeMap = {
-    '16:9': '1344x768',
-    '9:16': '768x1344',
-    '1:1': '1024x1024',
-  }
-  const size = sizeMap[aspectRatio] || '1344x768'
-
-  const palette = theme
-    ? ` Color palette: primary ${theme.primary}, accent ${theme.accent}, dark backdrop ${theme.background}.`
-    : ''
-  const fullPrompt =
-    `Editorial slide imagery, modern presentation aesthetic, cinematic lighting, ` +
-    `shallow depth of field, photographic, no text, no logos, no watermarks. ` +
-    `Subject: ${prompt.trim()}.${palette}`
-
-  const upstream = await fetch(FIREWORKS_PROXY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: FIREWORKS_IMAGE_MODEL,
-      prompt: fullPrompt,
-      size,
-      n: 1,
-    }),
-  })
-
-  if (!upstream.ok) {
-    const text = await upstream.text().catch(() => '')
-    throw new Error(`Image API ${upstream.status}: ${text.slice(0, 200)}`)
-  }
-
-  const json = await upstream.json()
-  const b64 = json?.data?.[0]?.b64_json
-  if (!b64) throw new Error('Image API returned no image')
-
-  return {
-    url: `data:image/jpeg;base64,${b64}`,
-    prompt: prompt.trim(),
-  }
-}
-
-app.post('/api/generate-slide-image', isAuthenticated, async (req, res) => {
-  try {
-    const { prompt, theme, aspectRatio = '16:9' } = req.body || {}
-    const image = await generateSlideImageData({ prompt, theme, aspectRatio })
-    res.json({ image })
-  } catch (err) {
-    console.error('[generate-slide-image] error:', err)
-    const status = /Image API \d+/.test(err.message) ? 502 : 500
-    res.status(status).json({
-      error: err?.message || 'Failed to generate image',
-    })
   }
 })
 

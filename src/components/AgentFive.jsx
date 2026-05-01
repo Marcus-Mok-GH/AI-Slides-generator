@@ -93,11 +93,6 @@ function SlideResult({ slide }) {
         </div>
       ) : null}
       {slide.quote ? <blockquote className="af-slide-quote">"{slide.quote}"</blockquote> : null}
-      {slide.image?.url ? (
-        <img className="af-slide-image" src={slide.image.url} alt="" />
-      ) : slide.imagePrompt && !slide.imageError ? (
-        <div className="af-slide-image-placeholder">Image: {slide.imagePrompt}</div>
-      ) : null}
       {(slide.speakerNotes || slide.notes) ? (
         <div className="af-slide-notes">
           <span className="af-slide-notes-label">Notes</span>

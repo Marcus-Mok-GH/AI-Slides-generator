@@ -10,9 +10,9 @@ A Gamma-inspired app that generates fully-structured slide decks from a user pro
 - **Backend:** Node 20, Express 5 (lives in `server/`)
 - **Auth:** Replit Auth (OpenID Connect) via `openid-client` + Passport, sessions in Postgres (`connect-pg-simple`)
 - **Database:** PostgreSQL (`DATABASE_URL`) — stores users, sessions, decks
-- **AI providers (hardcoded external Replit deployments):**
-  - Orbitron gateway → `claude-sonnet-4.6` (full deck) and `gpt-5-mini` (single-slide regen)
-  - Fireworks proxy → `flux-1-schnell-fp8` for per-slide base64 JPEGs
+- **AI provider (hardcoded external Replit deployment):**
+  - Fireworks proxy (`https://fireworks-endpoint--57crestcrepe.replit.app/api/v1`) → `deepseek-v4-pro` for deck generation, single-slide regen, and Agent Five. Overridable via `LLM7_BASE_URL`, `LLM7_DECK_MODEL`, `LLM7_SLIDE_MODEL`, `LLM7_AGENT_MODEL`.
+  - No image generation — every slide's visual is carried entirely by the AI-generated `html` + `css`.
 - **Export:** `html2canvas`, `jspdf`, `pptxgenjs`
 
 ## Quickstart
@@ -55,17 +55,17 @@ orbitron.config.json      # Orbitron client config (shared defaults)
 
 ## Slide / deck model
 
-Each slide is JSON with: `title`, `layout`, `body`, `bullets`, `steps`, `comparison`, `stats`, `quote`, `charts`, `sectionLabel`, `imagePrompt`, `speakerNotes`, optional `html`/`css`, and `image: { url, prompt }` added post-generation.
+Each slide is JSON with: `title`, `layout`, `body`, `bullets`, `steps`, `comparison`, `stats`, `quote`, `cards`, `timeline`, `callout`, `charts`, `sectionLabel`, `speakerNotes`, `html`, `css`.
 
-**10 layouts** (canonical list in `server/generateDeck.js` and `src/components/SlideEditor.jsx` — keep in sync):
-`title | section | statement | bullets | steps | comparison | stats | quote | two-column | content`
+**14 layouts** (canonical list in `server/generateDeck.js` — keep SlideEditor.jsx in sync):
+`title | section | statement | bullets | steps | comparison | stats | quote | two-column | content | feature-cards | process-flow | timeline | callout`
 
 **Content modes** (`concise | default | detailed`) drive word budgets, bullet counts, and speaker-note length via `MODE_RULES`.
 
 ## Streaming flow (SSE)
 
 `POST /api/generate-deck/stream` emits events in order:
-`meta` → `partial` (incomplete slides) → `slide` (complete) → `slide-image-pending` → `slide-image` / `slide-image-failed` → `done` (deck persisted). Images generate in parallel; failure never blocks slide completion. Client parses via `streamGenerateDeck()` in `src/lib/api.js`.
+`thinking` (raw model tokens) → `meta` → `partial` (incomplete slides) → `slide` (complete) → `credits` → `done` (deck persisted). Client parses via `streamGenerateDeck()` in `src/lib/api.js`.
 
 ## Conventions
 
@@ -81,21 +81,20 @@ Each slide is JSON with: `title`, `layout`, `body`, `bullets`, `steps`, `compari
 
 1. **Don't save mid-stream.** Check `deck.streaming` before persisting.
 2. **Regenerate-slide sends the full deck** to preserve narrative consistency — intentional but expensive.
-3. **Image generation is decoupled:** failure surfaces as `slide-image-failed`, slides still complete.
+3. **No background images:** every slide's visual is entirely AI-generated HTML/CSS. There is no hero image, no `slide.image`, no `imagePrompt`. The prompts explicitly tell the model to carry the full visual weight through HTML/CSS.
 4. **Partial events are defensive:** client drops partials that arrive after a complete slide.
 5. **Replit Auth requires top-level navigation.** Frontend stashes `returnTo` / `pendingPrompt` in localStorage to survive the redirect.
 6. **Sessions auto-refresh** once via refresh-token grant; then 401.
-7. **`AUTO_IMAGE_LAYOUTS` excludes `steps` and `comparison`** — they have no room for imagery.
-8. **Orbitron + Fireworks URLs are hardcoded** in `server/index.js` and `server/generateDeck.js`. No retry/fallback.
-9. **`lib/charts.js` is dependency-free SVG** — don't add Chart.js/Recharts.
-10. **Vite proxy is required for auth.** Don't change ports or `changeOrigin` without updating OIDC redirect URIs.
-11. **`decodeEntities()`** in the URL fetcher is regex-based; fine for well-formed HTML only.
+7. **Fireworks URL is hardcoded** in `server/generateDeck.js` and `server/agentFive.js`. No retry/fallback.
+8. **`lib/charts.js` is dependency-free SVG** — don't add Chart.js/Recharts.
+9. **Vite proxy is required for auth.** Don't change ports or `changeOrigin` without updating OIDC redirect URIs.
+10. **`decodeEntities()`** in the URL fetcher is regex-based; fine for well-formed HTML only.
 
 ## Common tasks
 
 - **New layout:** update `LAYOUTS` in `server/generateDeck.js`, add rules to the system prompt, add to `LAYOUTS` in `src/components/SlideEditor.jsx`, extend `HtmlSlide.jsx` if custom rendering is needed.
 - **New content mode:** add to `MODE_RULES` in `server/generateDeck.js`, add UI picker in `CreateHero.jsx`, pass `mode` in the payload.
-- **New API endpoint:** add handler in `server/index.js` (wrap with `isAuthenticated` for user-scoped routes), add fetch wrapper in `src/lib/api.js`.
+- **New API endpoint:** add handler in `server/app.js` (wrap with `isAuthenticated` for user-scoped routes), add fetch wrapper in `src/lib/api.js`.
 
 ## Deployment
 

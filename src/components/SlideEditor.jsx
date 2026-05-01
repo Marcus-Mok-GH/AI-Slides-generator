@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { regenerateSlide, redesignSlide, generateSlideImage } from '../lib/api.js'
+import { regenerateSlide, redesignSlide } from '../lib/api.js'
 import './SlideEditor.css'
 
 const LAYOUTS = [
@@ -130,96 +130,6 @@ function StepsEditor({ steps, onChange }) {
           + Add step
         </button>
       )}
-    </div>
-  )
-}
-
-function ImageSection({ slide, deck, onChange }) {
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  const [prompt, setPrompt] = useState(
-    slide.image?.prompt || slide.imagePrompt || '',
-  )
-
-  // Resync the prompt input when the active slide changes.
-  // (Effectful useState init only runs on mount, so use a key-like compare.)
-  // We'll skip useEffect — this is good enough since the editor remounts
-  // per slide thanks to the parent passing a new slide each time.
-
-  async function doGenerate() {
-    if (!prompt.trim()) {
-      setErr('Add a 1-sentence image description first.')
-      return
-    }
-    setBusy(true)
-    setErr('')
-    try {
-      const image = await generateSlideImage({
-        prompt: prompt.trim(),
-        theme: deck.theme,
-        aspectRatio: '16:9',
-      })
-      onChange({
-        image,
-        imagePrompt: prompt.trim(),
-      })
-    } catch (e) {
-      setErr(e.message || 'Failed to generate image')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  function clearImage() {
-    onChange({ image: null })
-  }
-
-  return (
-    <div className="ed-section">
-      <label className="ed-label">Slide image</label>
-      {slide.image?.url ? (
-        <div className="img-preview">
-          <img src={slide.image.url} alt="Slide visual" />
-          <div className="img-preview-overlay">
-            <button
-              type="button"
-              className="img-clear"
-              onClick={clearImage}
-              title="Remove image"
-            >
-              Remove
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="img-empty">No image yet</div>
-      )}
-      <textarea
-        className="ed-textarea"
-        rows={2}
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-        placeholder="A vivid 1-sentence photo description (no text in image)"
-        disabled={busy}
-      />
-      <button
-        className="regen-btn"
-        onClick={doGenerate}
-        disabled={busy}
-      >
-        {busy ? (
-          <>
-            <span className="spinner-sm" /> Generating image…
-          </>
-        ) : (
-          <>{slide.image?.url ? '↻ Regenerate image' : '✨ Generate image'}</>
-        )}
-      </button>
-      {err ? <div className="regen-error">⚠ {err}</div> : null}
-      <p className="regen-hint">
-        Uses Flux schnell via the Fireworks proxy (~3–6s per image).
-        Editorial photo style is applied automatically.
-      </p>
     </div>
   )
 }
@@ -503,15 +413,6 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
           placeholder="Notes for the presenter"
         />
       </div>
-
-      <div className="ed-divider" />
-
-      <ImageSection
-        key={slideIndex}
-        slide={slide}
-        deck={deck}
-        onChange={patch}
-      />
 
       <div className="ed-divider" />
 

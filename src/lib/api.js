@@ -82,15 +82,6 @@ export async function redesignSlide({ deck, slideIndex, instruction }) {
   return data.slide
 }
 
-export async function generateSlideImage({ prompt, theme, aspectRatio }) {
-  const data = await postJson('/api/generate-slide-image', {
-    prompt,
-    theme,
-    aspectRatio,
-  })
-  return data.image
-}
-
 export async function streamGenerateDeck(payload, handlers = {}) {
   const headers = await authHeaders({ 'Content-Type': 'application/json' })
   const res = await fetch('/api/generate-deck/stream', {
@@ -139,11 +130,6 @@ export async function streamGenerateDeck(payload, handlers = {}) {
       else if (event === 'meta') handlers.onMeta?.(parsed)
       else if (event === 'partial') handlers.onPartial?.(parsed)
       else if (event === 'slide') handlers.onSlide?.(parsed)
-      else if (event === 'slide-image-pending')
-        handlers.onSlideImagePending?.(parsed)
-      else if (event === 'slide-image') handlers.onSlideImage?.(parsed)
-      else if (event === 'slide-image-failed')
-        handlers.onSlideImageFailed?.(parsed)
       else if (event === 'credits') handlers.onCredits?.(parsed)
       else if (event === 'done') handlers.onDone?.(parsed.deck)
       else if (event === 'error') {

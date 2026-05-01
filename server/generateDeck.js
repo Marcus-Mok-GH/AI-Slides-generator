@@ -147,7 +147,6 @@ Return ONLY valid JSON (no prose, no code fences). Match this exact schema:
       "callout":   {"label":"INSIGHT","text":"The bold claim of this slide stated in one sentence."},
       "charts":    [{"type":"bar | line | pie","title":"Chart title","data":[{"label":"label","value": 42}]}],
       "sectionLabel":"Section eyebrow label",
-      "imagePrompt":"1-sentence editorial photo description for this slide — concrete, evocative, NO text/logos/words in image. Used as bg for hero/section/statement and side panel for bullets/stats/quote/content.",
       "speakerNotes":"What the presenter says out loud — the full spoken script for this slide",
       "html": "Self-contained HTML for the slide body — see HTML/CSS RULES.",
       "css":  "Slide-scoped CSS — see HTML/CSS RULES."
@@ -216,12 +215,6 @@ DESIGN LAW — follow strictly:
    non-empty html and css (see section 9). NEVER ship a slide where bullets,
    steps, or stats arrays are empty for a layout that needs them.
 
-   ALWAYS include "imagePrompt" for EVERY single slide — no exceptions.
-   The image is the visual hook of the slide; make it vivid and specific.
-   Write a 1-sentence editorial photograph description tied to the slide
-   content: concrete subject, mood, lighting, environment.
-   NO text, NO logos, NO words inside the image.
-
 5. WRITING:
    - Tone: ${tone}.
    - Output language: ${language}.
@@ -251,6 +244,11 @@ ${themeBlock}
    look like it came from a top-tier design agency — not a template filler.
    You have full creative control over layout, typography, and visual composition.
 
+   THERE IS NO BACKGROUND PHOTO OR IMAGE. Every pixel of the slide is built
+   from your HTML and CSS. You must carry the entire visual weight through
+   typography, color, gradients, shapes, spacing, and decorative treatments.
+   Do not rely on an underlying image to fill empty space — there is none.
+
    SANDBOX: 1280×720 px iframe. You write the HTML body and scoped CSS.
    The host frame already provides:
      • Theme CSS variables: --bg (background), --primary, --accent, --fg (#fff),
@@ -267,15 +265,13 @@ ${themeBlock}
        layers, document, mail, pin, eye, search, quote
        Size with: .icon (1em), .icon.lg (1.5em), .icon.xl (2em)
      • A footer (slide # / total · deck title) painted automatically — do NOT add one
-     • The hero background image (when applicable) is painted BEHIND .slide by
-       the host — you never need <img> tags
 
    HARD RULES (always):
    - "html" must be a single root <div class="slide"> (you may add more classes).
      No <html>, <head>, <body>, <script>, <link>, <style>, or <iframe> tags.
    - "css" is injected into the iframe — no @import, no external url().
      Scope all selectors to .slide or its children.
-   - No <img> tags. No speaker notes on screen. No page numbers.
+   - No <img> tags. No external assets of any kind. No speaker notes on screen. No page numbers.
    - Charts: place <div data-chart="N"></div> where a chart should render.
 
    DESIGN MANDATE — follow these every time:
@@ -372,9 +368,8 @@ Return ONLY valid JSON (no prose, no code fences) for ONE slide, matching:
   "callout":   {"label":"INSIGHT","text":"The bold one-sentence punchline"},
   "charts":    [{"type":"bar | line | pie","title":"Chart title","data":[{"label":"label","value": 42}]}],
   "sectionLabel":"Brief eyebrow label",
-  "imagePrompt":"1-sentence editorial photo description (no text in image)",
   "speakerNotes":"The full spoken script for this slide — what the presenter says out loud, with evidence and context not shown on screen",
-  "html":"Self-contained <div class='slide'> markup — no <html>/<head>/<body>/<style>/<script> tags. Use --bg, --primary, --accent, --fg CSS vars. Place <div data-chart='N'></div> where each chart should appear. No <img> tags (host frame paints the hero image).",
+  "html":"Self-contained <div class='slide'> markup — no <html>/<head>/<body>/<style>/<script> tags. Use --bg, --primary, --accent, --fg CSS vars. Place <div data-chart='N'></div> where each chart should appear. No <img> tags.",
   "css":"Slide-scoped CSS targeting .slide selectors. No @import or external url()."
 }
 
@@ -401,10 +396,13 @@ Rules:
 - Tone: ${tone}.
 - Output language: ${language}.
 - Always include rich "speakerNotes" — the full spoken script, not a summary.
-- Always include "imagePrompt" — every slide must have one.
 
 HTML / CSS — DESIGN THIS SLIDE LIKE A PROFESSIONAL DESIGNER (1280×720):
 You have full creative control over layout, composition, and visual treatment.
+
+THERE IS NO BACKGROUND PHOTO OR IMAGE. Every pixel of the slide is built
+from your HTML and CSS. Carry the full visual weight through typography,
+color, gradients, shapes, spacing, and decorative treatments.
 
 SANDBOX PROVIDES (already wired):
 - CSS vars: --bg, --primary, --accent, --fg (#fff), --muted (rgba white 65%),
@@ -417,7 +415,6 @@ SANDBOX PROVIDES (already wired):
   calendar, users, user, chart, trend, dollar, globe, cloud, code, layers,
   document, mail, pin, eye, search, quote. (.icon.lg = 1.5em, .icon.xl = 2em)
 - Slide footer (# / total · title) — do NOT add your own footer
-- Hero image painted BEHIND .slide by host — never use <img> tags
 
 HARD RULES:
 - "html": single root <div class="slide"> (add extra classes as you like).
@@ -581,14 +578,6 @@ function normalizeSlide(s, fallbackIndex = 0) {
           }
         : null,
     sectionLabel: s?.sectionLabel ? String(s.sectionLabel) : '',
-    imagePrompt: s?.imagePrompt ? String(s.imagePrompt) : '',
-    image:
-      s?.image && typeof s.image === 'object' && s.image.url
-        ? {
-            url: String(s.image.url),
-            prompt: String(s.image.prompt || ''),
-          }
-        : null,
     speakerNotes: s?.speakerNotes ? String(s.speakerNotes) : '',
     charts: Array.isArray(s?.charts)
       ? s.charts

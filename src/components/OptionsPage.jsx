@@ -55,9 +55,6 @@ export default function OptionsPage({ initialFormat = 'presentation', onBack, on
       userTheme: chosen
         ? { name: chosen.name, primary: chosen.primary, accent: chosen.accent, background: chosen.background }
         : null,
-      // Always generate a unique image per slide (using each slide's own
-      // imagePrompt) so every slide has its own appropriate visual.
-      perSlideImages: true,
     })
   }
 
@@ -92,7 +89,7 @@ export default function OptionsPage({ initialFormat = 'presentation', onBack, on
                 <span className="ai-preview-icon">✦</span>
               </div>
               <span className="theme-name">AI picks</span>
-              <span className="theme-ai-hint">Unique image per slide</span>
+              <span className="theme-ai-hint">Palette matched to your topic</span>
             </button>
             {PRESET_THEMES.map((t) => (
               <button
