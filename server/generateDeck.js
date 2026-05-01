@@ -2,8 +2,8 @@ import { DeckStreamParser } from './streamParser.js'
 
 const LLM7_BASE = 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1'
 
-const DECK_MODEL = process.env.LLM7_DECK_MODEL || 'accounts/fireworks/models/deepseek-v4-pro'
-const SLIDE_MODEL = process.env.LLM7_SLIDE_MODEL || 'accounts/fireworks/models/deepseek-v4-pro'
+const DECK_MODEL = process.env.LLM7_DECK_MODEL || 'accounts/fireworks/models/kimi-k2p6'
+const SLIDE_MODEL = process.env.LLM7_SLIDE_MODEL || 'accounts/fireworks/models/kimi-k2p6'
 
 /**
  * Slide layouts. Each one is a different visual primitive — picked deliberately

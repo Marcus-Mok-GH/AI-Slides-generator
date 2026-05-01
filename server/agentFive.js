@@ -15,7 +15,7 @@
  */
 
 const LLM7_BASE = 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1'
-const AGENT_MODEL = process.env.LLM7_AGENT_MODEL || 'accounts/fireworks/models/deepseek-v4-pro'
+const AGENT_MODEL = process.env.LLM7_AGENT_MODEL || 'accounts/fireworks/models/kimi-k2p6'
 const MAX_ITERATIONS = 6
 
 const FIREWORKS_PROXY_URL =

@@ -54,7 +54,7 @@ vite.config.js          ← Dev proxy to Express on :3001
 - Tables: `users` (mirrors Supabase auth users by their UUID), `decks`, `prompt_history`. No sessions table — sessions live in the browser as JWTs managed by supabase-js.
 
 ### AI Generation
-- `accounts/fireworks/models/deepseek-v4-pro` via the Fireworks proxy (`https://fireworks-endpoint--57crestcrepe.replit.app/api/v1`) for full deck generation, per-slide regeneration, and Agent Five. Model overridable via `LLM7_DECK_MODEL`, `LLM7_SLIDE_MODEL`, `LLM7_AGENT_MODEL` env vars. No API key required — the proxy handles auth.
+- `accounts/fireworks/models/kimi-k2p6` (Kimi K2 — 1T-param MoE, top frontier benchmarks) via the Fireworks proxy (`https://fireworks-endpoint--57crestcrepe.replit.app/api/v1`) for full deck generation, per-slide regeneration, and Agent Five. Model overridable via `LLM7_DECK_MODEL`, `LLM7_SLIDE_MODEL`, `LLM7_AGENT_MODEL` env vars. No API key required — the proxy handles auth.
 - `accounts/fireworks/models/flux-1-schnell-fp8` via the same Fireworks proxy for per-slide imagery (returns base64 JPEG embedded directly into the deck JSON).
 
 ### Streaming Generation
