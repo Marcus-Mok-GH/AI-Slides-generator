@@ -400,6 +400,232 @@ function buildDocument({
     color: transparent;
   }
 
+  /* ----------------------------------------------------------------
+     Layout-specific semantic helpers.
+     Using these means the AI only needs to emit the scaffold HTML —
+     the visual treatment is already wired in.
+     ---------------------------------------------------------------- */
+
+  /* Title / hero slide */
+  .title-slide {
+    display: flex; flex-direction: column; justify-content: flex-end;
+    gap: 0;
+  }
+  .title-slide .eyebrow { margin-bottom: 24px; }
+  .title-slide h1 {
+    font-size: 92px; line-height: 1.02; letter-spacing: -0.03em;
+    font-weight: 800; margin: 0 0 20px;
+    max-width: 18ch;
+  }
+  .slide .lede {
+    font-size: 26px; line-height: 1.5; color: var(--muted);
+    margin: 0 0 32px; max-width: 52ch;
+  }
+  .slide .meta-row {
+    display: flex; align-items: center; gap: 14px;
+    font-size: 15px; color: rgba(255,255,255,0.45);
+    letter-spacing: 0.06em;
+  }
+  .slide .meta-row span { white-space: nowrap; }
+
+  /* Section divider slide */
+  .section-slide {
+    display: flex; flex-direction: column; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .slide .section-index {
+    font-size: 200px; font-weight: 900; line-height: 1; letter-spacing: -0.04em;
+    position: absolute; right: 60px; top: 50%; transform: translateY(-50%);
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    opacity: 0.15; pointer-events: none; user-select: none;
+    font-feature-settings: "tnum" 1;
+  }
+  .slide .section-eyebrow {
+    font-size: 14px; font-weight: 700; letter-spacing: 0.24em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 18px; display: block;
+  }
+  .section-slide h1 {
+    font-size: 96px; line-height: 1; letter-spacing: -0.035em;
+    font-weight: 800; margin: 0; max-width: 14ch;
+  }
+  .section-slide .accent-bar { margin-top: 28px; height: 6px; width: 80px; }
+
+  /* Statement slide */
+  .statement-slide {
+    display: flex; flex-direction: column; justify-content: center;
+    padding-top: 80px;
+  }
+  .slide .quote-mark {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 160px; line-height: 0.6; color: var(--accent);
+    opacity: 0.7; margin-bottom: -24px; display: block;
+    font-weight: 400;
+  }
+  .slide .statement {
+    font-size: 72px; line-height: 1.06; letter-spacing: -0.025em;
+    font-weight: 800; margin: 0 0 24px; max-width: 20ch; color: var(--fg);
+  }
+  .slide .elaboration {
+    font-size: 24px; line-height: 1.55; color: var(--muted);
+    max-width: 56ch; margin: 0;
+  }
+
+  /* Bullets slide */
+  .bullets-slide header { margin-bottom: 28px; }
+  .bullets-slide header h2 { margin: 0; }
+  .slide .bullets {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .slide .bullets li {
+    display: flex; align-items: flex-start; gap: 16px;
+    font-size: 22px; line-height: 1.45; color: rgba(255,255,255,0.9);
+    margin: 0;
+  }
+  .slide .bullets .dot {
+    flex-shrink: 0; width: 10px; height: 10px; margin-top: 8px;
+    border-radius: 3px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+  }
+  .slide .bullets .text { flex: 1; }
+
+  /* Steps slide */
+  .steps-slide h2 { margin-bottom: 28px; }
+  .slide .steps {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .slide .steps li {
+    display: flex; align-items: flex-start; gap: 20px;
+    padding: 16px 20px; border-radius: 14px;
+    background: var(--softer); border: 1px solid var(--hairline);
+    margin: 0;
+  }
+  .slide .step-num {
+    flex-shrink: 0; width: 36px; height: 36px; border-radius: 999px;
+    display: grid; place-items: center; font-weight: 700; font-size: 15px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: #fff;
+  }
+  .slide .step-body h3 { font-size: 20px; margin: 0 0 4px; color: var(--fg); }
+  .slide .step-body p { font-size: 16px; margin: 0; color: var(--muted); }
+
+  /* Comparison slide */
+  .comparison-slide h2 { margin-bottom: 24px; }
+  .slide .cmp-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    flex: 1;
+  }
+  .slide .cmp-col {
+    padding: 22px 24px; border-radius: 18px; display: flex;
+    flex-direction: column; gap: 14px;
+    background: var(--softer); border: 1px solid var(--hairline);
+  }
+  .slide .cmp-col.cmp-left { border-left: 3px solid rgba(255,255,255,0.2); }
+  .slide .cmp-col.cmp-right { border-left: 3px solid var(--accent); }
+  .slide .cmp-label {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: rgba(255,255,255,0.6);
+  }
+  .slide .cmp-col.cmp-right .cmp-label { color: var(--accent); }
+  .slide .cmp-col ul {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .slide .cmp-col li {
+    padding-left: 18px; position: relative;
+    font-size: 18px; line-height: 1.45; color: rgba(255,255,255,0.88); margin: 0;
+  }
+  .slide .cmp-col li::before {
+    content: ''; position: absolute; left: 0; top: 9px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(255,255,255,0.45);
+  }
+  .slide .cmp-col.cmp-right li::before { background: var(--accent); }
+
+  /* Stats slide */
+  .stats-slide header { margin-bottom: 28px; }
+  .stats-slide header h2 { margin: 0; }
+  .slide .stat-grid {
+    display: grid; gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    flex: 1; align-content: start;
+  }
+  .slide .stat-card {
+    padding: 26px 24px; border-radius: 18px;
+    background: var(--softer); border: 1px solid var(--hairline);
+    display: flex; flex-direction: column; gap: 8px;
+    transition: background 0.2s;
+  }
+  .slide .stat-card .stat-value {
+    font-size: 56px; line-height: 1; font-weight: 800;
+    letter-spacing: -0.025em; font-feature-settings: "tnum" 1;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .slide .stat-card .stat-label {
+    font-size: 15px; color: var(--muted); letter-spacing: 0.02em;
+    line-height: 1.4;
+  }
+
+  /* Quote slide */
+  .quote-slide {
+    display: flex; flex-direction: column; justify-content: center;
+    gap: 0; padding-top: 60px;
+  }
+  .quote-slide .quote-mark {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 120px; line-height: 0.6; color: var(--accent);
+    opacity: 0.65; display: block; margin-bottom: -20px;
+  }
+  .quote-slide blockquote {
+    font-size: 42px; line-height: 1.28; font-weight: 600;
+    margin: 0 0 28px; letter-spacing: -0.012em;
+    max-width: 22ch; color: var(--fg);
+  }
+  .quote-slide footer {
+    display: flex; align-items: center; gap: 20px;
+    font-size: 16px; color: var(--muted);
+  }
+  .slide .rule {
+    display: inline-block; width: 32px; height: 2px;
+    background: var(--accent); border-radius: 2px; flex-shrink: 0;
+  }
+
+  /* Two-column slide */
+  .two-col-slide header { margin-bottom: 24px; }
+  .two-col-slide header h2 { margin: 0; }
+  .two-col-slide .cols {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 36px;
+    flex: 1; align-items: start;
+  }
+  .two-col-slide .prose p {
+    font-size: 22px; line-height: 1.6; color: var(--muted);
+  }
+
+  /* Content slide */
+  .content-slide .body {
+    font-size: 24px; line-height: 1.6; color: var(--muted);
+    max-width: 60ch;
+  }
+
+  /* Feature cards slide */
+  .feature-cards-slide header { margin-bottom: 28px; }
+  .feature-cards-slide header h2 { margin: 0; }
+
+  /* Grid texture overlay — add class="grid-bg" to .slide wrapper */
+  .slide.grid-bg::before {
+    content: '';
+    position: absolute; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
   /* Author CSS comes last so it can override defaults */
   ${userCss}
 </style>

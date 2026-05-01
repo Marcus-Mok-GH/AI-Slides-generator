@@ -23,6 +23,7 @@ import useAuth from './hooks/useAuth.js'
 import useCredits from './hooks/useCredits.js'
 import SignInModal from './components/SignInModal.jsx'
 import ResetPasswordModal from './components/ResetPasswordModal.jsx'
+import MobileNav from './components/MobileNav.jsx'
 import './App.css'
 
 const DEFAULT_THEME = {
@@ -674,6 +675,8 @@ export default function App() {
         open={passwordResetOpen}
         onClose={closePasswordReset}
       />
+
+      <MobileNav activeNav={activeNav} onNavigate={handleNavigate} />
     </div>
   )
 }

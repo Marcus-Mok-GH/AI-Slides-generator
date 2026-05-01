@@ -293,47 +293,72 @@ ${themeBlock}
    footer automatically. Do NOT add your own footer or page numbers.
 
    STRUCTURE RULES:
-   - "html" MUST start with <div class="slide"> ... </div>. ONE root only.
-     Inside, use real semantic markup: <h1>, <h2>, <p>, <ul><li>, <ol><li>,
-     <blockquote>, <figure>, <figcaption>, <span>, <div>.
-   - NO <html>, <head>, <body>, <script>, <link>, <style>, <img>, or <iframe>
-     tags. NO external assets, NO @import, NO url(http…) in css.
-   - The hero image is painted by the host frame BEHIND .slide. Do not
-     reference it in html.
+   - "html" MUST start with <div class="slide {layout}-slide"> ... </div>.
+     Use the exact layout suffix as the second class (e.g. "bullets-slide").
+     ONE root <div> only. Inside, use semantic markup: <h1>, <h2>, <h3>,
+     <p>, <ul><li>, <ol><li>, <blockquote>, <figure>, <header>, <article>.
+   - NO <html>, <head>, <body>, <script>, <link>, <style>, <img>, or <iframe>.
+     NO external assets, NO @import, NO url(http…) in css.
+   - The hero image is painted by the host frame BEHIND .slide — no <img> tags.
    - Speaker notes are NEVER shown on the slide.
-   - Charts: drop <div data-chart="N"></div> where N is the chart index.
-     The renderer replaces it with an inline SVG.
+   - Charts: drop <div data-chart="N"></div> for chart index N.
 
-   VISUAL DESIGN RULES — every slide must FEEL like a designed slide:
-   - Use BIG type. Hero numbers / titles 96-160px. Body text 22-28px.
-   - Use the theme variables liberally: gradient backgrounds with
-     color-mix(in oklab, var(--primary) X%, var(--bg)), accent borders,
-     accent eyebrows ("01 / 04", "INSIGHT", "STEP 02", etc.).
-   - Add at least ONE deliberate visual treatment per slide from this menu:
-     numbered circles, accent vertical bars, decorative gradient blobs,
-     pill-shaped tags, divider lines, oversized index numbers, subtle
-     dotted/grid patterns via repeating-linear-gradient, glassy cards
-     (background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
-     border-radius: 24px; backdrop-filter: blur(12px)).
-   - Layout with CSS grid or flexbox. Generous whitespace. Asymmetry beats
-     dead-center boxes for non-title slides.
-   - Maintain a clear visual hierarchy: eyebrow → headline → supporting body
-     → details. Never let the supporting content be larger than the headline.
+   BASE CSS ALREADY PROVIDED — do NOT redefine these; just use the classes:
+   Layout wrappers: .title-slide, .section-slide, .statement-slide,
+     .bullets-slide, .steps-slide, .comparison-slide, .stats-slide,
+     .quote-slide, .two-col-slide, .content-slide, .feature-cards-slide
+   Typography helpers: .eyebrow, .lede, .meta-row, .section-index,
+     .section-eyebrow, .quote-mark, .statement, .elaboration, .gradient-text
+   Components: .accent-bar, .number-badge(.sm), .pill(.accent),
+     .card(.featured), .card .card-icon, .card-grid(.cols-2/3/4),
+     .callout(.callout-label), .divider(.with-label), .dot-grid,
+     .stat .stat-value/.stat-label
+   List patterns: .bullets (li with .dot + .text),
+     .steps (ol li with .step-num + .step-body h3+p)
+   Layout helpers: .cmp-grid, .cmp-col(.cmp-left/.cmp-right), .cmp-label,
+     .stat-grid, .stat-card(.stat-value/.stat-label),
+     .rule (32px accent line), .cols, .prose
+   Flow / history: .process .node(.node-num), .timeline .event(.when + .what h3+p)
+   Icons: <svg class="icon(.lg/.xl)"><use href="#i-NAME"/></svg>
+   Available icon names: check, arrow-right, arrow-up, arrow-down, plus, minus,
+     x, star, heart, rocket, bolt, spark, target, flag, bulb, shield, lock,
+     gear, clock, calendar, users, user, chart, trend, dollar, globe, cloud,
+     code, layers, document, mail, pin, eye, search, quote.
 
-   PER-LAYOUT HTML SCAFFOLDS — adapt these, don't copy verbatim. Replace
-   theme tokens to match the deck's mood; keep the structure.
+   VISUAL DESIGN RULES — every slide MUST feel like a finished designed slide:
+   - Type hierarchy: eyebrow (13px, letter-spaced, accent color) → h1/h2
+     (56-96px, tight tracking, bold weight) → lede/body (22-26px, --muted)
+     → details (15-18px). Never let body be larger than the headline.
+   - Every content slide MUST have an eyebrow tag as the first visual element.
+   - Add ONE strong decorative treatment per slide — pick from:
+       A) Oversized ambient number / ghost text — position: absolute behind
+          content, very large (120-200px), gradient text, opacity 0.10-0.16.
+       B) Accent vertical bar (.accent-bar) left of a headline block.
+       C) Decorative .slide::before blob in "css" using radial-gradient +
+          color-mix(in oklab, var(--primary) 30-45%, transparent).
+       D) Glassy .card.featured as a hero unit.
+       E) Bold split layout — content left 55%, visual accent right 45%.
+   - Generous whitespace. Left-align text blocks — NOT centered prose.
+   - Glass card recipe: background rgba(255,255,255,0.04); border 1px solid
+     rgba(255,255,255,0.08); border-radius 20-24px; backdrop-filter blur(12px).
+   - Zero empty space in the lower-right quadrant — fill it with a ghost
+     illustration number, accent graphic, or additional detail row.
+
+   PER-LAYOUT HTML SCAFFOLDS — adapt these; replace {…} with real content:
 
    • title:
      <div class="slide title-slide">
-       <span class="eyebrow">PRESENTATION</span>
+       <span class="eyebrow">PRESENTATION · {sector or year}</span>
        <h1>{slide title}</h1>
-       <p class="lede">{body / subtitle}</p>
-       <div class="meta-row"><span>{date or sector}</span><span>·</span><span>{author or label}</span></div>
+       <p class="lede">{body — hook sentence that sets stakes}</p>
+       <div class="meta-row">
+         <span>{context label}</span><span>·</span><span>{author or org}</span>
+       </div>
      </div>
 
    • section:
      <div class="slide section-slide">
-       <span class="section-index">{02}</span>
+       <span class="section-index">{0N}</span>
        <span class="section-eyebrow">{sectionLabel}</span>
        <h1>{slide title}</h1>
        <div class="accent-bar"></div>
@@ -341,17 +366,22 @@ ${themeBlock}
 
    • statement:
      <div class="slide statement-slide">
-       <span class="quote-mark">“</span>
-       <h1 class="statement">{slide title}</h1>
-       <p class="elaboration">{body}</p>
+       <span class="quote-mark">"</span>
+       <h1 class="statement">{slide title — the bold claim}</h1>
+       <p class="elaboration">{body — the evidence or implication}</p>
      </div>
 
    • bullets:
      <div class="slide bullets-slide">
-       <header><span class="eyebrow">KEY POINTS</span><h2>{slide title}</h2></header>
+       <header>
+         <span class="eyebrow">KEY POINTS</span>
+         <h2>{slide title}</h2>
+       </header>
        <ul class="bullets">
-         <li><span class="dot"></span><span class="text">{bullet}</span></li>
-         …
+         <li><span class="dot"></span><span class="text">{complete bullet sentence}</span></li>
+         <li><span class="dot"></span><span class="text">{complete bullet sentence}</span></li>
+         <li><span class="dot"></span><span class="text">{complete bullet sentence}</span></li>
+         <li><span class="dot"></span><span class="text">{complete bullet sentence}</span></li>
        </ul>
      </div>
 
@@ -363,7 +393,14 @@ ${themeBlock}
            <span class="step-num">01</span>
            <div class="step-body"><h3>{step.label}</h3><p>{step.detail}</p></div>
          </li>
-         …
+         <li>
+           <span class="step-num">02</span>
+           <div class="step-body"><h3>{step.label}</h3><p>{step.detail}</p></div>
+         </li>
+         <li>
+           <span class="step-num">03</span>
+           <div class="step-body"><h3>{step.label}</h3><p>{step.detail}</p></div>
+         </li>
        </ol>
      </div>
 
@@ -373,37 +410,60 @@ ${themeBlock}
        <div class="cmp-grid">
          <section class="cmp-col cmp-left">
            <span class="cmp-label">{leftLabel}</span>
-           <ul>{leftItems as <li>…</li>}</ul>
+           <ul><li>{item}</li><li>{item}</li><li>{item}</li></ul>
          </section>
          <section class="cmp-col cmp-right">
            <span class="cmp-label">{rightLabel}</span>
-           <ul>{rightItems as <li>…</li>}</ul>
+           <ul><li>{item}</li><li>{item}</li><li>{item}</li></ul>
          </section>
        </div>
      </div>
 
    • stats:
      <div class="slide stats-slide">
-       <header><span class="eyebrow">BY THE NUMBERS</span><h2>{slide title}</h2></header>
+       <header>
+         <span class="eyebrow">BY THE NUMBERS</span>
+         <h2>{slide title}</h2>
+       </header>
        <div class="stat-grid">
-         <article class="stat-card"><div class="stat-value">{value}</div><div class="stat-label">{label}</div></article>
-         …
+         <article class="stat-card">
+           <div class="stat-value">{value}</div>
+           <div class="stat-label">{label}</div>
+         </article>
+         <article class="stat-card">
+           <div class="stat-value">{value}</div>
+           <div class="stat-label">{label}</div>
+         </article>
+         <article class="stat-card">
+           <div class="stat-value">{value}</div>
+           <div class="stat-label">{label}</div>
+         </article>
        </div>
      </div>
 
    • quote:
      <div class="slide quote-slide">
-       <span class="quote-mark">“</span>
-       <blockquote>{quote.text}</blockquote>
-       <footer><span class="rule"></span><cite>{quote.attribution}</cite></footer>
+       <span class="quote-mark">"</span>
+       <blockquote>{quote.text — the full quote, not truncated}</blockquote>
+       <footer>
+         <span class="rule"></span>
+         <cite>{quote.attribution — Name, Role / Organisation}</cite>
+       </footer>
      </div>
 
    • two-column:
      <div class="slide two-col-slide">
-       <header><span class="eyebrow">{tag}</span><h2>{slide title}</h2></header>
+       <header>
+         <span class="eyebrow">{tag}</span>
+         <h2>{slide title}</h2>
+       </header>
        <div class="cols">
-         <div class="prose"><p>{body}</p></div>
-         <ul class="bullets">{bullets as <li>…</li>}</ul>
+         <div class="prose"><p>{body — full framing paragraph}</p></div>
+         <ul class="bullets">
+           <li><span class="dot"></span><span class="text">{bullet}</span></li>
+           <li><span class="dot"></span><span class="text">{bullet}</span></li>
+           <li><span class="dot"></span><span class="text">{bullet}</span></li>
+         </ul>
        </div>
      </div>
 
@@ -411,27 +471,29 @@ ${themeBlock}
      <div class="slide content-slide">
        <span class="eyebrow">{tag}</span>
        <h2>{slide title}</h2>
-       <p class="body">{body}</p>
+       <p class="body">{body — substantive paragraph, NOT a label}</p>
      </div>
 
    • feature-cards:
      <div class="slide feature-cards-slide">
-       <header><span class="eyebrow">{tag e.g. CAPABILITIES}</span>
+       <header>
+         <span class="eyebrow">CAPABILITIES</span>
          <h2>{slide title}</h2>
-         <p class="lede">{body — one-sentence intro}</p></header>
+         <p class="lede">{body — one-sentence intro}</p>
+       </header>
        <div class="card-grid cols-3">
          <article class="card">
-           <span class="card-icon"><svg class="icon lg"><use href="#i-rocket"/></svg></span>
+           <span class="card-icon"><svg class="icon lg"><use href="#i-{icon}"/></svg></span>
            <h3>{cards[0].title}</h3>
            <p>{cards[0].description}</p>
          </article>
          <article class="card">
-           <span class="card-icon"><svg class="icon lg"><use href="#i-shield"/></svg></span>
+           <span class="card-icon"><svg class="icon lg"><use href="#i-{icon}"/></svg></span>
            <h3>{cards[1].title}</h3>
            <p>{cards[1].description}</p>
          </article>
          <article class="card">
-           <span class="card-icon"><svg class="icon lg"><use href="#i-bolt"/></svg></span>
+           <span class="card-icon"><svg class="icon lg"><use href="#i-{icon}"/></svg></span>
            <h3>{cards[2].title}</h3>
            <p>{cards[2].description}</p>
          </article>
@@ -440,9 +502,11 @@ ${themeBlock}
 
    • process-flow:
      <div class="slide process-flow-slide">
-       <header><span class="eyebrow">PROCESS</span>
+       <header>
+         <span class="eyebrow">PROCESS</span>
          <h2>{slide title}</h2>
-         <p class="lede">{body}</p></header>
+         <p class="lede">{body}</p>
+       </header>
        <div class="process">
          <div class="node">
            <span class="node-num">01</span>
@@ -464,15 +528,25 @@ ${themeBlock}
 
    • timeline:
      <div class="slide timeline-slide">
-       <header><span class="eyebrow">TIMELINE</span>
-         <h2>{slide title}</h2></header>
+       <header>
+         <span class="eyebrow">TIMELINE</span>
+         <h2>{slide title}</h2>
+       </header>
        <div class="timeline">
          <div class="event">
            <span class="when">{timeline[0].when}</span>
-           <div class="what"><h3>{timeline[0].title}</h3>
-             <p>{timeline[0].detail}</p></div>
+           <div class="what">
+             <h3>{timeline[0].title}</h3>
+             <p>{timeline[0].detail}</p>
+           </div>
          </div>
-         …
+         <div class="event">
+           <span class="when">{timeline[1].when}</span>
+           <div class="what">
+             <h3>{timeline[1].title}</h3>
+             <p>{timeline[1].detail}</p>
+           </div>
+         </div>
        </div>
      </div>
 
@@ -482,24 +556,26 @@ ${themeBlock}
        <h2>{slide title}</h2>
        <div class="callout">
          <span class="callout-label">{callout.label}</span>
-         {callout.text}
+         {callout.text — the bold punchline sentence}
        </div>
-       <p class="lede">{body — supporting paragraph}</p>
+       <p class="lede">{body — 2-3 sentence supporting paragraph}</p>
      </div>
 
-   CSS REQUIREMENTS — every slide ships at least 25 lines of slide-scoped CSS
-   that styles its own layout. Always include rules for:
-     - the root .slide variant (e.g. .slide.title-slide { ... }) with grid/flex,
-       padding, background treatment, and gap.
-     - any custom classes you used (.eyebrow, .stat-card, .step-num, .cmp-col,
-       .accent-bar, .quote-mark, etc.).
-     - hover/state polish only if it makes sense; otherwise just static styles.
-   Use color-mix() for tinted accents. Use radial-gradient or linear-gradient
-   on .slide::before for decorative depth where the layout allows.
+   CSS REQUIREMENTS — the base layout classes are already styled by the host.
+   Your "css" should add a decorative treatment and any layout customisation:
+   - ALWAYS include a .slide.{layout}-slide::before blob for depth using
+     radial-gradient combined with color-mix(in oklab, var(--primary) 35%,
+     transparent), blurred (filter: blur(80px)), positioned top-left or
+     bottom-right, z-index 0, pointer-events none.
+   - Tune flex/grid gaps and alignments not covered by the base.
+   - Font-size overrides only when THIS slide needs something larger or smaller
+     than the base defaults for that element.
+   - Keep selectors scoped: .slide.{layout}-slide .class { … }
+   - Minimum 20 lines, maximum 60 lines. No @import. No external url().
 
    GOLDEN RULE: if you removed the body copy, the slide should still LOOK
-   like a finished presentation slide because of the typography, spacing,
-   and accent treatments alone. Empty-looking output is a failure.
+   like a finished presentation slide — typography, spacing, and accent
+   treatments carry it. Empty-looking output is a failure.
 
 Return strictly valid JSON. Do not wrap in markdown.`
 }
@@ -559,13 +635,17 @@ HTML / CSS — DESIGN A REAL SLIDE, NOT A WIREFRAME (1280×720 sandbox):
 - Use the host CSS vars: --bg, --primary, --accent, --fg (#fff), --muted,
   --soft, --softer, --hairline. Do NOT redefine the global font sizes for
   h1/h2/h3/p/li — host already provides presentation-scale defaults.
-- The renderer ships a Gamma-style component library — prefer these classes
-  over inventing new ones: .eyebrow, .pill, .pill.accent, .accent-bar,
-  .number-badge, .card, .card.featured, .card .card-icon,
-  .card-grid (.cols-2/3/4), .callout (with .callout-label), .divider
-  (with-label), .dot-grid, .stat (.stat-value, .stat-label),
-  .process (.node, .node-num), .timeline (.event, .when, .what),
-  .gradient-text.
+- The renderer ships a full component library — prefer these classes over
+  inventing new ones:
+  Typography: .eyebrow, .lede, .meta-row, .section-index, .section-eyebrow,
+    .quote-mark, .statement, .elaboration, .gradient-text
+  Components: .pill(.accent), .accent-bar, .number-badge(.sm), .card(.featured),
+    .card .card-icon, .card-grid(.cols-2/3/4), .callout(.callout-label),
+    .divider(.with-label), .dot-grid, .stat(.stat-value/.stat-label)
+  Lists: .bullets (li with .dot + .text), .steps (ol li with .step-num + .step-body)
+  Layout: .cmp-grid, .cmp-col(.cmp-left/.cmp-right), .cmp-label, .stat-grid,
+    .stat-card(.stat-value/.stat-label), .rule, .cols, .prose
+  Flow: .process .node(.node-num), .timeline .event(.when + .what h3+p)
 - Icons: drop <svg class="icon"><use href="#i-NAME"/></svg> using any of
   check, arrow-right, arrow-up, arrow-down, plus, minus, x, star, heart,
   rocket, bolt, spark, target, flag, bulb, shield, lock, gear, clock,

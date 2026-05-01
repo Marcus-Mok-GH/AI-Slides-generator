@@ -101,6 +101,17 @@ vite.config.js          ← Dev proxy to Express on :3001
 
 ### Responsive Design
 - Adaptive layouts at ≤1024px, ≤900px, ≤720px, ≤420px. Sidebar collapses, touch targets are sized for mobile.
+- `MobileNav.jsx` + `MobileNav.css` — fixed bottom tab bar (Create / My Decks / Templates) visible at ≤720px. Replaces the hidden sidebar on phones. Rendered inside `App.jsx` layout just before the closing tag; `App.css` reserves 96px bottom padding at that breakpoint for it.
+- `SlideEditor.jsx` turns into a bottom drawer with backdrop at ≤900px.
+
+### Slide Component Library (HtmlSlide.jsx base CSS)
+The sandboxed iframe ships a pre-built set of semantic CSS classes. The AI only needs to use the correct HTML scaffold — the visual treatment is already wired in:
+- **Layout wrappers:** `.title-slide`, `.section-slide`, `.statement-slide`, `.bullets-slide`, `.steps-slide`, `.comparison-slide`, `.stats-slide`, `.quote-slide`, `.two-col-slide`, `.content-slide`, `.feature-cards-slide`
+- **Typography helpers:** `.eyebrow`, `.lede`, `.meta-row`, `.section-index`, `.section-eyebrow`, `.quote-mark`, `.statement`, `.elaboration`, `.gradient-text`
+- **List patterns:** `.bullets` (li with `.dot` + `.text`), `.steps` (ol li with `.step-num` + `.step-body h3+p`)
+- **Layout helpers:** `.cmp-grid`, `.cmp-col(.cmp-left/.cmp-right)`, `.cmp-label`, `.stat-grid`, `.stat-card(.stat-value/.stat-label)`, `.rule`, `.cols`, `.prose`
+- **Legacy / flow:** `.accent-bar`, `.number-badge(.sm)`, `.pill(.accent)`, `.card(.featured)`, `.card-grid(.cols-2/3/4)`, `.callout`, `.divider(.with-label)`, `.dot-grid`, `.process .node(.node-num)`, `.timeline .event(.when + .what h3+p)`, `.stat`
+- **Texture:** `.slide.grid-bg` — overlay a 40×40px dot grid on the slide
 
 ## Deployment
 
