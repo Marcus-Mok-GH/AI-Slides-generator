@@ -777,9 +777,24 @@ function normalizeDeck(raw, ctx) {
   }
 }
 
+function buildUserMessage(prompt) {
+  return `Topic / brief:
+"""${prompt}"""
+
+Generate the deck JSON now.
+
+CRITICAL CONTENT RULES — failure to follow these is unacceptable:
+- Every slide's "body" field MUST be a full sentence explaining the actual content of that slide — not just a label or a restatement of the title.
+- Slide titles like "The Problem", "Our Solution", "Key Benefits" are ONLY acceptable if the body, bullets, or other fields immediately explain WHAT the problem is, WHAT the solution does, or WHAT the benefits are. Never leave the meaning implicit.
+- "bullets" arrays must contain complete, specific points — not fragments or generic placeholders.
+- "steps" must each have both a label AND a full detail sentence explaining what to do and why.
+- No slide may have an empty body when its layout requires one (title, statement, content, two-column, callout, feature-cards, process-flow, timeline all require a non-empty body).
+- Write the actual substance — assume the reader has never heard of this topic before.`
+}
+
 export async function generateDeck(ctx) {
   const system = buildDeckSystemPrompt(ctx)
-  const user = `Topic / brief:\n"""${ctx.prompt}"""\n\nGenerate the deck JSON now.`
+  const user = buildUserMessage(ctx.prompt)
   const content = await callLlm7({ model: DECK_MODEL, system, user })
   const parsed = extractJson(content)
   return normalizeDeck(parsed, ctx)
@@ -791,7 +806,7 @@ export async function generateDeck(ctx) {
  */
 export async function streamGenerateDeck(ctx, handlers = {}) {
   const system = buildDeckSystemPrompt(ctx)
-  const user = `Topic / brief:\n"""${ctx.prompt}"""\n\nGenerate the deck JSON now.`
+  const user = buildUserMessage(ctx.prompt)
 
   const upstream = await fetch(`${LLM7_BASE}/chat/completions`, {
     method: 'POST',
