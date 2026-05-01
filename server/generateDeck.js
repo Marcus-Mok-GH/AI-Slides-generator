@@ -7,8 +7,8 @@ const LLM7_BASE = process.env.LLM7_BASE_URL || 'https://api.llm7.io/v1'
  * via the OpenAI-compatible `/chat/completions` endpoint without an API
  * key; richer models become available when `LLM7_API_KEY` is supplied.
  */
-const DECK_MODEL = process.env.LLM7_DECK_MODEL || 'GLM-4.6V-Flash'
-const SLIDE_MODEL = process.env.LLM7_SLIDE_MODEL || 'GLM-4.6V-Flash'
+const DECK_MODEL = process.env.LLM7_DECK_MODEL || 'gpt-oss-20b'
+const SLIDE_MODEL = process.env.LLM7_SLIDE_MODEL || 'gpt-oss-20b'
 
 /**
  * Slide layouts. Each one is a different visual primitive — picked deliberately
@@ -616,6 +616,8 @@ async function callLlm7({ model, system, user }) {
     headers: llm7Headers(),
     body: JSON.stringify({
       model,
+      reasoning_effort: 'high',
+      max_tokens: 16000,
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user },
@@ -814,6 +816,8 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
     body: JSON.stringify({
       model: DECK_MODEL,
       stream: true,
+      reasoning_effort: 'high',
+      max_tokens: 16000,
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user },

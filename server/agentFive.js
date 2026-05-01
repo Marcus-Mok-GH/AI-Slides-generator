@@ -15,7 +15,7 @@
  */
 
 const LLM7_BASE = process.env.LLM7_BASE_URL || 'https://api.llm7.io/v1'
-const AGENT_MODEL = process.env.LLM7_AGENT_MODEL || 'GLM-4.6V-Flash'
+const AGENT_MODEL = process.env.LLM7_AGENT_MODEL || 'gpt-oss-20b'
 const MAX_ITERATIONS = 6
 
 const FIREWORKS_PROXY_URL =
@@ -168,7 +168,7 @@ async function callAgentLlm(messages, { onDelta } = {}) {
   const res = await fetch(url, {
     method: 'POST',
     headers: llm7Headers(),
-    body: JSON.stringify({ model: AGENT_MODEL, messages, stream: true }),
+    body: JSON.stringify({ model: AGENT_MODEL, messages, stream: true, reasoning_effort: 'high', max_tokens: 16000 }),
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
