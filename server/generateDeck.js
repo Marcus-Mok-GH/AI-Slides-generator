@@ -722,6 +722,8 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
   // Collect normalized slides as they stream so we can use them as a
   // fallback if the final extractJson(raw) fails.
   const streamedSlides = []
+  // Capture streamed meta (title/subtitle/theme) for the fallback path.
+  let streamedMeta = null
 
   const reader = upstream.body.getReader()
   const decoder = new TextDecoder()
@@ -729,6 +731,7 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
   const emit = (events) => {
     for (const ev of events) {
       if (ev.type === 'meta') {
+        streamedMeta = ev.meta
         handlers.onMeta?.(ev.meta)
       } else if (ev.type === 'partial') {
         handlers.onPartial?.({ index: ev.index, partial: ev.partial })
@@ -798,15 +801,19 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
     // event and for the server-side DB persist.
     console.warn(`[generate-deck] extractJson failed (${err.message}), falling back to ${streamedSlides.length} streamed slides`)
     // streamedSlides are already normalized — skip normalizeDeck() to avoid
-    // double-processing. Build the final deck object directly.
+    // double-processing. Build the final deck object directly, using
+    // whatever meta the stream parser already captured.
+    const fallbackTheme = streamedMeta?.theme && typeof streamedMeta.theme === 'object'
+      ? streamedMeta.theme
+      : { name: 'Aurora', primary: '#7c5cff', accent: '#ff6ea0', background: '#0f0f1a' }
     return {
-      title: ctx.prompt?.slice(0, 80) || 'Untitled deck',
-      subtitle: '',
+      title: streamedMeta?.title || ctx.prompt?.slice(0, 80) || 'Untitled deck',
+      subtitle: streamedMeta?.subtitle || '',
       theme: {
-        name: 'Aurora',
-        primary: '#7c5cff',
-        accent: '#ff6ea0',
-        background: '#0f0f1a',
+        name: String(fallbackTheme.name || 'Aurora'),
+        primary: String(fallbackTheme.primary || '#7c5cff'),
+        accent: String(fallbackTheme.accent || '#ff6ea0'),
+        background: String(fallbackTheme.background || '#0f0f1a'),
       },
       slides: streamedSlides,
       meta: {
