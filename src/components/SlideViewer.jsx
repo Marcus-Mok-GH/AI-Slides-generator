@@ -867,14 +867,39 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     if (isStreaming || exportBusy) return
     setExportBusy('pptx')
     try {
-      await exportDeckToPptx(deck, {
-        onProgress: ({ index, total }) =>
-          showToast(`Rendering slide ${index + 1} of ${total}…`),
+      // Generate PPTX server-side to avoid html2canvas / iframe / sandbox
+      // issues that occur when the app is embedded in Replit's preview pane.
+      const { getAccessToken } = await import('../lib/supabase.js')
+      const token = await getAccessToken()
+      const res = await fetch('/api/export/pptx', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ deck }),
       })
+      if (!res.ok) {
+        let msg = `Server error ${res.status}`
+        try { msg = (await res.json()).error || msg } catch { /* ignore */ }
+        throw new Error(msg)
+      }
+      const blob = await res.blob()
+      const safeName = (deck.title || 'deck')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'deck'
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${safeName}.pptx`
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a) }, 200)
       showToast('PPTX downloaded — open in Google Slides or PowerPoint')
     } catch (err) {
       console.error('[export pptx]', err)
-      showToast('PPTX export failed')
+      showToast(`PPTX export failed: ${err?.message || 'unknown error'}`)
     } finally {
       setExportBusy('')
     }

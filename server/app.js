@@ -10,7 +10,7 @@ import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
 import { agentFiveTurn, agentFiveStream } from './agentFive.js'
 
 const app = express()
-app.use(express.json({ limit: '20mb' }))
+app.use(express.json({ limit: '50mb' }))
 
 // Run schema migrations and wire auth BEFORE any route registration. On
 // Vercel this runs once per cold-start; locally it runs once at boot.
@@ -34,6 +34,78 @@ app.get('/api/credits', isAuthenticated, async (req, res) => {
   } catch (err) {
     console.error('[credits] error:', err)
     res.status(500).json({ error: err?.message || 'Failed to load credits' })
+  }
+})
+
+/**
+ * Server-side PPTX export.
+ *
+ * The browser sends the deck JSON; we use pptxgenjs to build a proper
+ * .pptx file and stream it back as an attachment. This avoids all the
+ * html2canvas / iframe / browser-sandbox issues that plague client-side
+ * export in Replit's nested-iframe preview environment.
+ *
+ * Each slide gets:
+ *   - A full-bleed background image (the data-URL already stored in the
+ *     deck — no extra network call needed).
+ *   - A fallback solid-colour background for slides without an image.
+ *   - Speaker notes when present.
+ */
+app.post('/api/export/pptx', isAuthenticated, async (req, res) => {
+  try {
+    const { deck } = req.body || {}
+    if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
+      return res.status(400).json({ error: 'deck.slides is required' })
+    }
+
+    const PptxGenJS = (await import('pptxgenjs')).default
+    const pptx = new PptxGenJS()
+    pptx.layout = 'LAYOUT_WIDE' // 13.333 x 7.5 inches — standard 16:9
+    pptx.title = deck.title || 'Deck'
+    pptx.subject = deck.subtitle || ''
+    if (deck.author) pptx.author = deck.author
+
+    const bgHex = (deck.theme?.background || '#0f0f1a').replace(/^#/, '')
+
+    for (const slide of deck.slides) {
+      const pSlide = pptx.addSlide()
+      pSlide.background = { color: bgHex }
+
+      const imgUrl = slide?.image?.url
+      if (imgUrl && imgUrl.startsWith('data:')) {
+        // pptxgenjs `data` prop expects `mime/type;base64,<b64>` — no
+        // leading `data:` prefix. Strip it before passing.
+        const withoutPrefix = imgUrl.slice('data:'.length) // e.g. "image/jpeg;base64,/9j/..."
+        pSlide.addImage({
+          data: withoutPrefix,
+          x: 0, y: 0,
+          w: 13.333, // full 16:9 slide width in inches
+          h: 7.5,    // full 16:9 slide height in inches
+        })
+      }
+
+      // Speaker notes
+      if (slide.speakerNotes) {
+        pSlide.addNotes(String(slide.speakerNotes))
+      }
+    }
+
+    // writeFile() is Node.js-only. write() returns a Buffer we can stream.
+    const buf = await pptx.write({ outputType: 'nodebuffer' })
+
+    const safeName = (deck.title || 'deck')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '') || 'deck'
+
+    res.setHeader('Content-Type',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation')
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}.pptx"`)
+    res.setHeader('Content-Length', buf.length)
+    res.send(buf)
+  } catch (err) {
+    console.error('[export/pptx] error:', err)
+    res.status(500).json({ error: err?.message || 'PPTX export failed' })
   }
 })
 
