@@ -122,4 +122,5 @@ vite.config.js          ← Dev proxy to Express on :3001
 - **Backend:** Node 20, Express 5, `pg`, `@supabase/supabase-js`
 - **Authentication:** Supabase Auth — client-side session in localStorage; server validates the JWT via `supabase.auth.getUser`.
 - **Database:** Supabase Postgres (Transaction Pooler).
-- **Export Libraries:** `html2canvas`, `jspdf`, `pptxgenjs`.
+- **Export Libraries:** `html2canvas`, `jspdf`, `pptxgenjs`, `node-html-parser`.
+- **PPTX Export:** Server-side in `server/exportPptx.js` — `buildPptxBuffer(deck)` maps all 14 layout types (title, section, statement, bullets, steps, comparison, stats, quote, callout, feature-cards, timeline, process-flow, two-column, content) to editable pptxgenjs text elements. Slides are fully editable in PowerPoint and Google Slides.

@@ -20,6 +20,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "memoizee": "^0.4.17",
+    "node-html-parser": "^7.1.0",
     "openid-client": "^5.7.1",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",

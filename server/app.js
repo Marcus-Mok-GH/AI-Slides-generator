@@ -8,6 +8,7 @@ import {
 } from './db.js'
 import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
 import { agentFiveTurn, agentFiveStream } from './agentFive.js'
+import { buildPptxBuffer } from './exportPptx.js'
 
 const app = express()
 app.use(express.json({ limit: '50mb' }))
@@ -58,40 +59,7 @@ app.post('/api/export/pptx', isAuthenticated, async (req, res) => {
       return res.status(400).json({ error: 'deck.slides is required' })
     }
 
-    const PptxGenJS = (await import('pptxgenjs')).default
-    const pptx = new PptxGenJS()
-    pptx.layout = 'LAYOUT_WIDE' // 13.333 x 7.5 inches — standard 16:9
-    pptx.title = deck.title || 'Deck'
-    pptx.subject = deck.subtitle || ''
-    if (deck.author) pptx.author = deck.author
-
-    const bgHex = (deck.theme?.background || '#0f0f1a').replace(/^#/, '')
-
-    for (const slide of deck.slides) {
-      const pSlide = pptx.addSlide()
-      pSlide.background = { color: bgHex }
-
-      const imgUrl = slide?.image?.url
-      if (imgUrl && imgUrl.startsWith('data:')) {
-        // pptxgenjs `data` prop expects `mime/type;base64,<b64>` — no
-        // leading `data:` prefix. Strip it before passing.
-        const withoutPrefix = imgUrl.slice('data:'.length) // e.g. "image/jpeg;base64,/9j/..."
-        pSlide.addImage({
-          data: withoutPrefix,
-          x: 0, y: 0,
-          w: 13.333, // full 16:9 slide width in inches
-          h: 7.5,    // full 16:9 slide height in inches
-        })
-      }
-
-      // Speaker notes
-      if (slide.speakerNotes) {
-        pSlide.addNotes(String(slide.speakerNotes))
-      }
-    }
-
-    // writeFile() is Node.js-only. write() returns a Buffer we can stream.
-    const buf = await pptx.write({ outputType: 'nodebuffer' })
+    const buf = await buildPptxBuffer(deck)
 
     const safeName = (deck.title || 'deck')
       .toLowerCase()
