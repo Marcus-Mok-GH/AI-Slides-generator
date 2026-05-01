@@ -61,11 +61,13 @@ vite.config.js          ← Dev proxy to Express on :3001
 - `/api/generate-deck/stream` returns Server-Sent Events. UI opens the Slide Viewer with a streaming stub and renders `meta`, `partial`, `slide`, `slide-image-pending`, `slide-image`, and `done` events as they arrive. On Vercel, `maxDuration: 60` (configurable in `vercel.json`).
 
 ### Editor & Slides
-- 14 layouts (title, section, statement, bullets, steps, comparison, stats, quote, two-column, content, **feature-cards, process-flow, timeline, callout**) enforced by "real slide" rules (one idea per slide, word caps, layout diversity, mandatory Gamma-style cards/process/callout coverage in 6+ slide decks).
-- `HtmlSlide.jsx` renders AI HTML/CSS in a sandboxed iframe and ships a built-in **Gamma-style component library**:
-  - Utility classes: `.eyebrow`, `.pill(.accent)`, `.accent-bar`, `.number-badge`, `.card(.featured)`, `.card-grid(.cols-2/3/4)`, `.callout`, `.divider(.with-label)`, `.dot-grid`, `.stat`, `.process`/`.node`, `.timeline`/`.event`, `.gradient-text`.
-  - Inline icon sprite (~35 line icons): use as `<svg class="icon"><use href="#i-NAME"/></svg>` (rocket, shield, bolt, target, bulb, chart, trend, users, clock, etc.).
+- 14 layouts (title, section, statement, bullets, steps, comparison, stats, quote, two-column, content, **feature-cards, process-flow, timeline, callout**) as semantic categories for content fields — the AI designs the visual HTML/CSS independently.
+- `HtmlSlide.jsx` renders AI-authored HTML/CSS in a sandboxed 1280×720 iframe. The AI has **full creative control** over layout and styling — no scaffold templates. The iframe provides:
+  - CSS theme vars: `--bg`, `--primary`, `--accent`, `--fg`, `--muted`, `--soft`, `--softer`, `--hairline`.
+  - Utility classes available but not required: `.eyebrow`, `.pill(.accent)`, `.accent-bar`, `.number-badge`, `.card(.featured)`, `.card-grid(.cols-2/3/4)`, `.callout`, `.divider(.with-label)`, `.dot-grid`, `.stat`, `.process`/`.node`, `.timeline`/`.event`, `.gradient-text`.
+  - Inline icon sprite (~35 line icons): use as `<svg class="icon"><use href="#i-NAME"/></svg>`.
   - Auto-injected page footer (slide # / total · deck title) and ambient gradient blobs that pick up the deck theme.
+- AI prompt (section 9) instructs the model to design each slide from scratch like a professional designer: unique layouts per slide, bold typography hierarchy, one strong decorative treatment (ghost text, accent bar, glass hero card, color band, geometric arc), 60-150 lines of custom CSS, no scaffold filling.
 - New per-slide schema fields: `cards: [{icon,title,description}]`, `timeline: [{when,title,detail}]`, `callout: {label,text}`.
 - `lib/charts.js` is a dependency-free SVG chart renderer.
 - Right-side `SlideEditor` allows layout changes, inline edits, and AI regeneration. Autosave debounces to Postgres.
