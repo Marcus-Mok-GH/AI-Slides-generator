@@ -644,9 +644,18 @@
   border-radius: 10px;
   cursor: pointer;
   border: 1px solid transparent;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
   transition: background-color var(--duration-fast) ease,
     border-color var(--duration-fast) ease,
     transform var(--duration-fast) var(--ease-out-back);
+}
+.thumb:disabled {
+  cursor: default;
+  pointer-events: none;
 }
 .thumb:hover {
   background: var(--hover-overlay);

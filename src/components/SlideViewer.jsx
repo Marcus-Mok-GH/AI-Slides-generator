@@ -982,13 +982,13 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
             <span className="vbar-present-icon" aria-hidden>▶</span>
           </button>
           <button
-            className={`vbar-btn ${editing ? 'primary' : ''}`}
+            className={`vbar-btn ${editing ? 'is-active' : ''}`}
             onClick={() => setEditing((v) => !v)}
             disabled={isStreaming}
-            title={isStreaming ? 'Editing unlocks when generation completes' : ''}
+            title={isStreaming ? 'Editing unlocks when generation completes' : editing ? 'Close slide editor' : 'Edit this slide'}
           >
-            <span className="vbar-edit-full">{editing ? '✓ Editing' : '✎ Edit'}</span>
-            <span className="vbar-edit-mini" aria-hidden>{editing ? '✓' : '✎'}</span>
+            <span className="vbar-edit-full">{editing ? '✕ Close editor' : '✎ Edit'}</span>
+            <span className="vbar-edit-mini" aria-hidden>{editing ? '✕' : '✎'}</span>
           </button>
           <button
             type="button"
@@ -1014,7 +1014,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
                 : 'Show speaker notes'
             }
           >
-            ☰ Notes
+            {showNotes ? 'Hide notes' : 'Notes'}
           </button>
           <div className="export-menu-wrap" ref={exportMenuRef}>
             <button
@@ -1075,35 +1075,40 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
               const isPartial = s?.partial
               const isInProgress = i === inProgressIndex
               return (
-                <li
-                  key={i}
-                  className={`thumb ${i === active ? 'is-active' : ''} ${
-                    s ? '' : 'is-pending'
-                  } ${isPartial ? 'is-partial' : ''} ${
-                    isInProgress ? 'is-in-progress' : ''
-                  }`}
-                  onClick={() => s && userJump(i)}
-                >
-                  <div className="thumb-num">{i + 1}</div>
-                  <div className="thumb-text">
-                    {s && s.title ? (
-                      <>
-                        <div className="thumb-title">
-                          {s.title}
-                          {isPartial ? <span className="caret-blink">▌</span> : null}
-                        </div>
-                        <div className="thumb-layout">
-                          {s.layout || (isPartial ? 'writing…' : '')}
-                          {s.image?.url ? ' · img' : ''}
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="thumb-title shimmer-line" />
-                        <div className="thumb-layout shimmer-line short" />
-                      </>
-                    )}
-                  </div>
+                <li key={i}>
+                  <button
+                    type="button"
+                    className={`thumb ${i === active ? 'is-active' : ''} ${
+                      s ? '' : 'is-pending'
+                    } ${isPartial ? 'is-partial' : ''} ${
+                      isInProgress ? 'is-in-progress' : ''
+                    }`}
+                    onClick={() => userJump(i)}
+                    disabled={!s}
+                    aria-current={i === active ? 'true' : undefined}
+                    aria-label={s?.title ? `Slide ${i + 1}: ${s.title}` : `Slide ${i + 1}, loading`}
+                  >
+                    <div className="thumb-num">{i + 1}</div>
+                    <div className="thumb-text">
+                      {s && s.title ? (
+                        <>
+                          <div className="thumb-title">
+                            {s.title}
+                            {isPartial ? <span className="caret-blink">▌</span> : null}
+                          </div>
+                          <div className="thumb-layout">
+                            {s.layout || (isPartial ? 'writing…' : '')}
+                            {s.image?.url ? ' · img' : ''}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="thumb-title shimmer-line" />
+                          <div className="thumb-layout shimmer-line short" />
+                        </>
+                      )}
+                    </div>
+                  </button>
                 </li>
               )
             })}

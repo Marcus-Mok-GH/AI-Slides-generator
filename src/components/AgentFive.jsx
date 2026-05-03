@@ -836,8 +836,9 @@ export default function AgentFive({ chatId: propChatId }) {
         <div className="af-topbar-actions">
           <button
             type="button"
-            className="af-btn af-btn-primary"
+            className="af-btn af-btn-ghost"
             onClick={() => navigate('/app')}
+            aria-label="Back to app"
           >
             ← Back
           </button>
