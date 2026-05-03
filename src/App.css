@@ -20,6 +20,11 @@
   margin: 0 auto;
 }
 
+.content :where(.af-btn-primary, .cta-button, .primary-button, button[data-variant='primary']) {
+  background: linear-gradient(120deg, var(--accent), var(--accent-hover));
+  box-shadow: 0 10px 24px rgba(47, 91, 234, 0.16);
+}
+
 @media (max-width: 1024px) {
   .layout {
     grid-template-columns: 72px 1fr;
