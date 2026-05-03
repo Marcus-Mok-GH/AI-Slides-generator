@@ -99,7 +99,12 @@ vite.config.js          ← Dev proxy to Express on :3001
   - `done` `{ ok: true }` — all iterations complete
   - `error` `{ error }` — failure
 - **Legacy API:** `POST /api/agentfive/chat` (non-streaming, single-turn, kept for compatibility).
-- UI: `src/components/AgentFive.jsx` — left chat pane shows streaming reply text and live tool chips (⏳ running → ✓ done / ✗ failed); right Workspace pane receives artifacts in real time as each tool completes without waiting for the full run to finish.
+- UI: `src/components/AgentFive.jsx` — **Agent One-inspired single-column chat UI** (InVideo Agent One style): no separate right panel; tool activity is fully inline. Layout is a 2-column desktop grid (sidebar 220px + chat flex-1). Key UI elements:
+  - **WelcomeScreen**: large pulsing "5" orb, bold gradient heading "What would you like to create?", subtitle, and 4 starter-prompt chips with arrow icons.
+  - **PendingMessage**: shows animated inline step cards (amber=running, green=done, red=failed) with tool name + arg summary; then streaming reply text below.
+  - **CompletedMessage**: assistant messages are full-width, no bubble; tool results (slides/images/search) are rendered as expandable inline result cards above the reply text. User messages are right-aligned rounded-rect pills.
+  - **toolSummary** on completed messages now includes `{ tool, ok, args, result }` so tool artifacts persist in the conversation history.
+  - Dead code removed: `StepTrack`, `CurrentToolPanel`, `ToolChip` components and all related CSS removed (~250 lines of panel/tracker CSS).
 
 ### Responsive Design
 - Adaptive layouts at ≤1024px, ≤900px, ≤720px, ≤420px. Sidebar collapses, touch targets are sized for mobile.

@@ -199,20 +199,6 @@ function navigate(path) {
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
-/* ─────────────────────── Tool chip ─────────────────────────────── */
-
-function ToolChip({ tool, status }) {
-  const label = TOOL_LABEL[tool] || tool
-  const cls = [
-    'af-chip',
-    status === 'running' ? 'af-chip-running' : '',
-    status === 'done' ? 'af-chip-done' : '',
-    status === 'failed' ? 'af-chip-error' : '',
-  ].filter(Boolean).join(' ')
-  const icon = status === 'running' ? <span className="af-chip-spinner" /> : status === 'done' ? '✓' : '✗'
-  return <span className={cls}>{icon} {label}</span>
-}
-
 /* ─────────────────────── Result renderers ───────────────────────── */
 
 function SlideResult({ slide }) {
@@ -283,115 +269,6 @@ function SearchResult({ result }) {
   )
 }
 
-/* ─────────────────────── Step progress tracker ─────────────────── */
-
-function StepTrack({ steps }) {
-  if (!steps.length) return null
-  return (
-    <div className="af-step-track">
-      {steps.map((s, i) => (
-        <div key={s.id} className={`af-step-row af-step-${s.status}`}>
-          <div className="af-step-num">{i + 1}</div>
-          <div className="af-step-icon">{TOOL_ICON[s.tool] || '🔧'}</div>
-          <div className="af-step-info">
-            <div className="af-step-label">{TOOL_LABEL[s.tool] || s.tool}</div>
-            {toolArgSummary(s.tool, s.args) ? (
-              <div className="af-step-arg">{toolArgSummary(s.tool, s.args)}</div>
-            ) : null}
-          </div>
-          <div className="af-step-badge">
-            {s.status === 'running' ? (
-              <span className="af-step-spinner" />
-            ) : s.status === 'done' ? (
-              <span className="af-step-check">✓</span>
-            ) : (
-              <span className="af-step-fail">✗</span>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-/* ─────────────────────── Current tool panel ─────────────────────── */
-
-function CurrentToolPanel({ currentTool }) {
-  if (!currentTool) {
-    return (
-      <div className="af-tool-panel af-tool-panel-empty">
-        <div className="af-tool-panel-empty-icon">⚡</div>
-        <div className="af-tool-panel-empty-text">
-          Tool activity appears here as Agent Five works.
-        </div>
-      </div>
-    )
-  }
-
-  const { tool, status, result, error, args } = currentTool
-  const label = TOOL_LABEL[tool] || tool
-  const icon = TOOL_ICON[tool] || '🔧'
-
-  const argSummary = tool === 'web_search'
-    ? args?.query
-    : tool === 'create_presentation_slide'
-    ? args?.title
-    : tool === 'create_image'
-    ? args?.prompt
-    : null
-
-  return (
-    <div className={`af-tool-panel af-tool-panel-${status}`}>
-      <div className="af-tool-panel-header">
-        <div className="af-tool-panel-icon">{icon}</div>
-        <div className="af-tool-panel-meta">
-          <div className="af-tool-panel-name">{label}</div>
-          {argSummary ? (
-            <div className="af-tool-panel-arg">{argSummary}</div>
-          ) : null}
-        </div>
-        <div className="af-tool-panel-status">
-          {status === 'running' ? (
-            <span className="af-tool-panel-spinner" />
-          ) : status === 'done' ? (
-            <span className="af-tool-panel-done">✓</span>
-          ) : (
-            <span className="af-tool-panel-fail">✗</span>
-          )}
-        </div>
-      </div>
-
-      <div className="af-tool-panel-body">
-        {status === 'running' ? (
-          <div className="af-tool-panel-loading">
-            <div className="af-tool-panel-bar" />
-            <div className="af-tool-panel-loading-label">
-              {tool === 'web_search' ? 'Searching the web…'
-                : tool === 'create_image' ? 'Generating image…'
-                : tool === 'create_presentation_slide' ? 'Creating slide…'
-                : 'Working…'}
-            </div>
-          </div>
-        ) : status === 'failed' ? (
-          <div className="af-tool-panel-error">{error || 'Tool failed'}</div>
-        ) : result ? (
-          <div className="af-tool-panel-result">
-            {tool === 'create_presentation_slide' ? (
-              <SlideResult slide={result} />
-            ) : tool === 'create_image' ? (
-              <ImageResult result={result} />
-            ) : tool === 'web_search' ? (
-              <SearchResult result={result} />
-            ) : (
-              <pre className="af-tool-panel-json">{JSON.stringify(result, null, 2)}</pre>
-            )}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
 /* ─────────────────────── Pending message ────────────────────────── */
 
 function PendingMessage({ pending }) {
@@ -399,17 +276,31 @@ function PendingMessage({ pending }) {
   return (
     <div className="af-msg af-msg-assistant">
       <div className="af-msg-avatar">5</div>
-      <div className="af-msg-bubble">
-        {pending.reply ? (
-          <MarkdownContent content={pending.reply} streaming />
-        ) : (
-          <div className="af-msg-thinking">
-            <span className="af-dot" /><span className="af-dot" /><span className="af-dot" />
+      <div className="af-msg-content">
+        {tools.length > 0 && (
+          <div className="af-inline-steps">
+            {tools.map((t) => (
+              <div key={t.id} className={`af-inline-step af-inline-step-${t.status}`}>
+                <span className="af-inline-step-icon">
+                  {t.status === 'running'
+                    ? <span className="af-chip-spinner" />
+                    : t.status === 'done' ? '✓' : '✗'}
+                </span>
+                <span className="af-inline-step-text">
+                  <span className="af-inline-step-name">{TOOL_LABEL[t.tool] || t.tool}</span>
+                  {toolArgSummary(t.tool, t.args) ? (
+                    <span className="af-inline-step-arg">{toolArgSummary(t.tool, t.args)}</span>
+                  ) : null}
+                </span>
+              </div>
+            ))}
           </div>
         )}
-        {tools.length > 0 ? (
-          <div className="af-msg-tools">
-            {tools.map((t) => <ToolChip key={t.id} tool={t.tool} status={t.status} />)}
+        {pending.reply ? (
+          <MarkdownContent content={pending.reply} streaming />
+        ) : tools.length === 0 ? (
+          <div className="af-msg-thinking">
+            <span className="af-dot" /><span className="af-dot" /><span className="af-dot" />
           </div>
         ) : null}
         {pending.needsClarification ? (
@@ -484,20 +375,47 @@ function SwipeToReply({ onReply, children }) {
 /* ─────────────────────── Completed message ──────────────────────── */
 
 function CompletedMessage({ m, onReply }) {
+  const toolResults = (m.toolSummary ?? []).filter((t) => t.result)
+
   const inner = (
     <div className={`af-msg af-msg-${m.role}`}>
-      <div className="af-msg-avatar">{m.role === 'assistant' ? '5' : 'You'}</div>
-      <div className="af-msg-bubble">
-        <MarkdownContent content={m.content} />
-        {m.toolSummary?.length ? (
-          <div className="af-msg-tools">
-            {m.toolSummary.map((t, i) => (
-              <ToolChip key={i} tool={t.tool} status={t.ok ? 'done' : 'failed'} />
-            ))}
-          </div>
-        ) : null}
-        {m.needsClarification ? <div className="af-msg-meta">Needs your input ↓</div> : null}
-      </div>
+      {m.role === 'assistant' && <div className="af-msg-avatar">5</div>}
+      {m.role === 'assistant' ? (
+        <div className="af-msg-content">
+          {toolResults.length > 0 && (
+            <div className="af-inline-results">
+              {toolResults.map((t, i) => (
+                <div key={i} className={`af-inline-result ${t.ok ? 'af-inline-result-ok' : 'af-inline-result-fail'}`}>
+                  <div className="af-inline-result-header">
+                    <span className="af-inline-result-icon">{TOOL_ICON[t.tool] || '🔧'}</span>
+                    <span className="af-inline-result-name">{TOOL_LABEL[t.tool] || t.tool}</span>
+                    {toolArgSummary(t.tool, t.args) ? (
+                      <span className="af-inline-result-arg">{toolArgSummary(t.tool, t.args)}</span>
+                    ) : null}
+                    <span className={`af-inline-result-badge ${t.ok ? 'af-inline-result-badge-ok' : 'af-inline-result-badge-fail'}`}>
+                      {t.ok ? '✓' : '✗'}
+                    </span>
+                  </div>
+                  {t.ok && t.result && (
+                    <div className="af-inline-result-body">
+                      {t.tool === 'create_presentation_slide' ? <SlideResult slide={t.result} />
+                       : t.tool === 'create_image' ? <ImageResult result={t.result} />
+                       : t.tool === 'web_search' ? <SearchResult result={t.result} />
+                       : null}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <MarkdownContent content={m.content} />
+          {m.needsClarification ? <div className="af-msg-meta">Needs your input ↓</div> : null}
+        </div>
+      ) : (
+        <div className="af-msg-bubble">
+          <MarkdownContent content={m.content} />
+        </div>
+      )}
     </div>
   )
   if (!onReply || m.id === 'welcome') return inner
@@ -540,10 +458,26 @@ function ChatSidebar({ chats, activeChatId, onNew, onSelect, onDelete }) {
 
 /* ─────────────────────────── Main component ────────────────────── */
 
-const WELCOME_MSG = {
-  id: 'welcome',
-  role: 'assistant',
-  content: "Hi, I'm Agent Five. Tell me what to build — I'll get to work right away. I can search the web, generate images, and create slides, all autonomously.",
+const WELCOME_MSG = { id: 'welcome', role: 'assistant', content: '' }
+
+function WelcomeScreen({ onPrompt, busy }) {
+  return (
+    <div className="af-welcome">
+      <div className="af-welcome-orb">5</div>
+      <h1 className="af-welcome-heading">What would you like to create?</h1>
+      <p className="af-welcome-sub">
+        I can research topics on the web, design individual slides, generate images, and build full presentation decks — all through one conversation.
+      </p>
+      <div className="af-starters">
+        {STARTER_PROMPTS.map((p, i) => (
+          <button key={i} type="button" className="af-starter" onClick={() => onPrompt(p)} disabled={busy}>
+            <span className="af-starter-arrow">→</span>
+            {p}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export default function AgentFive({ chatId: propChatId }) {
@@ -556,7 +490,6 @@ export default function AgentFive({ chatId: propChatId }) {
   const [error, setError] = useState('')
   const [pending, setPending] = useState(null)
   const [currentTool, setCurrentTool] = useState(null)
-  const [stepLog, setStepLog] = useState([])
   const [showChatDrawer, setShowChatDrawer] = useState(false)
   const [replyTo, setReplyTo] = useState(null)
   const scrollerRef = useRef(null)
@@ -646,7 +579,6 @@ export default function AgentFive({ chatId: propChatId }) {
     setPending(null)
     setBusy(false)
     setCurrentTool(null)
-    setStepLog([])
     setError('')
     setReplyTo(null)
   }
@@ -741,7 +673,6 @@ export default function AgentFive({ chatId: propChatId }) {
             return { ...prev, tools: { ...prev.tools, [id]: { id, tool, args, status: 'running' } } }
           })
           setCurrentTool({ id, tool, args, status: 'running' })
-          setStepLog((prev) => [...prev, { id, tool, args, status: 'running' }])
         },
         onToolResult(result) {
           setPending((prev) => {
@@ -764,11 +695,6 @@ export default function AgentFive({ chatId: propChatId }) {
               error: result.ok ? undefined : result.error,
             }
           })
-          setStepLog((prev) =>
-            prev.map((s) =>
-              s.id === result?.id ? { ...s, status: result.ok ? 'done' : 'failed' } : s,
-            ),
-          )
         },
         onDone() {
           clearTimeout(watchdogRef.current)
@@ -782,6 +708,8 @@ export default function AgentFive({ chatId: propChatId }) {
               toolSummary: Object.values(prev.tools).map((t) => ({
                 tool: t.tool,
                 ok: t.status === 'done',
+                args: t.args,
+                result: t.result,
               })),
             }
             setMessages((msgs) => {
@@ -810,7 +738,7 @@ export default function AgentFive({ chatId: propChatId }) {
 
   return (
     <AgentFiveBoundary>
-    <div className={`af-layout${currentTool?.status === 'running' ? ' af-tool-active' : ''}`}>
+    <div className="af-layout">
       <header className="af-topbar">
         <div className="af-topbar-brand">
           <img src={logo} alt="" />
@@ -896,23 +824,19 @@ export default function AgentFive({ chatId: propChatId }) {
             </div>
           ) : (
             <div className="af-chat-scroller" ref={scrollerRef}>
-              {messages.filter(Boolean).map((m) => (
-                <CompletedMessage key={m.id ?? Math.random()} m={m} onReply={() => setReplyTo(m)} />
-              ))}
-              {pending ? <PendingMessage pending={pending} /> : null}
-              {error ? <div className="af-error">{error}</div> : null}
+              {messages.length === 1 && messages[0]?.id === 'welcome' && !busy ? (
+                <WelcomeScreen onPrompt={send} busy={busy} />
+              ) : (
+                <>
+                  {messages.filter((m) => m?.id !== 'welcome').filter(Boolean).map((m) => (
+                    <CompletedMessage key={m.id ?? Math.random()} m={m} onReply={() => setReplyTo(m)} />
+                  ))}
+                  {pending ? <PendingMessage pending={pending} /> : null}
+                  {error ? <div className="af-error">{error}</div> : null}
+                </>
+              )}
             </div>
           )}
-
-          {messages.length <= 1 && !busy && !chatLoading ? (
-            <div className="af-starters">
-              {STARTER_PROMPTS.map((p, i) => (
-                <button key={i} type="button" className="af-starter" onClick={() => send(p)} disabled={busy}>
-                  {p}
-                </button>
-              ))}
-            </div>
-          ) : null}
 
           <form className="af-composer" onSubmit={(e) => { e.preventDefault(); send() }}>
             {replyTo && (
@@ -949,32 +873,6 @@ export default function AgentFive({ chatId: propChatId }) {
           </form>
         </section>
 
-        <aside className="af-panel-col">
-          <div className="af-panel-head">
-            <div className="af-panel-title">
-              {stepLog.length > 0
-                ? `Step ${stepLog.length}`
-                : 'Agent workspace'}
-            </div>
-            <div className="af-panel-sub">
-              {currentTool && currentTool.status === 'running'
-                ? toolRunningLabel(currentTool.tool, currentTool.args)
-                : currentTool && currentTool.status === 'done'
-                ? 'Step complete'
-                : currentTool && currentTool.status === 'failed'
-                ? 'Step failed'
-                : 'Tool activity appears here as Agent Five works'}
-            </div>
-          </div>
-          {stepLog.length > 0 ? (
-            <div className="af-panel-steps">
-              <StepTrack steps={stepLog} />
-            </div>
-          ) : null}
-          <div className="af-panel-body">
-            <CurrentToolPanel currentTool={currentTool} />
-          </div>
-        </aside>
       </div>
     </div>
     </AgentFiveBoundary>
