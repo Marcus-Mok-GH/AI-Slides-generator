@@ -345,6 +345,7 @@ export default function AgentFive({ chatId: propChatId }) {
   const [pending, setPending] = useState(null)
   const [currentTool, setCurrentTool] = useState(null)
   const [stepLog, setStepLog] = useState([])
+  const [showChatDrawer, setShowChatDrawer] = useState(false)
   const scrollerRef = useRef(null)
 
   const refreshChats = useCallback(async () => {
@@ -535,16 +536,59 @@ export default function AgentFive({ chatId: propChatId }) {
             <div className="af-topbar-sub">Autonomous · tool-calling · streamed in real time</div>
           </div>
         </div>
+        <div className="af-topbar-mobile-btns">
+          <button
+            type="button"
+            className="af-btn-icon"
+            aria-label="Chat history"
+            title="Chat history"
+            onClick={() => setShowChatDrawer(true)}
+          >☰</button>
+          <button
+            type="button"
+            className="af-btn-icon"
+            aria-label="New chat"
+            title="New chat"
+            onClick={handleNewChat}
+          >＋</button>
+        </div>
         <div className="af-topbar-actions">
           <button
             type="button"
             className="af-btn af-btn-primary"
             onClick={() => navigate('/app')}
           >
-            ← Back to Slides
+            ← Back
           </button>
         </div>
       </header>
+
+      {showChatDrawer && (
+        <div className="af-mobile-drawer" role="dialog" aria-label="Chat history">
+          <div
+            className="af-mobile-drawer-overlay"
+            onClick={() => setShowChatDrawer(false)}
+          />
+          <div className="af-mobile-drawer-panel">
+            <div className="af-mobile-drawer-head">
+              <span className="af-mobile-drawer-title">Chats</span>
+              <button
+                type="button"
+                className="af-mobile-drawer-close"
+                aria-label="Close"
+                onClick={() => setShowChatDrawer(false)}
+              >✕</button>
+            </div>
+            <ChatSidebar
+              chats={chats}
+              activeChatId={activeChatId}
+              onNew={() => { handleNewChat(); setShowChatDrawer(false) }}
+              onSelect={(id) => { handleSelectChat(id); setShowChatDrawer(false) }}
+              onDelete={handleDeleteChat}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="af-main">
         <ChatSidebar

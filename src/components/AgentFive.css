@@ -101,85 +101,153 @@
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.05fr);
   gap: 0;
-  height: calc(100vh - 64px);
   min-height: 0;
+  overflow: hidden;
 }
 @media (max-width: 1100px) {
   .af-main {
     grid-template-columns: 180px minmax(0, 1fr) minmax(0, 1fr);
   }
 }
+
+/* ── Mobile layout (≤760px) ────────────────────────────────────── */
 @media (max-width: 760px) {
+  /* Lock the whole page to viewport height so keyboard push doesn't break layout */
+  .af-layout {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
   .af-main {
     grid-template-columns: 1fr;
-    height: auto;
+    flex: 1;
     min-height: 0;
+    overflow: hidden;
   }
-  .af-chat-sidebar {
-    display: none;
-  }
-  .af-panel-col {
-    display: none;
-  }
+
+  /* Sidebar and right panel hidden — accessed via mobile drawer */
+  .af-chat-sidebar { display: none; }
+  .af-panel-col    { display: none; }
+
+  /* Chat column fills the full remaining height and scrolls correctly */
   .af-chat {
     border-right: none;
+    min-height: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
   .af-chat-scroller {
-    padding: 20px 16px 8px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 16px 14px 8px;
   }
+
+  /* Messages */
   .af-msg-bubble {
-    max-width: 88%;
+    max-width: calc(100vw - 80px); /* avatar(32) + gap(12) + padding(2×12) + gutter */
   }
+  .af-msg-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .af-msg { gap: 8px; }
+
+  /* Starter prompts */
   .af-starters {
-    padding: 0 16px 12px;
+    padding: 0 14px 10px;
+    gap: 6px;
   }
   .af-starter {
     flex: 1 1 100%;
+    font-size: 13px;
+    padding: 10px 12px;
   }
+
+  /* Composer — sticks to bottom, respects iPhone home indicator */
   .af-composer {
-    padding: 12px 16px 20px;
+    padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
     gap: 8px;
+    flex-shrink: 0;
   }
   .af-composer-input {
-    font-size: 16px; /* iOS zoom fix */
+    font-size: 16px; /* iOS: prevents auto-zoom */
     padding: 12px 14px;
     min-height: 48px;
+    border-radius: 14px;
   }
   .af-composer .af-btn {
-    padding: 12px 18px;
+    padding: 0 18px;
     min-height: 48px;
+    border-radius: 14px;
+    white-space: nowrap;
   }
+
+  /* Topbar */
   .af-topbar {
-    padding: 12px 16px;
+    padding: 10px 14px;
+    flex-shrink: 0;
   }
-  .af-topbar-sub {
-    display: none;
-  }
+  .af-topbar-sub    { display: none; }
+  .af-topbar-brand img { width: 26px; height: 26px; }
+  .af-topbar-title  { font-size: 16px; }
+
   .af-topbar-actions .af-btn {
-    padding: 8px 12px;
+    padding: 7px 12px;
     font-size: 13px;
   }
+
+  /* Mobile-only icon buttons in topbar */
+  .af-topbar-mobile-btns {
+    display: flex;
+    gap: 6px;
+    margin-right: 4px;
+  }
+  .af-btn-icon {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(124, 92, 255, 0.12);
+    border: 1px solid rgba(124, 92, 255, 0.3);
+    color: var(--af-text);
+    font-size: 18px;
+    cursor: pointer;
+    transition: background 120ms ease;
+    flex-shrink: 0;
+  }
+  .af-btn-icon:hover { background: rgba(124, 92, 255, 0.22); }
 }
 
-/* Mobile tool panel — slides up from bottom when a tool is active */
+/* ── Tool panel drawer — slides up on mobile when a tool fires ─── */
+/* NOTE: class is on .af-layout not .af-main */
 @media (max-width: 760px) {
-  .af-main.af-tool-active .af-panel-col {
+  .af-layout.af-tool-active .af-panel-col {
     display: flex;
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
     top: auto;
-    max-height: 55vh;
+    max-height: 55dvh;
     border-radius: 20px 20px 0 0;
     border-top: 1px solid var(--af-border);
     background: var(--af-card);
-    box-shadow: 0 -12px 48px rgba(0,0,0,0.35);
-    z-index: 40;
-    animation: af-drawer-up 280ms var(--ease-out-expo, cubic-bezier(0.16,1,0.3,1)) forwards;
+    box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.45);
+    z-index: 50;
+    animation: af-drawer-up 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
     overflow: hidden;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  .af-main.af-tool-active .af-panel-col::before {
+  .af-layout.af-tool-active .af-panel-col::before {
     content: '';
     display: block;
     width: 40px;
@@ -189,27 +257,100 @@
     margin: 12px auto 0;
     flex-shrink: 0;
   }
-  .af-main.af-tool-active .af-panel-body {
-    padding: 12px 16px 24px;
+  .af-layout.af-tool-active .af-panel-body {
+    padding: 12px 16px 20px;
   }
   @keyframes af-drawer-up {
-    from { transform: translateY(100%); opacity: 0.4; }
-    to   { transform: translateY(0); opacity: 1; }
+    from { transform: translateY(100%); opacity: 0.5; }
+    to   { transform: translateY(0);    opacity: 1; }
   }
 }
 
-/* Landscape phone — keep chat visible */
+/* ── Mobile chat-history drawer ───────────────────────────────── */
+.af-mobile-drawer {
+  display: none;
+}
+@media (max-width: 760px) {
+  .af-mobile-drawer {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+  }
+  .af-mobile-drawer-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    animation: af-fade-in 180ms ease forwards;
+  }
+  @keyframes af-fade-in {
+    from { opacity: 0; } to { opacity: 1; }
+  }
+  .af-mobile-drawer-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(300px, 85vw);
+    background: var(--af-card);
+    border-right: 1px solid var(--af-border);
+    display: flex;
+    flex-direction: column;
+    animation: af-slide-in 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @keyframes af-slide-in {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(0); }
+  }
+  .af-mobile-drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--af-border);
+    flex-shrink: 0;
+  }
+  .af-mobile-drawer-title {
+    font-weight: 700;
+    font-size: 16px;
+    background: linear-gradient(120deg, var(--af-primary), var(--af-accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .af-mobile-drawer-close {
+    background: none;
+    border: none;
+    color: var(--af-text-dim);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    line-height: 1;
+  }
+  .af-mobile-drawer-close:hover { color: var(--af-text); }
+
+  /* Make the sidebar fill the drawer panel */
+  .af-mobile-drawer-panel .af-chat-sidebar {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    border-right: none;
+    background: transparent;
+  }
+}
+
+/* Desktop: hide mobile-only elements */
+.af-topbar-mobile-btns { display: none; }
+
+/* ── Landscape phone ──────────────────────────────────────────── */
 @media (max-width: 760px) and (orientation: landscape) {
-  .af-topbar { padding: 8px 16px; }
-  .af-main {
-    height: calc(100vh - 48px);
-  }
-  .af-chat-scroller {
-    padding: 12px 16px 4px;
-  }
-  .af-composer {
-    padding: 8px 16px 12px;
-  }
+  .af-topbar  { padding: 6px 14px; }
+  .af-chat-scroller { padding: 10px 14px 4px; }
+  .af-composer { padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ---------------- Chat sidebar ---------------- */
