@@ -7,12 +7,64 @@
  * Streaming: agentFiveStream() emits SSE-style events via a `send(event, data)`
  * callback so the HTTP layer can push them to the client in real time:
  *
+ *   token_delta  { text, iteration }  — individual reply token as it streams
  *   tool_start   { id, tool, args }
  *   tool_result  { id, tool, ok, result?, error? }
- *   reply_delta  { text, iteration }
- *   done         { toolResults: [...all results from all iterations] }
+ *   reply_delta  { text, iteration, needsClarification }  — full text + metadata after each iteration
+ *   done         { ok: true }
  *   error        { error }
  */
+
+/* ────────────────────────── Reply streamer ───────────────────────── */
+
+/**
+ * Incrementally extracts the "reply" field value from a streaming JSON blob
+ * and calls onToken(text) for each decoded character as it arrives.
+ * Handles JSON string escape sequences so callers receive plain text.
+ */
+class ReplyStreamer {
+  constructor(onToken) {
+    this.onToken = onToken
+    this.buf = ''           // scanning window (last N chars)
+    this.state = 'scanning' // 'scanning' | 'in_reply' | 'done'
+    this.escape = false
+  }
+
+  feed(rawChunk) {
+    for (let i = 0; i < rawChunk.length; i++) {
+      const ch = rawChunk[i]
+      if (this.state === 'scanning') {
+        this.buf += ch
+        if (this.buf.length > 32) this.buf = this.buf.slice(-32)
+        if (/"reply"\s*:\s*"$/.test(this.buf)) {
+          this.state = 'in_reply'
+          this.buf = ''
+          this.escape = false
+        }
+      } else if (this.state === 'in_reply') {
+        if (this.escape) {
+          this.escape = false
+          if      (ch === 'n')  this.onToken('\n')
+          else if (ch === 't')  this.onToken('\t')
+          else if (ch === 'r')  this.onToken('\r')
+          else if (ch === '"')  this.onToken('"')
+          else if (ch === '\\') this.onToken('\\')
+          else if (ch === '/')  this.onToken('/')
+          else if (ch === 'b')  this.onToken('\b')
+          else if (ch === 'f')  this.onToken('\f')
+          else                  this.onToken(ch)
+        } else if (ch === '\\') {
+          this.escape = true
+        } else if (ch === '"') {
+          this.state = 'done'
+        } else {
+          this.onToken(ch)
+        }
+      }
+      // state === 'done': ignore remaining chars
+    }
+  }
+}
 
 import { repairJson } from './jsonRepair.js'
 
@@ -380,10 +432,20 @@ export async function agentFiveStream({ history = [], userMessage = '' } = {}, s
 
   const allToolResults = []
 
+  let prevIterStreamedText = false
+
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+    // Separator between multi-iteration replies
+    if (prevIterStreamedText) send('token_delta', { text: '\n\n', iteration: iter })
+    prevIterStreamedText = false
+
     let parsed
+    const streamer = new ReplyStreamer((token) => {
+      send('token_delta', { text: token, iteration: iter })
+      prevIterStreamedText = true
+    })
     try {
-      parsed = await callAgentLlm(msgs)
+      parsed = await callAgentLlm(msgs, { onDelta: (chunk) => streamer.feed(chunk) })
     } catch (err) {
       send('error', { error: err?.message || 'Agent LLM call failed' })
       return
@@ -391,8 +453,8 @@ export async function agentFiveStream({ history = [], userMessage = '' } = {}, s
 
     const calls = Array.isArray(parsed.tool_calls) ? parsed.tool_calls : []
 
-    // Emit the assistant's reply for this iteration.
-    if (parsed.reply) {
+    // Send full-text + metadata after each iteration (text already streamed via token_delta).
+    if (parsed.reply || parsed.needs_clarification) {
       send('reply_delta', { text: parsed.reply, iteration: iter, needsClarification: !!parsed.needs_clarification })
     }
 

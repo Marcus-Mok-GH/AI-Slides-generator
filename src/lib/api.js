@@ -510,7 +510,8 @@ export async function streamAgentFive({ history, message }, handlers = {}) {
       if (!data) continue
       let parsed
       try { parsed = JSON.parse(data) } catch { continue }
-      if (event === 'reply_delta') handlers.onReplyDelta?.(parsed)
+      if (event === 'token_delta') handlers.onTokenDelta?.(parsed)
+      else if (event === 'reply_delta') handlers.onReplyDelta?.(parsed)
       else if (event === 'tool_start') handlers.onToolStart?.(parsed)
       else if (event === 'tool_result') handlers.onToolResult?.(parsed)
       else if (event === 'done') handlers.onDone?.(parsed)

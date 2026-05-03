@@ -627,7 +627,6 @@ export default function AgentFive({ chatId: propChatId }) {
     setMessages(nextMessages)
     setBusy(true)
     setCurrentTool(null)
-    setStepLog([])
 
     const pendingId = uid()
     setPending({ id: pendingId, reply: '', tools: {}, needsClarification: false })
@@ -660,12 +659,16 @@ export default function AgentFive({ chatId: propChatId }) {
 
     try {
       await streamAgentFive({ history, message }, {
-        onReplyDelta({ text, iteration, needsClarification }) {
+        onTokenDelta({ text }) {
           setPending((prev) => {
             if (!prev) return prev
-            const sep = prev.reply && iteration > 0 ? '\n\n' : ''
-            return { ...prev, reply: prev.reply + sep + (text ?? ''), needsClarification: !!needsClarification }
+            return { ...prev, reply: (prev.reply ?? '') + (text ?? '') }
           })
+        },
+        onReplyDelta({ needsClarification }) {
+          if (needsClarification) {
+            setPending((prev) => prev ? { ...prev, needsClarification: true } : prev)
+          }
         },
         onToolStart({ id, tool, args }) {
           setPending((prev) => {
