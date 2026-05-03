@@ -19,9 +19,6 @@ import { upsertUser } from './db.js'
  *   SUPABASE_ANON_KEY   - public anon key (safe to ship to the browser too)
  */
 
-// Strip trailing slashes — supabase-js appends `/auth/v1/...` and a double
-// slash on some edge nodes returns a network error (surfaces as "Load
-// failed" in the browser).
 const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/+$/, '')
 const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY || '').trim()
 
@@ -39,9 +36,6 @@ const supabase =
       })
     : null
 
-/**
- * Pull the bearer token off an incoming request.
- */
 function bearerToken(req) {
   const h = req.headers.authorization || req.headers.Authorization
   if (typeof h !== 'string') return null
@@ -49,15 +43,9 @@ function bearerToken(req) {
   return m ? m[1].trim() : null
 }
 
-/**
- * Map a Supabase auth user object to the columns in our `users` table.
- * Pure — no DB I/O. Returns `null` for a missing user.
- */
 function toLocalUser(u) {
   if (!u) return null
   const meta = u.user_metadata || {}
-  // Supabase doesn't split first/last for OAuth sign-ins by default — derive
-  // them from `full_name` / `name` when available.
   const fullName = meta.full_name || meta.name || ''
   const [firstFromFull, ...restFromFull] = fullName.trim().split(/\s+/)
   return {
@@ -72,14 +60,6 @@ function toLocalUser(u) {
   }
 }
 
-/**
- * Mirror a Supabase auth user into our local `users` table. We **await**
- * the upsert (rather than fire-and-forget) so callers can guarantee the
- * row exists before the response goes out — otherwise the very first
- * authenticated request from a brand-new user would race the insert and
- * get back empty data (no credits row, etc.). Errors are still caught so
- * the auth flow never hard-fails because of a DB hiccup.
- */
 async function mirrorUser(u) {
   const user = toLocalUser(u)
   if (!user) return null
@@ -91,10 +71,6 @@ async function mirrorUser(u) {
   return user
 }
 
-/**
- * Resolve the current user from the Bearer token. Caches the result on
- * the request so middleware composition doesn't re-verify.
- */
 async function resolveSession(req) {
   if (req._authResolved) return req._authResult
   req._authResolved = true
@@ -114,22 +90,6 @@ async function resolveSession(req) {
   return req._authResult
 }
 
-/**
- * Wires the public auth routes:
- *   GET  /api/auth/user            — current user (or 401)
- *   POST /api/auth/password/signin — proxy email+password sign-in
- *   POST /api/auth/password/signup — proxy email+password sign-up
- *   POST /api/auth/password/reset  — proxy reset-password email
- *
- * The proxy endpoints exist because some browsers / extensions block
- * direct calls to *.supabase.co. Calling them through our server keeps
- * the browser talking only to the dev origin. The session tokens
- * returned to the client are real Supabase JWTs and can be loaded into
- * supabase-js with `supabase.auth.setSession()`.
- *
- * Google OAuth still happens client-side via `supabase.auth.signInWithOAuth`
- * because it needs a top-level redirect.
- */
 export async function setupAuth(app) {
   app.set('trust proxy', 1)
 
@@ -157,13 +117,8 @@ export async function setupAuth(app) {
           .status(error.status || 400)
           .json({ error: error.message, code: error.code || error.error_code })
       }
-      // Mirror once, await it, and return the result. Calling mirrorUser
-      // twice raced two upserts against the same row.
       const user = await mirrorUser(data.user)
-      res.json({
-        session: data.session,
-        user,
-      })
+      res.json({ session: data.session, user })
     } catch (err) {
       console.error('[auth/signin] proxy error:', err)
       res.status(502).json({ error: err?.message || 'Sign-in failed.' })
@@ -188,11 +143,6 @@ export async function setupAuth(app) {
           .status(error.status || 400)
           .json({ error: error.message, code: error.code || error.error_code })
       }
-      // Supabase quirk: signing up an already-registered email when email
-      // confirmations are ON returns 200 with `data.user.identities = []`
-      // and no session — which our old code surfaced as "Check your email
-      // for a confirmation link". That sent users in circles. Detect it
-      // and return a clear "already registered" error instead.
       const identities = data.user?.identities
       if (
         data.user &&
@@ -205,14 +155,8 @@ export async function setupAuth(app) {
           code: 'user_already_exists',
         })
       }
-      // Only mirror to our local DB once we have a real (non-shadow) user.
-      // Mirror once, await it, so the row exists before /api/credits runs.
       const user = data.user ? await mirrorUser(data.user) : null
-      res.json({
-        session: data.session,
-        user,
-        needsConfirmation: !data.session,
-      })
+      res.json({ session: data.session, user, needsConfirmation: !data.session })
     } catch (err) {
       console.error('[auth/signup] proxy error:', err)
       res.status(502).json({ error: err?.message || 'Sign-up failed.' })
@@ -269,9 +213,6 @@ export async function setupAuth(app) {
   })
 }
 
-/**
- * Express middleware: require a valid Supabase session.
- */
 export const isAuthenticated = async (req, res, next) => {
   const result = await resolveSession(req)
   if (!result) return res.status(401).json({ error: 'Unauthorized' })
@@ -279,7 +220,6 @@ export const isAuthenticated = async (req, res, next) => {
   next()
 }
 
-/** Returns the current user's id, or null if not signed in. */
 export function currentUserId(req) {
   return req.user?.id || req._authResult?.user?.id || null
 }

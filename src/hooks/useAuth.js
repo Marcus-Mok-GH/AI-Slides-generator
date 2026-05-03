@@ -48,9 +48,6 @@ export default function useAuth() {
       ) {
         refresh()
       }
-      // PASSWORD_RECOVERY fires when Supabase processes the reset token from
-      // the email link.  We open the reset modal so the user can set a new
-      // password even if they navigated away from the redirect page.
       if (event === 'PASSWORD_RECOVERY') {
         setPasswordResetOpen(true)
       }
@@ -58,7 +55,6 @@ export default function useAuth() {
     return () => sub?.subscription?.unsubscribe?.()
   }, [refresh])
 
-  // If any API call returns 401 mid-session, clear local user state.
   useEffect(() => {
     function onUnauthorized() {
       setUser(null)
@@ -68,13 +64,6 @@ export default function useAuth() {
       window.removeEventListener('slideai:unauthorized', onUnauthorized)
   }, [])
 
-  // The proxy sign-in/up path writes the session to localStorage directly
-  // (so we never need to call supabase from the browser to validate it) and
-  // dispatches this event. The detail payload carries the user that the
-  // server already verified, so we can flip to "authenticated" instantly
-  // without an extra round-trip — critical because the very first
-  // post-signup `getSession()` call returns stale null until supabase-js
-  // re-reads storage on the next page load.
   useEffect(() => {
     function onAuthChanged(e) {
       const detailUser = e?.detail?.user
@@ -82,7 +71,6 @@ export default function useAuth() {
         setUser(detailUser)
         setLoading(false)
       } else {
-        // Fallback: no user on the event — go ask the server.
         refresh()
       }
     }
@@ -96,10 +84,6 @@ export default function useAuth() {
   const closePasswordReset = useCallback(() => setPasswordResetOpen(false), [])
 
   const signOut = useCallback(async () => {
-    // Try the supabase client's signOut for cleanliness, but don't block on
-    // it — the user's browser may not be able to reach *.supabase.co. The
-    // local part (clearing storage) is what actually logs them out of this
-    // tab, so do it ourselves regardless.
     try {
       const p = supabase.auth.signOut({ scope: 'local' })
       if (p && typeof p.then === 'function') {

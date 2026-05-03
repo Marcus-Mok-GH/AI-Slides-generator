@@ -20,10 +20,6 @@ function notifyUnauthorized() {
   }
 }
 
-/**
- * Build the headers for an authenticated request, attaching the current
- * Supabase access token if there is one.
- */
 async function authHeaders(extra = {}) {
   const token = await getAccessToken()
   const headers = { ...extra }
@@ -82,11 +78,6 @@ export async function redesignSlide({ deck, slideIndex, instruction }) {
   return data.slide
 }
 
-/**
- * Start a background generation job. Returns a jobId immediately.
- * Generation continues on the server even if the browser tab is closed.
- * Use connectToJob(jobId, handlers) to receive events.
- */
 export async function startBackgroundDeck(payload) {
   const headers = await authHeaders({ 'Content-Type': 'application/json' })
   const res = await fetch('/api/generate-deck/background', {
@@ -113,11 +104,6 @@ export async function startBackgroundDeck(payload) {
   return jobId
 }
 
-/**
- * Connect to a running (or completed) background job via SSE.
- * Replays all events emitted since generation started, then streams
- * new events live. Works the same as streamGenerateDeck's handlers.
- */
 export async function connectToJob(jobId, handlers = {}) {
   const headers = await authHeaders({})
   const res = await fetch(`/api/generate-deck/job/${encodeURIComponent(jobId)}`, { headers })
@@ -286,9 +272,6 @@ export async function renameDeck(id, newTitle) {
   return true
 }
 
-/**
- * Fetch the currently signed-in user, or `null` if not authenticated.
- */
 export async function fetchCurrentUser() {
   const token = await getAccessToken()
   if (!token) return null
@@ -298,25 +281,15 @@ export async function fetchCurrentUser() {
   return await res.json()
 }
 
-/**
- * Fetch the signed-in user's credit balance and per-deck price.
- * Returns null if the user is signed out.
- */
 export async function fetchCredits() {
   const token = await getAccessToken()
   if (!token) return null
   const res = await authedGet('/api/credits')
   if (res.status === 401) return null
   if (!res.ok) throw new Error(`Server returned ${res.status}`)
-  return await res.json() // { balanceCents, deckCostCents }
+  return await res.json()
 }
 
-/**
- * Sign in with email + password through our backend proxy. The browser
- * never touches *.supabase.co directly — some networks / extensions
- * block that domain. Once the server returns the session tokens we
- * hand them to supabase-js so the rest of the app behaves as usual.
- */
 export async function signInWithPassword({ email, password }) {
   const res = await fetch('/api/auth/password/signin', {
     method: 'POST',
@@ -337,12 +310,6 @@ export async function signInWithPassword({ email, password }) {
   return data
 }
 
-/**
- * Sign up with email + password through our backend proxy. Returns
- * `{ session, user, needsConfirmation }` — when email confirmation is
- * required, `session` is null and the caller should prompt the user to
- * check their inbox.
- */
 export async function signUpWithPassword({ email, password }) {
   const res = await fetch('/api/auth/password/signup', {
     method: 'POST',
@@ -363,13 +330,6 @@ export async function signUpWithPassword({ email, password }) {
   return data
 }
 
-/**
- * Storage key used by the supabase-js singleton (see src/lib/supabase.js).
- * We write the session here directly so getSession() can read it without
- * making any network call to *.supabase.co — the user's browser blocks
- * that origin, so calling supabase.auth.setSession() (which validates the
- * token by fetching the Supabase REST API) would fail.
- */
 const SUPABASE_STORAGE_KEY = 'slideai-auth'
 
 function decodeJwtExp(token) {
@@ -383,12 +343,6 @@ function decodeJwtExp(token) {
   }
 }
 
-/**
- * Write the session returned by our auth proxy directly to the storage
- * slot supabase-js reads from, then notify the client so any subscribers
- * (the useAuth hook in particular) refresh. No request leaves the browser
- * for *.supabase.co.
- */
 async function persistSessionLocally(session, user) {
   if (!session?.access_token || !session?.refresh_token) return
   const expFromToken = decodeJwtExp(session.access_token)
@@ -421,17 +375,8 @@ async function persistSessionLocally(session, user) {
     return
   }
 
-  // Update the in-memory access-token cache immediately. supabase-js's
-  // `getSession()` won't see our localStorage write until the next page
-  // load, so without this every authenticated request right after
-  // sign-up / sign-in would go out without a Bearer header and 401.
   setCachedAccessToken(storedSession.access_token)
 
-  // Tell anyone listening (the useAuth hook) that there's a new session,
-  // without touching the network. We use a CustomEvent the hook subscribes
-  // to in addition to supabase's onAuthStateChange. We pass `user` on the
-  // detail so the hook can flip to "authenticated" without making a
-  // round-trip to /api/auth/user (which would also need the cache above).
   try {
     window.dispatchEvent(
       new CustomEvent('slideai:auth-changed', {
@@ -443,19 +388,6 @@ async function persistSessionLocally(session, user) {
   }
 }
 
-/**
- * Send a Supabase password-reset email through our backend proxy.
- * Supabase handles the email templating and the reset link which points to
- * the app's origin.  When the user clicks it they are redirected to
- * <origin>/?resetToken=<token> — the ResetPasswordModal reads that token
- * from the URL on mount and submits the new password directly to Supabase.
- */
-/**
- * Send a passwordless "magic link" email through our backend proxy.
- * Supabase emails the user a one-click link that signs them in when
- * clicked. The link returns to the app's origin so the supabase-js
- * client can pick up the session from the URL hash on load.
- */
 export async function signInWithMagicLink(email) {
   const res = await fetch('/api/auth/password/magic', {
     method: 'POST',
@@ -538,16 +470,6 @@ export async function deleteAgentChat(id) {
   })
 }
 
-/**
- * Stream an Agent Five turn over SSE.
- *
- * handlers:
- *   onReplyDelta({ text, iteration, needsClarification })
- *   onToolStart({ id, tool, args })
- *   onToolResult({ id, tool, ok, result?, error? })
- *   onDone({ toolResults })
- *   onError(message)
- */
 export async function streamAgentFive({ history, message }, handlers = {}) {
   const headers = await authHeaders({ 'Content-Type': 'application/json' })
   const res = await fetch('/api/agentfive/stream', {
