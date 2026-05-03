@@ -497,6 +497,7 @@ export default function AgentFive({ chatId: propChatId }) {
   const dragStartX = useRef(0)
   const dragDeltaX = useRef(0)
   const watchdogRef = useRef(null)
+  const inputRef = useRef(null)
 
   function handleDrawerTouchStart(e) {
     const touch = e.touches?.[0]
@@ -571,19 +572,31 @@ export default function AgentFive({ chatId: propChatId }) {
     }
   }, [messages, pending])
 
-  function handleNewChat() {
+  useEffect(() => {
+    if (!chatLoading && !busy) inputRef.current?.focus?.()
+  }, [activeChatId, chatLoading, busy])
+
+  function resetChatState() {
     clearTimeout(watchdogRef.current)
-    navigate('/agentfive')
-    setActiveChatId(null)
-    setMessages([WELCOME_MSG])
     setPending(null)
     setBusy(false)
     setCurrentTool(null)
     setError('')
     setReplyTo(null)
+    setInput('')
+    if (inputRef.current) inputRef.current.style.height = ''
+  }
+
+  function handleNewChat() {
+    resetChatState()
+    navigate('/agentfive')
+    setActiveChatId(null)
+    setMessages([WELCOME_MSG])
   }
 
   function handleSelectChat(id) {
+    if (id === activeChatId) return
+    resetChatState()
     navigate(`/agentfive/${encodeURIComponent(id)}`)
   }
 
@@ -592,9 +605,6 @@ export default function AgentFive({ chatId: propChatId }) {
       await deleteAgentChat(id)
       setChats((prev) => prev.filter((c) => c.id !== id))
       if (id === activeChatId) {
-        clearTimeout(watchdogRef.current)
-        setPending(null)
-        setBusy(false)
         handleNewChat()
       }
     } catch { /* silent */ }
@@ -610,11 +620,19 @@ export default function AgentFive({ chatId: propChatId }) {
     } catch { /* silent */ }
   }
 
+  const handleInputChange = useCallback((e) => {
+    setInput(e.target.value)
+    const el = e.target
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+  }, [])
+
   async function send(text) {
     const message = (text ?? input).trim()
     if (!message || busy) return
     setError('')
     setInput('')
+    if (inputRef.current) inputRef.current.style.height = ''
 
     const replyContent = replyTo?.content ?? ''
     const quotePrefix = replyTo
@@ -862,12 +880,13 @@ export default function AgentFive({ chatId: propChatId }) {
               </div>
             )}
             <textarea
+              ref={inputRef}
               className="af-composer-input"
               placeholder="Tell Agent Five what to build…"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-              rows={2}
+              rows={1}
               disabled={busy || chatLoading}
             />
             <button type="submit" className="af-btn af-btn-primary" disabled={busy || chatLoading || !input.trim()}>

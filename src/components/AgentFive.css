@@ -191,6 +191,7 @@
     font-size: 16px; /* iOS: prevents auto-zoom */
     padding: 12px 14px;
     min-height: 48px;
+    max-height: 160px;
     border-radius: 14px;
   }
   .af-composer .af-btn {
@@ -442,6 +443,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 .af-chat-scroller {
   flex: 1;
@@ -907,8 +909,10 @@
   resize: none;
   outline: none;
   line-height: 1.5;
-  min-height: 44px;
-  max-height: 180px;
+  min-height: 46px;
+  max-height: 200px;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 .af-composer-input:focus {
   border-color: var(--af-primary);
