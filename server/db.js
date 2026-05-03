@@ -481,6 +481,29 @@ export async function getGenerationJob(jobId, userId) {
   return job
 }
 
+/* ---------------- public stats ---------------- */
+
+/**
+ * Total decks ever generated + decks created in the current UTC day.
+ * Both counts are unauthenticated — used by the public landing page counter.
+ * A configurable base offset lets you seed the numbers for new deployments.
+ */
+export async function getPublicStats() {
+  const BASE_TOTAL = parseInt(process.env.STATS_BASE_TOTAL  || '0', 10)
+  const BASE_TODAY = parseInt(process.env.STATS_BASE_TODAY  || '0', 10)
+
+  const { rows } = await pool.query(`
+    SELECT
+      COUNT(*)                                              AS total,
+      COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE)   AS today
+    FROM decks
+  `)
+  return {
+    total: (parseInt(rows[0].total, 10) || 0) + BASE_TOTAL,
+    today: (parseInt(rows[0].today, 10) || 0) + BASE_TODAY,
+  }
+}
+
 export async function pruneGenerationJobs() {
   await pool.query(
     `DELETE FROM generation_jobs

@@ -1,6 +1,63 @@
 import { useEffect, useRef, useState } from 'react'
 import './Landing.css'
 
+/**
+ * Fetches /api/stats once on mount, refreshes every 30 s.
+ * Returns { today, total } — both are null while loading.
+ */
+function useGenerationCount() {
+  const [stats, setStats] = useState({ today: null, total: null })
+
+  useEffect(() => {
+    let alive = true
+    async function load() {
+      try {
+        const res = await fetch('/api/stats')
+        if (!res.ok) return
+        const data = await res.json()
+        if (alive) setStats({ today: data.today ?? 0, total: data.total ?? 0 })
+      } catch { /* silently ignore — counter just won't show */ }
+    }
+    load()
+    const id = setInterval(load, 30_000)
+    return () => { alive = false; clearInterval(id) }
+  }, [])
+
+  return stats
+}
+
+/**
+ * Smoothly counts up from 0 to `target` over ~1.4 s using rAF.
+ * Returns the current display value.
+ */
+function useCountUp(target) {
+  const [value, setValue] = useState(0)
+  const prev = useRef(0)
+
+  useEffect(() => {
+    if (target === null || target === undefined) return
+    const start   = prev.current
+    const end     = target
+    const duration = 1400
+    const startTime = performance.now()
+
+    function tick(now) {
+      const elapsed = now - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3)
+      const current = Math.round(start + (end - start) * eased)
+      setValue(current)
+      if (progress < 1) requestAnimationFrame(tick)
+      else prev.current = end
+    }
+
+    requestAnimationFrame(tick)
+  }, [target])
+
+  return value
+}
+
 const NAV_LINKS = [
   { id: 'products', label: 'Products' },
   { id: 'solutions', label: 'Solutions' },
@@ -288,6 +345,23 @@ function LandingNav({ onSignIn, themeMode = 'system', onCycleTheme }) {
   )
 }
 
+function GenerationCounter() {
+  const { today } = useGenerationCount()
+  const displayed  = useCountUp(today)
+
+  if (today === null) return null
+
+  return (
+    <div className="g-gen-counter" aria-live="polite" aria-atomic="true">
+      <span className="g-gen-dot" aria-hidden />
+      <span className="g-gen-count">
+        {displayed.toLocaleString()}
+      </span>
+      <span className="g-gen-label">decks generated today</span>
+    </div>
+  )
+}
+
 function Hero({ onSignIn }) {
   return (
     <section className="g-hero">
@@ -318,6 +392,7 @@ function Hero({ onSignIn }) {
           <span className="g-stars" aria-hidden>★★★★★</span>
           <span>Loved by 60M+ creators worldwide</span>
         </div>
+        <GenerationCounter />
       </div>
 
       <div className="g-hero-art" aria-hidden>

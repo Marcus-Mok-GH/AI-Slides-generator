@@ -6,6 +6,7 @@ import {
   migrateAgentChats, listAgentChats, getAgentChat, createAgentChat, updateAgentChat, deleteAgentChat,
   getCredits, deductCredits, DECK_GENERATION_CENTS,
   migrateGenerationJobs, createGenerationJob, getGenerationJob,
+  getPublicStats,
 } from './db.js'
 import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
 import { agentFiveTurn, agentFiveStream } from './agentFive.js'
@@ -26,6 +27,26 @@ await setupAuth(app)
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true })
+})
+
+/**
+ * Public stats — no auth required. Used by the landing page counter.
+ * Cached in-process for 60 s to avoid hammering the DB on every page load.
+ */
+let _statsCache = null
+let _statsCacheAt = 0
+app.get('/api/stats', async (_req, res) => {
+  try {
+    const now = Date.now()
+    if (!_statsCache || now - _statsCacheAt > 60_000) {
+      _statsCache = await getPublicStats()
+      _statsCacheAt = now
+    }
+    res.json(_statsCache)
+  } catch (err) {
+    console.error('[stats] error:', err)
+    res.status(500).json({ error: 'stats unavailable' })
+  }
 })
 
 /**
