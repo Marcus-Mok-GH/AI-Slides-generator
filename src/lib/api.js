@@ -466,11 +466,17 @@ export async function getAgentChat(id) {
 
 export async function updateAgentChat(id, { title, messages } = {}) {
   const headers = await authHeaders({ 'Content-Type': 'application/json' })
-  await fetch(`/api/agentfive/chats/${encodeURIComponent(id)}`, {
+  const res = await fetch(`/api/agentfive/chats/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers,
     body: JSON.stringify({ title, messages }),
   })
+  if (res.status === 401) {
+    notifyUnauthorized()
+    throw new UnauthorizedError()
+  }
+  if (!res.ok) throw new Error(`Server returned ${res.status}`)
+  return true
 }
 
 export async function deleteAgentChat(id) {

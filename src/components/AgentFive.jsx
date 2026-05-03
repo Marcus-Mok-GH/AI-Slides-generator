@@ -424,7 +424,15 @@ function CompletedMessage({ m, onReply }) {
 
 /* ─────────────────────── Chat sidebar ───────────────────────────── */
 
-function ChatSidebar({ chats, activeChatId, onNew, onSelect, onDelete }) {
+function ChatSidebar({ chats, activeChatId, onNew, onSelect, onDelete, onRename }) {
+  const [editingId, setEditingId] = useState(null)
+  const [editValue, setEditValue] = useState('')
+  const editInputRef = useRef(null)
+
+  useEffect(() => {
+    if (editingId) editInputRef.current?.focus?.()
+  }, [editingId])
+
   return (
     <aside className="af-chat-sidebar">
       <div className="af-sidebar-head">
@@ -442,7 +450,40 @@ function ChatSidebar({ chats, activeChatId, onNew, onSelect, onDelete }) {
             className={`af-sidebar-item${c.id === activeChatId ? ' af-sidebar-item-active' : ''}`}
             onClick={() => onSelect(c.id)}
           >
-            <div className="af-sidebar-item-title">{c.title || 'Untitled'}</div>
+            {editingId === c.id ? (
+              <input
+                ref={editInputRef}
+                className="af-sidebar-rename"
+                value={editValue}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={(e) => {
+                  e.stopPropagation()
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    onRename?.(c.id, editValue.trim())
+                    setEditingId(null)
+                  }
+                  if (e.key === 'Escape') setEditingId(null)
+                }}
+                onBlur={() => {
+                  if (editValue.trim()) onRename?.(c.id, editValue.trim())
+                  setEditingId(null)
+                }}
+              />
+            ) : (
+              <div
+                className="af-sidebar-item-title"
+                onDoubleClick={(e) => {
+                  e.stopPropagation()
+                  setEditingId(c.id)
+                  setEditValue(c.title || 'Untitled')
+                }}
+                title="Double-click to rename"
+              >
+                {c.title || 'Untitled'}
+              </div>
+            )}
             <button
               type="button"
               className="af-sidebar-delete"
@@ -626,6 +667,14 @@ export default function AgentFive({ chatId: propChatId }) {
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`
   }, [])
+
+  async function handleRenameChat(id, newTitle) {
+    const title = newTitle || 'Untitled'
+    try {
+      await updateAgentChat(id, { title })
+      setChats((prev) => prev.map((c) => (c.id === id ? { ...c, title } : c)))
+    } catch { /* silent */ }
+  }
 
   async function send(text) {
     const message = (text ?? input).trim()
@@ -823,6 +872,7 @@ export default function AgentFive({ chatId: propChatId }) {
               onNew={() => { handleNewChat(); setShowChatDrawer(false) }}
               onSelect={(id) => { handleSelectChat(id); setShowChatDrawer(false) }}
               onDelete={handleDeleteChat}
+              onRename={handleRenameChat}
             />
           </div>
         </div>
@@ -835,6 +885,7 @@ export default function AgentFive({ chatId: propChatId }) {
           onNew={handleNewChat}
           onSelect={handleSelectChat}
           onDelete={handleDeleteChat}
+          onRename={handleRenameChat}
         />
 
         <section className="af-chat">

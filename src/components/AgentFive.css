@@ -410,6 +410,18 @@
   text-overflow: ellipsis;
   color: var(--af-text);
 }
+.af-sidebar-rename {
+  flex: 1;
+  min-width: 0;
+  background: var(--af-card);
+  color: var(--af-text);
+  border: 1px solid var(--af-primary);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  outline: none;
+}
 .af-sidebar-delete {
   flex-shrink: 0;
   opacity: 0;
