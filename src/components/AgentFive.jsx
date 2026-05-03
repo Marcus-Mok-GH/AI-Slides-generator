@@ -12,11 +12,95 @@ import {
 import logo from '../assets/slideai-logo.svg'
 import './AgentFive.css'
 
+/* ─────────────────────── Code block with copy ───────────────────── */
+
+function CodeBlock({ children }) {
+  const preRef = useRef(null)
+  const [copied, setCopied] = useState(null)   // null | 'all' | 'selection'
+  const [hasSel, setHasSel] = useState(false)
+
+  useEffect(() => {
+    function onSelChange() {
+      const sel = window.getSelection()
+      if (!sel || !preRef.current || sel.rangeCount === 0 || !sel.toString().trim()) {
+        setHasSel(false); return
+      }
+      try {
+        setHasSel(sel.getRangeAt(0).intersectsNode(preRef.current))
+      } catch { setHasSel(false) }
+    }
+    document.addEventListener('selectionchange', onSelChange)
+    return () => document.removeEventListener('selectionchange', onSelChange)
+  }, [])
+
+  const lang = (() => {
+    const kids = Array.isArray(children) ? children : [children]
+    for (const c of kids) {
+      const cn = c?.props?.className || ''
+      const m = cn.match(/language-(\w+)/)
+      if (m) return m[1]
+    }
+    return ''
+  })()
+
+  function handleCopy() {
+    const sel = window.getSelection()
+    let text = ''
+    let mode = 'all'
+
+    if (sel && sel.toString().trim() && sel.rangeCount > 0 && preRef.current) {
+      try {
+        if (sel.getRangeAt(0).intersectsNode(preRef.current)) {
+          text = sel.toString(); mode = 'selection'
+        }
+      } catch {}
+    }
+    if (!text) { text = preRef.current?.textContent || ''; mode = 'all' }
+
+    const write = navigator.clipboard?.writeText(text) ?? Promise.reject()
+    write.catch(() => {
+      const ta = Object.assign(document.createElement('textarea'), { value: text })
+      Object.assign(ta.style, { position: 'fixed', opacity: '0' })
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy')
+      document.body.removeChild(ta)
+    })
+    setCopied(mode)
+    setTimeout(() => setCopied(null), 2200)
+  }
+
+  const btnLabel = copied
+    ? (copied === 'selection' ? '✓ Selection' : '✓ Copied')
+    : hasSel ? 'Copy selection' : 'Copy all'
+
+  return (
+    <div className="af-code-block">
+      <div className="af-code-header" onMouseDown={(e) => e.preventDefault()}>
+        <span className="af-code-lang">{lang}</span>
+        <button
+          type="button"
+          className={[
+            'af-code-copy',
+            hasSel  && !copied ? 'af-code-copy-sel'  : '',
+            copied             ? 'af-code-copy-done' : '',
+          ].filter(Boolean).join(' ')}
+          onClick={handleCopy}
+          title={hasSel ? 'Copy selected text' : 'Copy entire code block'}
+        >
+          {btnLabel}
+        </button>
+      </div>
+      <pre className="af-md-pre af-md-pre-inblock" ref={preRef}>
+        {children}
+      </pre>
+    </div>
+  )
+}
+
 /* ─────────────────────── Markdown renderer ──────────────────────── */
 
 const MD_COMPONENTS = {
   a:   ({ node, ...p }) => <a {...p} target="_blank" rel="noreferrer" />,
-  pre: ({ node, ...p }) => <pre className="af-md-pre" {...p} />,
+  pre: ({ node, children }) => <CodeBlock>{children}</CodeBlock>,
   code({ node, className, children, ...p }) {
     return className
       ? <code className={`af-md-code-block ${className}`} {...p}>{children}</code>

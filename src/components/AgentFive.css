@@ -1246,6 +1246,84 @@
 }
 [data-theme='light'] .af-md-code-block { color: #2d3060; }
 
+/* Code block wrapper (with header bar) */
+.af-code-block {
+  margin: 0.6em 0;
+  border-radius: 10px;
+  border: 1px solid var(--af-border);
+  overflow: hidden;
+}
+.af-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px 6px 14px;
+  background: rgba(20, 18, 40, 0.85);
+  border-bottom: 1px solid var(--af-border);
+  user-select: none;
+  gap: 8px;
+}
+[data-theme='light'] .af-code-header {
+  background: rgba(215, 215, 232, 0.9);
+}
+.af-code-lang {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--af-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  font-family: 'Fira Code', 'Cascadia Code', 'Menlo', monospace;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.af-code-copy {
+  appearance: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid rgba(124, 92, 255, 0.28);
+  background: rgba(124, 92, 255, 0.1);
+  color: var(--af-text-dim);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.af-code-copy:hover {
+  background: rgba(124, 92, 255, 0.2);
+  border-color: rgba(124, 92, 255, 0.5);
+  color: var(--af-text);
+}
+/* Active selection inside the block */
+.af-code-copy.af-code-copy-sel {
+  background: rgba(124, 92, 255, 0.22);
+  border-color: rgba(124, 92, 255, 0.6);
+  color: var(--af-primary);
+  animation: af-copy-pulse 1.6s ease-in-out infinite;
+}
+@keyframes af-copy-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(124, 92, 255, 0); }
+  50%       { box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.2); }
+}
+/* Success state */
+.af-code-copy.af-code-copy-done {
+  background: rgba(52, 211, 153, 0.15);
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #34d399;
+  animation: none;
+}
+/* Pre inside the wrapper: no extra margin/border/radius (wrapper handles it) */
+.af-md-pre-inblock {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+}
+
 /* Blockquote (used by swipe-to-reply quote prefix too) */
 .af-md-blockquote {
   border-left: 3px solid var(--af-primary);
