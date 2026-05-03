@@ -93,6 +93,63 @@ const FEATURES = [
   },
 ]
 
+const EXAMPLES = [
+  {
+    id: 'e1',
+    title: 'Investor Pitch — ClimateAI',
+    slides: 12,
+    palette: 'ex-teal',
+    eyebrow: 'Series A · 2026',
+    body: 'Unlock the $4T carbon market with AI-powered monitoring.',
+    rows: [true, true, false],
+  },
+  {
+    id: 'e2',
+    title: 'Q3 Product Roadmap',
+    slides: 8,
+    palette: 'ex-indigo',
+    eyebrow: 'Engineering · Internal',
+    body: 'Shipping faster with AI-assisted code review and auto-deploy.',
+    rows: [true, false, true],
+  },
+  {
+    id: 'e3',
+    title: 'New-Hire Onboarding',
+    slides: 10,
+    palette: 'ex-mint',
+    eyebrow: 'People & Culture',
+    body: 'Everything you need to know on day one and beyond.',
+    rows: [true, true, true],
+  },
+  {
+    id: 'e4',
+    title: 'Brand Identity Guide',
+    slides: 16,
+    palette: 'ex-coral',
+    eyebrow: 'Design · v2.0',
+    body: 'Colors, type, voice, and logo rules for every touchpoint.',
+    rows: [false, true, true],
+  },
+  {
+    id: 'e5',
+    title: 'Marketing Strategy 2026',
+    slides: 14,
+    palette: 'ex-navy',
+    eyebrow: 'Growth · Annual',
+    body: 'From acquisition to retention — the full-funnel playbook.',
+    rows: [true, true, false],
+  },
+  {
+    id: 'e6',
+    title: 'AI in Healthcare',
+    slides: 9,
+    palette: 'ex-slate',
+    eyebrow: 'Research · White-paper',
+    body: 'How large language models are reshaping diagnosis and care.',
+    rows: [false, true, true],
+  },
+]
+
 const FAQS = [
   {
     q: 'How is this different from PowerPoint or Google Slides?',
@@ -117,6 +174,7 @@ export default function Landing({ onSignIn, themeMode = 'system', onCycleTheme }
     <div className="g-landing">
       <LandingNav onSignIn={onSignIn} themeMode={themeMode} onCycleTheme={onCycleTheme} />
       <Hero onSignIn={onSignIn} />
+      <ExamplesStrip onSignIn={onSignIn} />
       <ProductsBand />
       <PromptShowcase onSignIn={onSignIn} />
       <FeaturesGrid />
@@ -296,6 +354,51 @@ function Hero({ onSignIn }) {
           <div className="g-art-eyebrow">Improve writing ✦</div>
           <div className="g-art-mountains" />
         </div>
+      </div>
+    </section>
+  )
+}
+
+function ExamplesStrip({ onSignIn }) {
+  return (
+    <section className="g-examples">
+      <div className="g-examples-head">
+        <div className="g-eyebrow">Made with SlideAI</div>
+        <h2>See what people are building.</h2>
+        <p>Real decks generated from a single prompt — in under 30 seconds.</p>
+      </div>
+      <div className="g-examples-track">
+        {EXAMPLES.map((ex) => (
+          <article key={ex.id} className={`g-ex-card ${ex.palette}`}>
+            <div className="g-ex-thumb" aria-hidden>
+              <div className="g-ex-thumb-eyebrow">{ex.eyebrow}</div>
+              <div className="g-ex-thumb-h">{ex.title}</div>
+              {ex.rows.map((wide, i) => (
+                <div key={i} className={`g-ex-thumb-row ${wide ? '' : 'short'}`} />
+              ))}
+              <div className="g-ex-thumb-bloom" />
+            </div>
+            <div className="g-ex-body">
+              <div className="g-ex-meta">
+                <span className="g-ex-badge">{ex.slides} slides</span>
+              </div>
+              <h3 className="g-ex-title">{ex.title}</h3>
+              <p className="g-ex-desc">{ex.body}</p>
+              <button
+                type="button"
+                className="g-ex-use"
+                onClick={onSignIn}
+              >
+                Use this prompt ↗
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="g-examples-foot">
+        <button type="button" className="g-cta g-cta-primary" onClick={onSignIn}>
+          Generate your own ✦
+        </button>
       </div>
     </section>
   )
