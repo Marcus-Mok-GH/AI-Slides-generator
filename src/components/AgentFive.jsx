@@ -271,10 +271,67 @@ function PendingMessage({ pending }) {
   )
 }
 
+/* ─────────────────────── Swipe-to-reply wrapper ─────────────────── */
+
+function SwipeToReply({ onReply, children }) {
+  const wrapRef = useRef(null)
+  const iconRef = useRef(null)
+  const startX = useRef(0)
+  const deltaX = useRef(0)
+
+  function onTouchStart(e) {
+    startX.current = e.touches[0].clientX
+    deltaX.current = 0
+    if (wrapRef.current) wrapRef.current.style.transition = 'none'
+    if (iconRef.current) iconRef.current.style.transition = 'none'
+  }
+
+  function onTouchMove(e) {
+    const d = e.touches[0].clientX - startX.current
+    if (d > 0) {
+      deltaX.current = Math.min(d, 72)
+      const progress = Math.min(deltaX.current / 52, 1)
+      if (wrapRef.current) wrapRef.current.style.transform = `translateX(${deltaX.current}px)`
+      if (iconRef.current) {
+        iconRef.current.style.opacity = progress
+        iconRef.current.style.transform = `scale(${0.55 + progress * 0.45}) translateY(-50%)`
+      }
+    }
+  }
+
+  function onTouchEnd() {
+    const spring = 'transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1)'
+    const fade   = 'opacity 180ms ease, transform 180ms ease'
+    if (deltaX.current >= 52) {
+      onReply()
+      if (wrapRef.current) { wrapRef.current.style.transition = spring; wrapRef.current.style.transform = 'translateX(0)' }
+      if (iconRef.current) { iconRef.current.style.transition = fade; iconRef.current.style.opacity = '0'; iconRef.current.style.transform = 'scale(0.55) translateY(-50%)' }
+    } else {
+      if (wrapRef.current) { wrapRef.current.style.transition = 'transform 200ms cubic-bezier(0.16,1,0.3,1)'; wrapRef.current.style.transform = 'translateX(0)' }
+      if (iconRef.current) { iconRef.current.style.transition = fade; iconRef.current.style.opacity = '0' }
+    }
+    deltaX.current = 0
+  }
+
+  return (
+    <div className="af-swipe-reply-outer">
+      <span className="af-swipe-reply-icon" ref={iconRef} aria-hidden="true" style={{ opacity: 0 }}>↩</span>
+      <div
+        ref={wrapRef}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 /* ─────────────────────── Completed message ──────────────────────── */
 
-function CompletedMessage({ m }) {
-  return (
+function CompletedMessage({ m, onReply }) {
+  const inner = (
     <div className={`af-msg af-msg-${m.role}`}>
       <div className="af-msg-avatar">{m.role === 'assistant' ? '5' : 'You'}</div>
       <div className="af-msg-bubble">
@@ -290,6 +347,8 @@ function CompletedMessage({ m }) {
       </div>
     </div>
   )
+  if (!onReply || m.id === 'welcome') return inner
+  return <SwipeToReply onReply={onReply}>{inner}</SwipeToReply>
 }
 
 /* ─────────────────────── Chat sidebar ───────────────────────────── */
@@ -346,6 +405,7 @@ export default function AgentFive({ chatId: propChatId }) {
   const [currentTool, setCurrentTool] = useState(null)
   const [stepLog, setStepLog] = useState([])
   const [showChatDrawer, setShowChatDrawer] = useState(false)
+  const [replyTo, setReplyTo] = useState(null)
   const scrollerRef = useRef(null)
   const drawerPanelRef = useRef(null)
   const dragStartX = useRef(0)
@@ -456,7 +516,12 @@ export default function AgentFive({ chatId: propChatId }) {
     setError('')
     setInput('')
 
-    const userMsg = { id: uid(), role: 'user', content: message }
+    const quotePrefix = replyTo
+      ? `> "${replyTo.content.slice(0, 120)}${replyTo.content.length > 120 ? '…' : ''}"\n\n`
+      : ''
+    setReplyTo(null)
+
+    const userMsg = { id: uid(), role: 'user', content: quotePrefix + message }
     const nextMessages = [...messages, userMsg]
     setMessages(nextMessages)
     setBusy(true)
@@ -650,7 +715,9 @@ export default function AgentFive({ chatId: propChatId }) {
             </div>
           ) : (
             <div className="af-chat-scroller" ref={scrollerRef}>
-              {messages.map((m) => <CompletedMessage key={m.id} m={m} />)}
+              {messages.map((m) => (
+                <CompletedMessage key={m.id} m={m} onReply={() => setReplyTo(m)} />
+              ))}
               {pending ? <PendingMessage pending={pending} /> : null}
               {error ? <div className="af-error">{error}</div> : null}
             </div>
@@ -667,6 +734,25 @@ export default function AgentFive({ chatId: propChatId }) {
           ) : null}
 
           <form className="af-composer" onSubmit={(e) => { e.preventDefault(); send() }}>
+            {replyTo && (
+              <div className="af-reply-preview">
+                <div className="af-reply-preview-bar" />
+                <div className="af-reply-preview-body">
+                  <div className="af-reply-preview-who">
+                    {replyTo.role === 'assistant' ? 'Agent Five' : 'You'}
+                  </div>
+                  <div className="af-reply-preview-text">
+                    {replyTo.content.slice(0, 100)}{replyTo.content.length > 100 ? '…' : ''}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="af-reply-preview-close"
+                  aria-label="Cancel reply"
+                  onClick={() => setReplyTo(null)}
+                >✕</button>
+              </div>
+            )}
             <textarea
               className="af-composer-input"
               placeholder="Tell Agent Five what to build…"
