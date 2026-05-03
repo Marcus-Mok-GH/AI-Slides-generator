@@ -359,6 +359,35 @@ function Hero({ onSignIn }) {
   )
 }
 
+function ExCard({ ex, onSignIn }) {
+  return (
+    <article className={`g-ex-card ${ex.palette}`}>
+      <div className="g-ex-thumb" aria-hidden>
+        <div className="g-ex-thumb-eyebrow">{ex.eyebrow}</div>
+        <div className="g-ex-thumb-h">{ex.title}</div>
+        {ex.rows.map((wide, i) => (
+          <div key={i} className={`g-ex-thumb-row ${wide ? '' : 'short'}`} />
+        ))}
+        <div className="g-ex-thumb-bloom" />
+      </div>
+      <div className="g-ex-body">
+        <div className="g-ex-meta">
+          <span className="g-ex-badge">{ex.slides} slides</span>
+        </div>
+        <h3 className="g-ex-title">{ex.title}</h3>
+        <p className="g-ex-desc">{ex.body}</p>
+        <button
+          type="button"
+          className="g-ex-use"
+          onClick={onSignIn}
+        >
+          Use this prompt ↗
+        </button>
+      </div>
+    </article>
+  )
+}
+
 function ExamplesStrip({ onSignIn }) {
   return (
     <section className="g-examples">
@@ -367,34 +396,20 @@ function ExamplesStrip({ onSignIn }) {
         <h2>See what people are building.</h2>
         <p>Real decks generated from a single prompt — in under 30 seconds.</p>
       </div>
-      <div className="g-examples-track">
-        {EXAMPLES.map((ex) => (
-          <article key={ex.id} className={`g-ex-card ${ex.palette}`}>
-            <div className="g-ex-thumb" aria-hidden>
-              <div className="g-ex-thumb-eyebrow">{ex.eyebrow}</div>
-              <div className="g-ex-thumb-h">{ex.title}</div>
-              {ex.rows.map((wide, i) => (
-                <div key={i} className={`g-ex-thumb-row ${wide ? '' : 'short'}`} />
-              ))}
-              <div className="g-ex-thumb-bloom" />
-            </div>
-            <div className="g-ex-body">
-              <div className="g-ex-meta">
-                <span className="g-ex-badge">{ex.slides} slides</span>
-              </div>
-              <h3 className="g-ex-title">{ex.title}</h3>
-              <p className="g-ex-desc">{ex.body}</p>
-              <button
-                type="button"
-                className="g-ex-use"
-                onClick={onSignIn}
-              >
-                Use this prompt ↗
-              </button>
-            </div>
-          </article>
-        ))}
+
+      <div className="g-examples-marquee" aria-label="Example slide decks">
+        <div className="g-examples-belt">
+          {/* first copy */}
+          {EXAMPLES.map((ex) => (
+            <ExCard key={`a-${ex.id}`} ex={ex} onSignIn={onSignIn} />
+          ))}
+          {/* duplicate for seamless loop */}
+          {EXAMPLES.map((ex) => (
+            <ExCard key={`b-${ex.id}`} ex={ex} onSignIn={onSignIn} aria-hidden="true" />
+          ))}
+        </div>
       </div>
+
       <div className="g-examples-foot">
         <button type="button" className="g-cta g-cta-primary" onClick={onSignIn}>
           Generate your own ✦

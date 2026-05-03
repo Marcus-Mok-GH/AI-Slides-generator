@@ -762,18 +762,50 @@
 .g-examples-head h2 { margin-bottom: 12px; }
 .g-examples-head p  { font-size: 17px; color: var(--ink-soft); max-width: 520px; margin: 0 auto; }
 
-.g-examples-track {
+/* Marquee viewport — clips overflow, full bleed */
+.g-examples-marquee {
+  width: 100%;
+  overflow: hidden;
+  /* Fade edges left & right */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+  padding: 12px 0 28px;
+}
+
+/* Belt holds two full copies of the cards side-by-side */
+.g-examples-belt {
   display: flex;
   gap: 24px;
-  padding: 12px 28px 24px;
-  max-width: 1240px;
-  margin: 0 auto;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  width: max-content;
+  animation: g-marquee 38s linear infinite;
 }
-.g-examples-track::-webkit-scrollbar { display: none; }
+
+/* Pause when the user hovers anywhere over the belt */
+.g-examples-marquee:hover .g-examples-belt {
+  animation-play-state: paused;
+}
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .g-examples-belt { animation: none; }
+}
+
+@keyframes g-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
 
 /* Example card */
 .g-ex-card {
