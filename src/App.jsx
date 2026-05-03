@@ -516,6 +516,11 @@ export default function App() {
 
   // Sidebar nav: 'templates' and 'my-deck' are full pages; others scroll to section.
   const handleNavigate = useCallback((id) => {
+    if (id === 'agentfive') {
+      window.history.pushState({}, '', '/agentfive')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+      return
+    }
     setActiveNav(id)
     setCreateStep('prompt') // always reset to prompt step when navigating
     if (id === 'templates' || id === 'my-deck') return // full-page views

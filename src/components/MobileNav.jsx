@@ -1,9 +1,10 @@
 import './MobileNav.css'
 
 const NAV_ITEMS = [
-  { id: 'new',       icon: '✦',  label: 'Create'    },
-  { id: 'my-deck',   icon: '▤',  label: 'My Decks'  },
-  { id: 'templates', icon: '⊞',  label: 'Templates' },
+  { id: 'new',        icon: '✦',  label: 'Create'    },
+  { id: 'my-deck',    icon: '▤',  label: 'My Decks'  },
+  { id: 'templates',  icon: '⊞',  label: 'Templates' },
+  { id: 'agentfive',  icon: '✶',  label: 'Agent Five' },
 ]
 
 export default function MobileNav({ activeNav, onNavigate }) {
