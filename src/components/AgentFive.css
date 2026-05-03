@@ -1404,6 +1404,46 @@
 /* Remove the old plain-text cursor rule (now handled above) */
 .af-msg-streaming::after { content: none; }
 
+/* ── Error boundary crash screen ─────────────────────────────────── */
+.af-crash-screen {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+.af-crash-inner {
+  text-align: center;
+  padding: 40px 28px;
+  max-width: 420px;
+}
+.af-crash-icon {
+  font-size: 44px;
+  opacity: 0.45;
+  margin-bottom: 16px;
+  color: var(--af-error);
+}
+.af-crash-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.af-crash-msg {
+  font-size: 13.5px;
+  color: var(--af-text-dim);
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+/* ── Image result unavailable fallback ───────────────────────────── */
+.af-image-error {
+  padding: 28px 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--af-text-dim);
+  border: 1px dashed var(--af-border);
+  border-radius: 10px;
+  opacity: 0.7;
+}
+
 /* Image artifact */
 .af-image img {
   width: 100%;

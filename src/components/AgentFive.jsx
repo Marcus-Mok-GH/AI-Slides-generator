@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Component, useCallback, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
@@ -11,6 +11,38 @@ import {
 } from '../lib/api.js'
 import logo from '../assets/slideai-logo.svg'
 import './AgentFive.css'
+
+/* ─────────────────────── Error boundary ────────────────────────── */
+
+class AgentFiveBoundary extends Component {
+  constructor(props) { super(props); this.state = { crashed: false, error: null } }
+  static getDerivedStateFromError(err) { return { crashed: true, error: err } }
+  componentDidCatch(err, info) { console.error('[AgentFive] render error', err, info) }
+  render() {
+    if (this.state.crashed) {
+      return (
+        <div className="af-layout af-crash-screen">
+          <div className="af-crash-inner">
+            <div className="af-crash-icon">⚠</div>
+            <div className="af-crash-title">Something went wrong</div>
+            <div className="af-crash-msg">
+              {this.state.error?.message || 'An unexpected error occurred.'}
+            </div>
+            <button
+              type="button"
+              className="af-btn af-btn-primary"
+              style={{ marginTop: 20 }}
+              onClick={() => this.setState({ crashed: false, error: null })}
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 /* ─────────────────────── Code block with copy ───────────────────── */
 
@@ -112,10 +144,11 @@ const MD_COMPONENTS = {
 }
 
 function MarkdownContent({ content, streaming }) {
+  const safe = typeof content === 'string' ? content : String(content ?? '')
   return (
     <div className={`af-msg-text af-md${streaming ? ' af-msg-streaming' : ''}`}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-        {content}
+        {safe}
       </ReactMarkdown>
     </div>
   )
@@ -183,6 +216,7 @@ function ToolChip({ tool, status }) {
 /* ─────────────────────── Result renderers ───────────────────────── */
 
 function SlideResult({ slide }) {
+  if (!slide) return null
   return (
     <div className="af-slide">
       {slide.sectionLabel ? <div className="af-slide-eyebrow">{slide.sectionLabel}</div> : null}
@@ -218,24 +252,28 @@ function SlideResult({ slide }) {
 }
 
 function ImageResult({ result }) {
+  if (!result?.url) {
+    return <div className="af-image-error">Image unavailable</div>
+  }
   return (
     <div className="af-image">
-      <img src={result.url} alt={result.prompt} />
-      <div className="af-image-caption">{result.prompt}</div>
+      <img src={result.url} alt={result.prompt || ''} onError={(e) => { e.currentTarget.style.display = 'none' }} />
+      <div className="af-image-caption">{result.prompt || ''}</div>
     </div>
   )
 }
 
 function SearchResult({ result }) {
+  const items = Array.isArray(result?.results) ? result.results : []
   return (
     <div className="af-search">
-      <div className="af-search-query">Searched: <em>{result.query}</em></div>
+      <div className="af-search-query">Searched: <em>{result?.query || '…'}</em></div>
       <ul className="af-search-results">
-        {result.results.length === 0 ? (
+        {items.length === 0 ? (
           <li className="af-search-empty">No results.</li>
-        ) : result.results.map((r, i) => (
+        ) : items.map((r, i) => (
           <li key={i}>
-            <a href={r.url} target="_blank" rel="noreferrer">{r.title}</a>
+            <a href={r.url} target="_blank" rel="noreferrer">{r.title || r.url}</a>
             {r.snippet ? <p>{r.snippet}</p> : null}
             <span className="af-search-url">{r.url}</span>
           </li>
@@ -391,14 +429,18 @@ function SwipeToReply({ onReply, children }) {
   const deltaX = useRef(0)
 
   function onTouchStart(e) {
-    startX.current = e.touches[0].clientX
+    const touch = e.touches?.[0]
+    if (!touch) return
+    startX.current = touch.clientX
     deltaX.current = 0
     if (wrapRef.current) wrapRef.current.style.transition = 'none'
     if (iconRef.current) iconRef.current.style.transition = 'none'
   }
 
   function onTouchMove(e) {
-    const d = e.touches[0].clientX - startX.current
+    const touch = e.touches?.[0]
+    if (!touch) return
+    const d = touch.clientX - startX.current
     if (d > 0) {
       deltaX.current = Math.min(d, 72)
       const progress = Math.min(deltaX.current / 52, 1)
@@ -521,9 +563,12 @@ export default function AgentFive({ chatId: propChatId }) {
   const drawerPanelRef = useRef(null)
   const dragStartX = useRef(0)
   const dragDeltaX = useRef(0)
+  const watchdogRef = useRef(null)
 
   function handleDrawerTouchStart(e) {
-    dragStartX.current = e.touches[0].clientX
+    const touch = e.touches?.[0]
+    if (!touch) return
+    dragStartX.current = touch.clientX
     dragDeltaX.current = 0
     if (drawerPanelRef.current) {
       drawerPanelRef.current.style.transition = 'none'
@@ -531,7 +576,9 @@ export default function AgentFive({ chatId: propChatId }) {
   }
 
   function handleDrawerTouchMove(e) {
-    const delta = e.touches[0].clientX - dragStartX.current
+    const touch = e.touches?.[0]
+    if (!touch) return
+    const delta = touch.clientX - dragStartX.current
     if (delta < 0) {
       dragDeltaX.current = delta
       if (drawerPanelRef.current) {
@@ -564,6 +611,7 @@ export default function AgentFive({ chatId: propChatId }) {
   }, [])
 
   useEffect(() => { refreshChats() }, [refreshChats])
+  useEffect(() => () => { clearTimeout(watchdogRef.current) }, [])
 
   useEffect(() => {
     const newId = propChatId || null
@@ -591,12 +639,16 @@ export default function AgentFive({ chatId: propChatId }) {
   }, [messages, pending])
 
   function handleNewChat() {
+    clearTimeout(watchdogRef.current)
     navigate('/agentfive')
     setActiveChatId(null)
     setMessages([WELCOME_MSG])
+    setPending(null)
+    setBusy(false)
     setCurrentTool(null)
     setStepLog([])
     setError('')
+    setReplyTo(null)
   }
 
   function handleSelectChat(id) {
@@ -607,7 +659,12 @@ export default function AgentFive({ chatId: propChatId }) {
     try {
       await deleteAgentChat(id)
       setChats((prev) => prev.filter((c) => c.id !== id))
-      if (id === activeChatId) handleNewChat()
+      if (id === activeChatId) {
+        clearTimeout(watchdogRef.current)
+        setPending(null)
+        setBusy(false)
+        handleNewChat()
+      }
     } catch { /* silent */ }
   }
 
@@ -627,8 +684,9 @@ export default function AgentFive({ chatId: propChatId }) {
     setError('')
     setInput('')
 
+    const replyContent = replyTo?.content ?? ''
     const quotePrefix = replyTo
-      ? `> "${replyTo.content.slice(0, 120)}${replyTo.content.length > 120 ? '…' : ''}"\n\n`
+      ? `> "${replyContent.slice(0, 120)}${replyContent.length > 120 ? '…' : ''}"\n\n`
       : ''
     setReplyTo(null)
 
@@ -660,13 +718,21 @@ export default function AgentFive({ chatId: propChatId }) {
       } catch { /* proceed without persistence */ }
     }
 
+    // Watchdog: clears stuck pending/busy if stream silently drops
+    clearTimeout(watchdogRef.current)
+    watchdogRef.current = setTimeout(() => {
+      setPending(null)
+      setBusy(false)
+      setError('Response timed out — please try again.')
+    }, 120_000)
+
     try {
       await streamAgentFive({ history, message }, {
         onReplyDelta({ text, iteration, needsClarification }) {
           setPending((prev) => {
             if (!prev) return prev
             const sep = prev.reply && iteration > 0 ? '\n\n' : ''
-            return { ...prev, reply: prev.reply + sep + text, needsClarification: !!needsClarification }
+            return { ...prev, reply: prev.reply + sep + (text ?? ''), needsClarification: !!needsClarification }
           })
         },
         onToolStart({ id, tool, args }) {
@@ -680,7 +746,7 @@ export default function AgentFive({ chatId: propChatId }) {
         onToolResult(result) {
           setPending((prev) => {
             if (!prev) return prev
-            const existing = prev.tools[result.id] || {}
+            const existing = prev.tools[result?.id] || {}
             return {
               ...prev,
               tools: {
@@ -690,7 +756,7 @@ export default function AgentFive({ chatId: propChatId }) {
             }
           })
           setCurrentTool((prev) => {
-            if (!prev || prev.id !== result.id) return prev
+            if (!prev || prev.id !== result?.id) return prev
             return {
               ...prev,
               status: result.ok ? 'done' : 'failed',
@@ -700,11 +766,12 @@ export default function AgentFive({ chatId: propChatId }) {
           })
           setStepLog((prev) =>
             prev.map((s) =>
-              s.id === result.id ? { ...s, status: result.ok ? 'done' : 'failed' } : s,
+              s.id === result?.id ? { ...s, status: result.ok ? 'done' : 'failed' } : s,
             ),
           )
         },
         onDone() {
+          clearTimeout(watchdogRef.current)
           setPending((prev) => {
             if (!prev) return prev
             const finalMsg = {
@@ -727,12 +794,14 @@ export default function AgentFive({ chatId: propChatId }) {
           setBusy(false)
         },
         onError(errMsg) {
-          setError(errMsg)
+          clearTimeout(watchdogRef.current)
+          setError(typeof errMsg === 'string' ? errMsg : 'Something went wrong.')
           setPending(null)
           setBusy(false)
         },
       })
     } catch (err) {
+      clearTimeout(watchdogRef.current)
       setError(err?.message || 'Something went wrong.')
       setPending(null)
       setBusy(false)
@@ -740,6 +809,7 @@ export default function AgentFive({ chatId: propChatId }) {
   }
 
   return (
+    <AgentFiveBoundary>
     <div className={`af-layout${currentTool?.status === 'running' ? ' af-tool-active' : ''}`}>
       <header className="af-topbar">
         <div className="af-topbar-brand">
@@ -826,8 +896,8 @@ export default function AgentFive({ chatId: propChatId }) {
             </div>
           ) : (
             <div className="af-chat-scroller" ref={scrollerRef}>
-              {messages.map((m) => (
-                <CompletedMessage key={m.id} m={m} onReply={() => setReplyTo(m)} />
+              {messages.filter(Boolean).map((m) => (
+                <CompletedMessage key={m.id ?? Math.random()} m={m} onReply={() => setReplyTo(m)} />
               ))}
               {pending ? <PendingMessage pending={pending} /> : null}
               {error ? <div className="af-error">{error}</div> : null}
@@ -907,5 +977,6 @@ export default function AgentFive({ chatId: propChatId }) {
         </aside>
       </div>
     </div>
+    </AgentFiveBoundary>
   )
 }
