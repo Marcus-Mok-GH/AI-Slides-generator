@@ -461,13 +461,13 @@ export async function agentFiveStream({ history = [], userMessage = '' } = {}, s
     // No tools requested — we're done.
     if (calls.length === 0) break
 
-    // Announce and run tools one at a time (sequential execution).
-    const iterResults = []
+    // Announce all tools immediately, then run them in parallel.
     for (const call of calls) {
       send('tool_start', { id: call.id, tool: call.tool, args: call.args })
-      const result = await runToolCall(call, (r) => { send('tool_result', r) })
-      iterResults.push(result)
     }
+    const iterResults = await Promise.all(
+      calls.map((call) => runToolCall(call, (r) => { send('tool_result', r) }))
+    )
 
     allToolResults.push(...iterResults)
 
