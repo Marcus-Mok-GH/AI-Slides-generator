@@ -410,6 +410,54 @@ function summarizeToolResultsForModel(results) {
   })
 }
 
+/* ─────────────────── Tool feedback prompt builder ─────────────────── */
+
+/**
+ * Builds the system message that feeds tool results back to the model.
+ * When any tool failed, it explicitly names the failure and instructs the
+ * model to retry using a different method or arguments.
+ */
+function buildFeedbackPrompt(results) {
+  const failures = results.filter((r) => !r.ok)
+  const successes = results.filter((r) => r.ok)
+
+  const lines = []
+
+  if (failures.length > 0) {
+    lines.push(
+      `${failures.length} tool call(s) failed. You MUST retry each failed tool using a ` +
+      `different approach — change the query, simplify the arguments, or use an ` +
+      `alternative method to accomplish the same goal. Do NOT give up or skip these steps.`
+    )
+    lines.push('')
+    lines.push('Failed tools:')
+    for (const f of failures) {
+      lines.push(`  • ${f.tool} (id: ${f.id}): ${f.error}`)
+    }
+    lines.push('')
+  }
+
+  if (successes.length > 0) {
+    lines.push('Successful tool results:')
+    lines.push(JSON.stringify(summarizeToolResultsForModel(successes)))
+    lines.push('')
+  }
+
+  if (failures.length > 0) {
+    lines.push(
+      'Retry the failed tools now with revised arguments. ' +
+      'Once all tasks are complete, give your final reply and set tool_calls to [].'
+    )
+  } else {
+    lines.push(
+      'All tools succeeded. If the task is complete, give your final reply and set tool_calls to []. ' +
+      'Otherwise call more tools.'
+    )
+  }
+
+  return lines.join('\n')
+}
+
 /* ─────────────────── Streaming agentic loop ────────────────────────── */
 
 /**
@@ -475,10 +523,7 @@ export async function agentFiveStream({ history = [], userMessage = '' } = {}, s
     msgs.push({ role: 'assistant', content: JSON.stringify(parsed) })
     msgs.push({
       role: 'system',
-      content:
-        'Tool results follow. If the task is not yet complete, call more tools. ' +
-        'Otherwise give your final reply and set tool_calls to [].\n\n' +
-        JSON.stringify(summarizeToolResultsForModel(iterResults)),
+      content: buildFeedbackPrompt(iterResults),
     })
   }
 
