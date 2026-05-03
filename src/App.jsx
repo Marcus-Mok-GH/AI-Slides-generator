@@ -561,7 +561,7 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <>
-        <Landing onSignIn={signIn} />
+        <Landing onSignIn={signIn} themeMode={themeMode} onCycleTheme={cycleTheme} />
         <SignInModal open={signInOpen} onClose={closeSignIn} />
       </>
     )

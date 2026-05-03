@@ -112,10 +112,10 @@ const FAQS = [
   },
 ]
 
-export default function Landing({ onSignIn }) {
+export default function Landing({ onSignIn, themeMode = 'system', onCycleTheme }) {
   return (
     <div className="g-landing">
-      <LandingNav onSignIn={onSignIn} />
+      <LandingNav onSignIn={onSignIn} themeMode={themeMode} onCycleTheme={onCycleTheme} />
       <Hero onSignIn={onSignIn} />
       <ProductsBand />
       <PromptShowcase onSignIn={onSignIn} />
@@ -126,7 +126,10 @@ export default function Landing({ onSignIn }) {
   )
 }
 
-function LandingNav({ onSignIn }) {
+const THEME_ICONS = { light: '☀', dark: '☾', system: '🖥' }
+const THEME_LABELS = { light: 'Light mode', dark: 'Dark mode', system: 'System theme' }
+
+function LandingNav({ onSignIn, themeMode = 'system', onCycleTheme }) {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
 
@@ -170,6 +173,17 @@ function LandingNav({ onSignIn }) {
         </nav>
 
         <div className="g-nav-cta">
+          {onCycleTheme && (
+            <button
+              type="button"
+              className="g-theme-toggle"
+              aria-label={THEME_LABELS[themeMode] + ' — click to switch'}
+              title={THEME_LABELS[themeMode] + ' — click to switch'}
+              onClick={onCycleTheme}
+            >
+              {THEME_ICONS[themeMode]}
+            </button>
+          )}
           <button type="button" className="g-link-btn" onClick={onSignIn}>
             Login
           </button>
@@ -197,6 +211,15 @@ function LandingNav({ onSignIn }) {
               {l.label}
             </button>
           ))}
+          {onCycleTheme && (
+            <button
+              type="button"
+              className="g-nav-mobile-theme"
+              onClick={() => { onCycleTheme(); }}
+            >
+              {THEME_ICONS[themeMode]} {THEME_LABELS[themeMode]}
+            </button>
+          )}
           <button type="button" onClick={onSignIn}>Login</button>
           <button type="button" className="g-cta g-cta-primary" onClick={onSignIn}>
             Start for free
