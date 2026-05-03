@@ -771,34 +771,13 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     if (isStreaming || exportBusy) return
     setExportBusy('pdf')
     try {
-      const { getAccessToken } = await import('../lib/supabase.js')
-      const token = await getAccessToken()
-      const res = await fetch('/api/export/pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      const { exportDeckToPdf } = await import('../lib/exportDeck.js')
+      await exportDeckToPdf(deck, {
+        onProgress: ({ index, total }) => {
+          showToast(`Building PDF ${index + 1}/${total}`)
         },
-        body: JSON.stringify({ deck }),
       })
-      if (!res.ok) {
-        let msg = `Server error ${res.status}`
-        try { msg = (await res.json()).error || msg } catch { /* ignore */ }
-        throw new Error(msg)
-      }
-      const blob = await res.blob()
-      const safeName = (deck.title || 'deck')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '') || 'deck'
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${safeName}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a) }, 200)
-      showToast('PDF downloaded')
+      showToast('PDF exported')
     } catch (err) {
       console.error('[export pdf]', err)
       showToast(`PDF export failed: ${err?.message || 'unknown error'}`)
@@ -812,36 +791,13 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     if (isStreaming || exportBusy) return
     setExportBusy('pptx')
     try {
-      // Generate PPTX server-side to avoid html2canvas / iframe / sandbox
-      // issues that occur when the app is embedded in Replit's preview pane.
-      const { getAccessToken } = await import('../lib/supabase.js')
-      const token = await getAccessToken()
-      const res = await fetch('/api/export/pptx', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      const { exportDeckToPptx } = await import('../lib/exportDeck.js')
+      await exportDeckToPptx(deck, {
+        onProgress: ({ index, total }) => {
+          showToast(`Building PPTX ${index + 1}/${total}`)
         },
-        body: JSON.stringify({ deck }),
       })
-      if (!res.ok) {
-        let msg = `Server error ${res.status}`
-        try { msg = (await res.json()).error || msg } catch { /* ignore */ }
-        throw new Error(msg)
-      }
-      const blob = await res.blob()
-      const safeName = (deck.title || 'deck')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '') || 'deck'
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${safeName}.pptx`
-      document.body.appendChild(a)
-      a.click()
-      setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a) }, 200)
-      showToast('PPTX downloaded — open in Google Slides or PowerPoint')
+      showToast('PPTX exported')
     } catch (err) {
       console.error('[export pptx]', err)
       showToast(`PPTX export failed: ${err?.message || 'unknown error'}`)
