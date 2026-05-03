@@ -417,7 +417,7 @@ function summarizeToolResultsForModel(results) {
  * When any tool failed, it explicitly names the failure and instructs the
  * model to retry using a different method or arguments.
  */
-function buildFeedbackPrompt(results) {
+function buildFeedbackPrompt(results, retryCounts = {}) {
   const failures = results.filter((r) => !r.ok)
   const successes = results.filter((r) => r.ok)
 
@@ -432,7 +432,8 @@ function buildFeedbackPrompt(results) {
     lines.push('')
     lines.push('Failed tools:')
     for (const f of failures) {
-      lines.push(`  • ${f.tool} (id: ${f.id}): ${f.error}`)
+      const retries = retryCounts[f.tool] || 0
+      lines.push(`  • ${f.tool} (id: ${f.id}): ${f.error}${retries >= 2 ? ' — stop retrying this tool and use a different tool/method.' : ''}`)
     }
     lines.push('')
   }
@@ -458,6 +459,19 @@ function buildFeedbackPrompt(results) {
   return lines.join('\n')
 }
 
+function buildRetryState(results, retryCounts) {
+  const next = { ...retryCounts }
+  for (const r of results) {
+    if (!r?.tool) continue
+    if (r.ok) {
+      next[r.tool] = 0
+    } else {
+      next[r.tool] = (next[r.tool] || 0) + 1
+    }
+  }
+  return next
+}
+
 /* ─────────────────── Streaming agentic loop ────────────────────────── */
 
 /**
@@ -479,6 +493,7 @@ export async function agentFiveStream({ history = [], userMessage = '' } = {}, s
   if (userMessage?.trim()) msgs.push({ role: 'user', content: userMessage.trim() })
 
   const allToolResults = []
+  let retryCounts = {}
 
   let prevIterStreamedText = false
 
@@ -518,12 +533,13 @@ export async function agentFiveStream({ history = [], userMessage = '' } = {}, s
     )
 
     allToolResults.push(...iterResults)
+    retryCounts = buildRetryState(iterResults, retryCounts)
 
     // Feed results back for the next iteration.
     msgs.push({ role: 'assistant', content: JSON.stringify(parsed) })
     msgs.push({
       role: 'system',
-      content: buildFeedbackPrompt(iterResults),
+      content: buildFeedbackPrompt(iterResults, retryCounts),
     })
   }
 
