@@ -73,7 +73,7 @@
 
 .template-thumb {
   aspect-ratio: 16 / 10;
-  border-radius: var(--radius-md);
+  border-radius: 18px;
   position: relative;
   overflow: hidden;
   border: 1px solid var(--border);

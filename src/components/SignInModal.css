@@ -19,13 +19,13 @@
 .signin-modal {
   position: relative;
   width: 100%;
-  max-width: 420px;
+  max-width: 408px;
   background: var(--bg, #ffffff);
   color: var(--text, #0f0f1a);
-  border-radius: 18px;
-  padding: 28px 28px 24px;
-  box-shadow: 0 30px 80px rgba(8, 10, 24, 0.35);
-  border: 1px solid rgba(120, 130, 180, 0.18);
+  border-radius: 20px;
+  padding: 26px 26px 22px;
+  box-shadow: 0 24px 64px rgba(8, 10, 24, 0.24);
+  border: 1px solid rgba(120, 130, 180, 0.14);
   animation: signin-pop 200ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 
@@ -82,9 +82,9 @@
   font-weight: 400;
   font-size: 15px;
   padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(120, 130, 180, 0.32);
-  background: rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
+  border: 1px solid rgba(120, 130, 180, 0.24);
+  background: rgba(255, 255, 255, 0.72);
   color: inherit;
   outline: none;
   transition: border-color 120ms;
@@ -115,7 +115,7 @@
 .signin-submit {
   margin-top: 6px;
   padding: 12px 16px;
-  border-radius: 10px;
+  border-radius: 999px;
   border: 0;
   background: linear-gradient(120deg, #7c5cff, #5a8bff);
   color: #fff;

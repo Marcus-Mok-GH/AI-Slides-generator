@@ -1,7 +1,7 @@
 .opts-page {
   max-width: 680px;
   margin: 0 auto;
-  padding: 8px 0 80px;
+  padding: 0 0 72px;
   animation: fadeUp 260ms var(--ease-out-expo, cubic-bezier(0.16,1,0.3,1)) both;
 }
 
@@ -90,7 +90,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 8px;
-  border-radius: 14px;
+  border-radius: 16px;
   border: 2px solid var(--border);
   background: var(--surface);
   cursor: pointer;
@@ -231,7 +231,7 @@
   display: inline-flex;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 999px;
   padding: 3px;
   gap: 2px;
   flex-wrap: wrap;
@@ -312,7 +312,7 @@
 
 .opts-generate-btn {
   padding: 13px 32px;
-  border-radius: 14px;
+  border-radius: 999px;
   border: none;
   background: var(--accent);
   color: white;
