@@ -18,7 +18,7 @@ import {
   loadDeck,
   deleteDeck as deleteDeckApi,
   renameDeck as renameDeckApi,
-  listDecks,
+  loadDecks,
 } from './lib/api.js'
 import useTheme from './lib/useTheme.js'
 import useAuth from './hooks/useAuth.js'
@@ -100,7 +100,7 @@ export default function App() {
 
   const refreshDecks = useCallback(async () => {
     try {
-      const decks = await listDecks()
+      const decks = await loadDecks()
       setSavedDecks(decks)
     } catch (e) {
       // 401s are handled globally via the useAuth hook; ignore here so we

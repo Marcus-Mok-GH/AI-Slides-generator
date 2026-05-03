@@ -272,6 +272,17 @@ export async function renameDeck(id, newTitle) {
   return true
 }
 
+export async function loadDecks() {
+  const res = await authedGet('/api/decks')
+  if (res.status === 401) {
+    notifyUnauthorized()
+    throw new UnauthorizedError()
+  }
+  if (!res.ok) throw new Error(`Server returned ${res.status}`)
+  const data = await res.json()
+  return data.decks
+}
+
 export async function fetchCurrentUser() {
   const token = await getAccessToken()
   if (!token) return null
