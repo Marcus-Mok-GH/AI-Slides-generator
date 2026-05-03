@@ -1162,6 +1162,170 @@
   margin-top: 4px;
 }
 
+/* ── Markdown content inside message bubbles ────────────────────── */
+
+/* Reset: ReactMarkdown wraps everything in <p> by default */
+.af-md > * { margin: 0; }
+.af-md > * + * { margin-top: 0.55em; }
+
+/* Paragraphs */
+.af-md p {
+  line-height: 1.6;
+  font-size: 14.5px;
+}
+
+/* Headings */
+.af-md h1, .af-md h2, .af-md h3 {
+  font-weight: 700;
+  line-height: 1.25;
+  margin-top: 0.85em;
+}
+.af-md h1 { font-size: 18px; }
+.af-md h2 { font-size: 16px; }
+.af-md h3 { font-size: 14.5px; }
+.af-md h1:first-child,
+.af-md h2:first-child,
+.af-md h3:first-child { margin-top: 0; }
+
+/* Lists */
+.af-md ul, .af-md ol {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.af-md li {
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+.af-md li > p { margin: 0; }
+
+/* Task list checkboxes (remark-gfm) */
+.af-md-checkbox {
+  accent-color: var(--af-primary);
+  width: 13px;
+  height: 13px;
+  margin-right: 5px;
+  cursor: default;
+  vertical-align: middle;
+}
+
+/* Inline code */
+.af-md-code-inline {
+  background: rgba(124, 92, 255, 0.14);
+  color: var(--af-primary);
+  border: 1px solid rgba(124, 92, 255, 0.25);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-size: 0.88em;
+  font-family: 'Fira Code', 'Cascadia Code', 'Menlo', monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Fenced code blocks */
+.af-md-pre {
+  background: rgba(10, 10, 22, 0.72);
+  border: 1px solid var(--af-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0.6em 0;
+}
+[data-theme='light'] .af-md-pre {
+  background: rgba(240, 241, 248, 0.9);
+}
+.af-md-code-block {
+  font-family: 'Fira Code', 'Cascadia Code', 'Menlo', monospace;
+  color: #c8d3f5;
+  white-space: pre;
+  display: block;
+}
+[data-theme='light'] .af-md-code-block { color: #2d3060; }
+
+/* Blockquote (used by swipe-to-reply quote prefix too) */
+.af-md-blockquote {
+  border-left: 3px solid var(--af-primary);
+  margin: 0.5em 0;
+  padding: 6px 12px;
+  background: rgba(124, 92, 255, 0.07);
+  border-radius: 0 8px 8px 0;
+  color: var(--af-text-dim);
+  font-style: italic;
+  font-size: 13.5px;
+}
+.af-md-blockquote > p { margin: 0; }
+
+/* Horizontal rule */
+.af-md hr {
+  border: none;
+  border-top: 1px solid var(--af-border);
+  margin: 0.75em 0;
+}
+
+/* Bold / italic */
+.af-md strong { font-weight: 700; color: var(--af-text); }
+.af-md em     { font-style: italic; color: var(--af-text-dim); }
+
+/* Strikethrough (remark-gfm) */
+.af-md del { text-decoration: line-through; opacity: 0.65; }
+
+/* Links */
+.af-md a {
+  color: var(--af-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+.af-md a:hover { opacity: 0.8; }
+
+/* GFM Tables */
+.af-md-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
+  border: 1px solid var(--af-border);
+  margin: 0.6em 0;
+}
+.af-md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.af-md-table th,
+.af-md-table td {
+  padding: 7px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--af-border);
+  white-space: nowrap;
+}
+.af-md-table th {
+  font-weight: 700;
+  background: rgba(124, 92, 255, 0.1);
+  color: var(--af-text);
+}
+.af-md-table tr:last-child td { border-bottom: none; }
+.af-md-table tr:hover td { background: rgba(255, 255, 255, 0.03); }
+
+/* Streaming cursor: only attach after the last inline element */
+.af-md.af-msg-streaming > *:last-child::after {
+  content: '▍';
+  display: inline;
+  animation: af-cursor 0.9s step-end infinite;
+  opacity: 0.7;
+  margin-left: 1px;
+}
+@keyframes af-cursor {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.7; }
+}
+
+/* Remove the old plain-text cursor rule (now handled above) */
+.af-msg-streaming::after { content: none; }
+
 /* Image artifact */
 .af-image img {
   width: 100%;

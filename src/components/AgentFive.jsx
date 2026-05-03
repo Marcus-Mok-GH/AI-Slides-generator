@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   streamAgentFive,
   listAgentChats,
@@ -9,6 +11,31 @@ import {
 } from '../lib/api.js'
 import logo from '../assets/slideai-logo.svg'
 import './AgentFive.css'
+
+/* ─────────────────────── Markdown renderer ──────────────────────── */
+
+const MD_COMPONENTS = {
+  a:   ({ node, ...p }) => <a {...p} target="_blank" rel="noreferrer" />,
+  pre: ({ node, ...p }) => <pre className="af-md-pre" {...p} />,
+  code({ node, className, children, ...p }) {
+    return className
+      ? <code className={`af-md-code-block ${className}`} {...p}>{children}</code>
+      : <code className="af-md-code-inline" {...p}>{children}</code>
+  },
+  blockquote: ({ node, ...p }) => <blockquote className="af-md-blockquote" {...p} />,
+  table:  ({ node, ...p }) => <div className="af-md-table-wrap"><table className="af-md-table" {...p} /></div>,
+  input:  ({ node, ...p }) => <input className="af-md-checkbox" {...p} />,
+}
+
+function MarkdownContent({ content, streaming }) {
+  return (
+    <div className={`af-msg-text af-md${streaming ? ' af-msg-streaming' : ''}`}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+        {content}
+      </ReactMarkdown>
+    </div>
+  )
+}
 
 const STARTER_PROMPTS = [
   'Help me build a 5-slide pitch about a coffee subscription startup.',
@@ -252,7 +279,7 @@ function PendingMessage({ pending }) {
       <div className="af-msg-avatar">5</div>
       <div className="af-msg-bubble">
         {pending.reply ? (
-          <div className="af-msg-text af-msg-streaming">{pending.reply}</div>
+          <MarkdownContent content={pending.reply} streaming />
         ) : (
           <div className="af-msg-thinking">
             <span className="af-dot" /><span className="af-dot" /><span className="af-dot" />
@@ -335,7 +362,7 @@ function CompletedMessage({ m, onReply }) {
     <div className={`af-msg af-msg-${m.role}`}>
       <div className="af-msg-avatar">{m.role === 'assistant' ? '5' : 'You'}</div>
       <div className="af-msg-bubble">
-        <div className="af-msg-text">{m.content}</div>
+        <MarkdownContent content={m.content} />
         {m.toolSummary?.length ? (
           <div className="af-msg-tools">
             {m.toolSummary.map((t, i) => (
