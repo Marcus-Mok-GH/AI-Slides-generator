@@ -347,6 +347,43 @@ export default function AgentFive({ chatId: propChatId }) {
   const [stepLog, setStepLog] = useState([])
   const [showChatDrawer, setShowChatDrawer] = useState(false)
   const scrollerRef = useRef(null)
+  const drawerPanelRef = useRef(null)
+  const dragStartX = useRef(0)
+  const dragDeltaX = useRef(0)
+
+  function handleDrawerTouchStart(e) {
+    dragStartX.current = e.touches[0].clientX
+    dragDeltaX.current = 0
+    if (drawerPanelRef.current) {
+      drawerPanelRef.current.style.transition = 'none'
+    }
+  }
+
+  function handleDrawerTouchMove(e) {
+    const delta = e.touches[0].clientX - dragStartX.current
+    if (delta < 0) {
+      dragDeltaX.current = delta
+      if (drawerPanelRef.current) {
+        drawerPanelRef.current.style.transform = `translateX(${delta}px)`
+      }
+    }
+  }
+
+  function handleDrawerTouchEnd() {
+    const panel = drawerPanelRef.current
+    if (dragDeltaX.current < -60) {
+      if (panel) {
+        panel.style.transition = 'transform 200ms cubic-bezier(0.4, 0, 1, 1)'
+        panel.style.transform = 'translateX(-110%)'
+      }
+      setTimeout(() => setShowChatDrawer(false), 200)
+    } else {
+      if (panel) {
+        panel.style.transition = 'transform 240ms cubic-bezier(0.16, 1, 0.3, 1)'
+        panel.style.transform = 'translateX(0)'
+      }
+    }
+  }
 
   const refreshChats = useCallback(async () => {
     try {
@@ -569,7 +606,13 @@ export default function AgentFive({ chatId: propChatId }) {
             className="af-mobile-drawer-overlay"
             onClick={() => setShowChatDrawer(false)}
           />
-          <div className="af-mobile-drawer-panel">
+          <div
+            className="af-mobile-drawer-panel"
+            ref={drawerPanelRef}
+            onTouchStart={handleDrawerTouchStart}
+            onTouchMove={handleDrawerTouchMove}
+            onTouchEnd={handleDrawerTouchEnd}
+          >
             <div className="af-mobile-drawer-head">
               <span className="af-mobile-drawer-title">Chats</span>
               <button
