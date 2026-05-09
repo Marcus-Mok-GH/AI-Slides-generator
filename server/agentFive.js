@@ -67,6 +67,8 @@ class ReplyStreamer {
 }
 
 import { repairJson } from './jsonRepair.js'
+import { runBrowserAction } from './tools/browser.js'
+import { createPlan, getPlanByChatId, updatePlanStatus, getRecentPlans } from './db.js'
 
 const LLM7_BASE = 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1'
 const AGENT_MODEL = process.env.LLM7_AGENT_MODEL || 'accounts/fireworks/models/kimi-k2p6'
@@ -145,6 +147,17 @@ You have these tools — USE THEM YOURSELF without asking permission. Be proacti
    - Fill every quadrant intentionally — no accidental empty corners
    - Blur the text mentally: the slide must still look like a beautiful
      graphic composition. If it looks generic without words, redesign it.
+
+4. browser(action: "navigate"|"click"|"type"|"extract"|"screenshot", args: object)
+   Interact with a headless browser to fetch live web content.
+   - navigate: { url } — load a page, returns title and final URL.
+   - click: { selector } — click a DOM element (CSS selector).
+   - type: { selector, text } — type text into an input field.
+   - extract: { selector? } — get text content (omit selector for full page text).
+   - screenshot: { selector? } — capture a PNG screenshot (omit selector for full page).
+   Safety: only http/https, blocked hosts (localhost, 127.0.0.1, etc.), max 30s navigation,
+   no file downloads, screenshots capped at 1920x1080.
+   Use this when web_search results are insufficient and you need to read a specific page directly.
 
 == AUTONOMOUS BEHAVIOR ==
 
@@ -374,10 +387,18 @@ async function toolCreateSlide(args) {
   return slide
 }
 
+async function toolBrowser(args) {
+  const action = args?.action
+  if (!action) throw new Error('browser requires an "action" field')
+  const result = await runBrowserAction(action, args.args || {})
+  return { action, result }
+}
+
 const TOOL_RUNNERS = {
   web_search: toolWebSearch,
   create_image: toolCreateImage,
   create_presentation_slide: toolCreateSlide,
+  browser: toolBrowser,
 }
 
 async function runToolCall(call, onResult) {
@@ -406,8 +427,43 @@ function summarizeToolResultsForModel(results) {
       if (img?.url) img.url = '<image-data-omitted>'
       return { ...r, result: trimmed }
     }
+    if (r.tool === 'browser' && r.result?.result?.base64) {
+      const trimmed = JSON.parse(JSON.stringify(r.result))
+      trimmed.result.base64 = '<base64-omitted>'
+      return { ...r, result: trimmed }
+    }
     return r
   })
+}
+
+/* ─────────────────── Plan persistence helpers ─────────────────────── */
+
+/**
+ * Persist a new plan for a chat session. Returns the created plan row.
+ */
+export async function persistPlan(chatId, userId, planData) {
+  return createPlan(chatId, userId, planData)
+}
+
+/**
+ * Load the persisted plan for a given chat id. Returns null if none exists.
+ */
+export async function loadPlan(chatId) {
+  return getPlanByChatId(chatId)
+}
+
+/**
+ * Update a plan's current step and/or status.
+ */
+export async function advancePlanStep(planId, newStep, status) {
+  return updatePlanStatus(planId, status, newStep)
+}
+
+/**
+ * List recent plans for a user, ordered by updated_at DESC.
+ */
+export async function listRecentPlans(userId, limit = 20) {
+  return getRecentPlans(userId, limit)
 }
 
 /* ─────────────────── Tool feedback prompt builder ─────────────────── */

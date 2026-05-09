@@ -104,6 +104,7 @@ export async function migrate() {
     `CREATE INDEX IF NOT EXISTS idx_decks_user_id_updated_at
      ON decks (user_id, updated_at DESC);`,
   )
+  await migrateAgentPlans()
 }
 
 /* ---------------- users ---------------- */
@@ -359,70 +360,81 @@ export async function migrateAgentChats() {
   )
 }
 
-export async function listAgentChats(userId, limit = 40) {
+/* ---------------- agent_plans ---------------- */
+
+export async function migrateAgentPlans() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS agent_plans (
+      id           VARCHAR PRIMARY KEY,
+      chat_id      VARCHAR NOT NULL,
+      user_id      VARCHAR NOT NULL,
+      plan_data    JSONB NOT NULL DEFAULT '{}',
+      current_step INTEGER NOT NULL DEFAULT 0,
+      status       VARCHAR NOT NULL DEFAULT 'planning',
+      created_at   TIMESTAMP DEFAULT NOW(),
+      updated_at   TIMESTAMP DEFAULT NOW()
+    );
+  `)
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_agent_plans_user_updated
+     ON agent_plans (user_id, updated_at DESC);`,
+  )
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_agent_plans_chat_id
+     ON agent_plans (chat_id);`,
+  )
+}
+
+export async function createPlan(chatId, userId, planData) {
+  if (!chatId) throw new Error('createPlan requires chatId')
+  if (!userId) throw new Error('createPlan requires userId')
+  const id = await generateId()
+  const { rows } = await pool.query(
+    `INSERT INTO agent_plans (id, chat_id, user_id, plan_data, current_step, status)
+     VALUES ($1, $2, $3, $4::jsonb, 0, 'planning')
+     RETURNING id, chat_id, user_id, plan_data, current_step, status, created_at, updated_at`,
+    [id, chatId, userId, JSON.stringify(planData || {})],
+  )
+  return rows[0]
+}
+
+export async function getPlanByChatId(chatId) {
+  if (!chatId) return null
+  const { rows } = await pool.query(
+    `SELECT id, chat_id, user_id, plan_data, current_step, status, created_at, updated_at
+     FROM agent_plans
+     WHERE chat_id = $1`,
+    [chatId],
+  )
+  if (!rows.length) return null
+  return rows[0]
+}
+
+export async function updatePlanStatus(planId, status, currentStep) {
+  if (!planId) return
+  const sets = []
+  const vals = [planId]
+  if (status !== undefined) { sets.push(`status = $${vals.length + 1}`); vals.push(status) }
+  if (currentStep !== undefined) { sets.push(`current_step = $${vals.length + 1}`); vals.push(currentStep) }
+  sets.push('updated_at = NOW()')
+  if (sets.length === 1) return
+  await pool.query(
+    `UPDATE agent_plans SET ${sets.join(', ')} WHERE id = $1`,
+    vals,
+  )
+}
+
+export async function getRecentPlans(userId, limit = 20) {
   if (!userId) return []
   const { rows } = await pool.query(
-    `SELECT id, title, created_at, updated_at
-     FROM agent_chats
+    `SELECT id, chat_id, user_id, plan_data, current_step, status, created_at, updated_at
+     FROM agent_plans
      WHERE user_id = $1
      ORDER BY updated_at DESC
      LIMIT $2`,
     [userId, limit],
   )
-  return rows.map((r) => ({
-    id: r.id,
-    title: r.title,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
-  }))
-}
-
-export async function getAgentChat(id, userId) {
-  if (!userId) return null
-  const { rows } = await pool.query(
-    `SELECT id, title, messages, created_at, updated_at
-     FROM agent_chats
-     WHERE id = $1 AND user_id = $2`,
-    [id, userId],
-  )
-  if (!rows.length) return null
-  return {
-    id: rows[0].id,
-    title: rows[0].title,
-    messages: rows[0].messages || [],
-    createdAt: rows[0].created_at,
-    updatedAt: rows[0].updated_at,
-  }
-}
-
-export async function createAgentChat(userId, title, messages = []) {
-  if (!userId) throw new Error('createAgentChat requires userId')
-  const id = await generateId()
-  await pool.query(
-    `INSERT INTO agent_chats (id, user_id, title, messages)
-     VALUES ($1, $2, $3, $4::jsonb)`,
-    [id, userId, title || 'New chat', JSON.stringify(messages)],
-  )
-  return id
-}
-
-export async function updateAgentChat(id, userId, { title, messages } = {}) {
-  if (!userId) return
-  const sets = []
-  const vals = [id, userId]
-  if (title !== undefined) { sets.push(`title = $${vals.length + 1}`); vals.push(title) }
-  if (messages !== undefined) { sets.push(`messages = $${vals.length + 1}::jsonb`); vals.push(JSON.stringify(messages)) }
-  sets.push('updated_at = NOW()')
-  if (sets.length === 1) return
-  await pool.query(
-    `UPDATE agent_chats SET ${sets.join(', ')} WHERE id = $1 AND user_id = $2`,
-    vals,
-  )
-}
-
-export async function deleteAgentChat(id, userId) {
-  if (!userId) return
-  await pool.query(`DELETE FROM agent_chats WHERE id = $1 AND user_id = $2`, [id, userId])
+  return rows
 }
 
 /* ---------------- generation_jobs ---------------- */
