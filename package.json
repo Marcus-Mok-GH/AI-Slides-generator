@@ -1,0 +1,17 @@
+{
+  "name": "ai-slides-generator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node server/tools/planner.test.js",
+    "build": "node -e \"console.log('Build OK')\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "firecrawl": "^4.22.2"
+  }
+}
