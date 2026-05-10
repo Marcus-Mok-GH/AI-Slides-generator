@@ -1,5 +1,5 @@
 /**
- * API client — fully public, no auth.
+ * API client — VDP auth aware.
  */
 
 export class UnauthorizedError extends Error {
@@ -10,10 +10,35 @@ export class UnauthorizedError extends Error {
   }
 }
 
+function getAuthToken() {
+  // Supabase stores session in localStorage under keys like:
+  // sb-<project-ref>-auth-token
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.endsWith('-auth-token')) {
+        const raw = localStorage.getItem(key)
+        if (!raw) continue
+        const parsed = JSON.parse(raw)
+        if (parsed && parsed.access_token) {
+          return parsed.access_token
+        }
+      }
+    }
+  } catch {}
+  return null
+}
+
+function authHeaders() {
+  const token = getAuthToken()
+  if (!token) return {}
+  return { Authorization: `Bearer ${token}` }
+}
+
 async function postJson(url, body) {
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(body),
   })
   let data = null
@@ -29,7 +54,7 @@ async function postJson(url, body) {
 }
 
 async function get(url) {
-  return fetch(url)
+  return fetch(url, { headers: authHeaders() })
 }
 
 export async function generateDeck(payload) {
@@ -58,7 +83,7 @@ export async function redesignSlide({ deck, slideIndex, instruction }) {
 export async function startBackgroundDeck(payload) {
   const res = await fetch('/api/generate-deck/background', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(payload),
   })
   if (res.status === 402) {
@@ -126,7 +151,7 @@ export async function connectToJob(jobId, handlers = {}) {
 export async function streamGenerateDeck(payload, handlers = {}) {
   const res = await fetch('/api/generate-deck/stream', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(payload),
   })
   if (!res.ok || !res.body) {
@@ -206,7 +231,7 @@ export async function deleteDeck(id) {
 export async function renameDeck(id, newTitle) {
   const res = await fetch(`/api/decks/${encodeURIComponent(id)}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ title: newTitle }),
   })
   if (!res.ok) throw new Error(`Server returned ${res.status}`)
@@ -221,11 +246,25 @@ export async function loadDecks() {
 }
 
 export async function fetchCurrentUser() {
-  return null
+  try {
+    const res = await fetch('/api/auth/user', { headers: authHeaders() })
+    if (res.status === 401) return null
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
 }
 
 export async function fetchCredits() {
-  return null
+  try {
+    const res = await fetch('/api/credits', { headers: authHeaders() })
+    if (res.status === 401) return null
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
 }
 
 export async function agentFiveChat({ history, message }) {
@@ -254,7 +293,7 @@ export async function getAgentChat(id) {
 export async function updateAgentChat(id, { title, messages } = {}) {
   const res = await fetch(`/api/agentfive/chats/${encodeURIComponent(id)}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ title, messages }),
   })
   if (!res.ok) throw new Error(`Server returned ${res.status}`)
@@ -270,7 +309,7 @@ export async function deleteAgentChat(id) {
 export async function streamAgentFive({ history, message }, handlers = {}) {
   const res = await fetch('/api/agentfive/stream', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ history, message }),
   })
   if (!res.ok || !res.body) {

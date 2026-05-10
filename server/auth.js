@@ -99,6 +99,20 @@ export async function setupAuth(app) {
     res.json(result.user)
   })
 
+  app.get('/api/auth/me', async (req, res) => {
+    const result = await resolveSession(req)
+    if (!result) return res.status(401).json({ error: 'Unauthorized' })
+    res.json(result.user)
+  })
+
+  app.post('/api/auth/logout', async (_req, res) => {
+    res.json({ ok: true })
+  })
+
+  app.get('/api/auth/login', async (_req, res) => {
+    res.redirect('/')
+  })
+
   app.post('/api/auth/password/signin', async (req, res) => {
     if (!supabase) {
       return res.status(500).json({ error: 'Auth is not configured.' })

@@ -9,6 +9,7 @@ import MyDecksPage from './components/MyDecksPage.jsx'
 import RecentGallery from './components/RecentGallery.jsx'
 import SlideViewer from './components/SlideViewer.jsx'
 import AgentFive from './components/AgentFive.jsx'
+import Landing from './components/Landing.jsx'
 import {
   startBackgroundDeck,
   connectToJob,
@@ -18,6 +19,7 @@ import {
   deleteDeck as deleteDeckApi,
   renameDeck as renameDeckApi,
   loadDecks,
+  fetchCurrentUser,
 } from './lib/api.js'
 import useTheme from './lib/useTheme.js'
 import MobileNav from './components/MobileNav.jsx'
@@ -59,10 +61,10 @@ function deckIdFromLocation() {
 
 export default function App() {
   const [deck, setDeck] = useState(null)
-  const [status, setStatus] = useState('idle') // idle | streaming | error
+  const [status, setStatus] = useState('idle')
   const [error, setError] = useState('')
   const [savedDecks, setSavedDecks] = useState([])
-  const [savingState, setSavingState] = useState('idle') // idle | saving | saved | error
+  const [savingState, setSavingState] = useState('idle')
   const [searchQuery, setSearchQuery] = useState('')
   const [activeNav, setActiveNav] = useState('new')
   const [createStep, setCreateStep] = useState('prompt') // 'prompt' | 'options'
@@ -81,6 +83,10 @@ export default function App() {
   const saveTimer = useRef(null)
   const heroRef = useRef(null)
 
+  // Auth state
+  const [user, setUser] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
+
   const refreshDecks = useCallback(async () => {
     try {
       const decks = await loadDecks()
@@ -90,23 +96,37 @@ export default function App() {
     }
   }, [])
 
-  // Load decks on mount.
+  // Fetch auth state on mount
   useEffect(() => {
-    refreshDecks()
-  }, [refreshDecks])
+    let cancelled = false
+    async function checkAuth() {
+      try {
+        const u = await fetchCurrentUser()
+        if (!cancelled) setUser(u)
+      } catch (e) {
+        console.warn('Auth check failed:', e)
+      } finally {
+        if (!cancelled) setAuthLoading(false)
+      }
+    }
+    checkAuth()
+    return () => { cancelled = true }
+  }, [])
 
-  // Resume any background generation job that was running when the tab
-  // was closed. We check localStorage on mount, but only act when we're
-  // not already streaming something.
+  // Load decks only when authenticated
   useEffect(() => {
-    if (status === 'streaming') return
+    if (user) refreshDecks()
+  }, [user, refreshDecks])
+
+  // Resume background jobs only when authenticated
+  useEffect(() => {
+    if (!user || status === 'streaming') return
     let saved = null
     try { saved = JSON.parse(localStorage.getItem('slideai:activeJob') || 'null') } catch {}
     if (!saved?.jobId) return
 
     const { jobId, deckId, expectedCount, userTheme, prompt } = saved
 
-    // Show the viewer with a stub so the user isn't left on a blank screen.
     setDeck({
       id: deckId || jobId,
       title: 'Resuming…',
@@ -125,11 +145,8 @@ export default function App() {
         setStatus('idle')
         setDeck(null)
       })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [user])
 
-  // Keep `currentPath` in sync with browser back/forward and any
-  // pushState navigations (which we accompany with a `popstate` event).
   useEffect(() => {
     if (typeof window === 'undefined') return
     const sync = () => setCurrentPath(window.location.pathname)
@@ -137,13 +154,9 @@ export default function App() {
     return () => window.removeEventListener('popstate', sync)
   }, [])
 
-  // ---------- URL routing ----------
-  // Each deck lives at /app/slide/{id}. Loading that URL directly opens the
-  // deck; closing the deck returns the URL to "/app". Browser back/forward
-  // also work.
-
-  // Honor the URL on first paint and whenever the user hits back/forward.
+  // URL routing — only when authenticated
   useEffect(() => {
+    if (!user) return
     let cancelled = false
 
     const syncFromUrl = async () => {
@@ -153,7 +166,6 @@ export default function App() {
         setRouteLoading(false)
         return
       }
-      // If the same deck is already open, do nothing.
       if (deck?.id === id) {
         setRouteLoading(false)
         return
@@ -197,7 +209,7 @@ export default function App() {
     // We intentionally read the freshest `deck.id` inside the effect, so this
     // doesn't need to re-run on every deck change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [user])
 
   // Whenever the open deck's id changes (newly generated, opened from gallery,
   // or closed), reflect that in the URL bar. We hold off while routeLoading is
@@ -443,6 +455,49 @@ export default function App() {
     )
   }, [savedDecks, searchQuery])
 
+  // Auth handlers
+  const handleSignIn = useCallback(() => {
+    // Store intended destination so we can return after auth
+    try {
+      localStorage.setItem('slideai:returnTo', window.location.pathname + window.location.search)
+    } catch {}
+    // Navigate to the auth login page — for Supabase/VDP we redirect to /api/auth/login
+    // or let the landing handle it. For now we use a simple redirect.
+    window.location.href = '/api/auth/login'
+  }, [])
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch {}
+    setUser(null)
+    setSavedDecks([])
+    setDeck(null)
+    window.history.pushState({}, '', '/')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, [])
+
+  // Show loading spinner while checking auth
+  if (authLoading) {
+    return (
+      <div className="route-loading">
+        <div className="route-loading-spinner" aria-hidden />
+        <div className="route-loading-text">Checking authentication…</div>
+      </div>
+    )
+  }
+
+  // Not authenticated — show landing page
+  if (!user) {
+    return (
+      <Landing
+        onSignIn={handleSignIn}
+        themeMode={themeMode}
+        onCycleTheme={cycleTheme}
+      />
+    )
+  }
+
   // Agent Five lives at /agentfive and /agentfive/[chatId]
   if (currentPath.startsWith('/agentfive')) {
     const chatIdMatch = currentPath.match(/^\/agentfive\/([^/?#]+)/)
@@ -487,6 +542,8 @@ export default function App() {
           onSearchChange={setSearchQuery}
           themeMode={themeMode}
           onCycleTheme={cycleTheme}
+          user={user}
+          onSignOut={handleSignOut}
         />
         {activeNav === 'templates' ? (
           <div className="content">
