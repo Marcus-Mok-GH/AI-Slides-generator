@@ -188,17 +188,21 @@ export default function TopBar({
                   ) : null}
                 </div>
               </div>
-              <div className="tb-pop-divider" />
-              <button
-                type="button"
-                className="tb-pop-item"
-                onClick={() => {
-                  setOpenMenu(null)
-                  onSignOut?.()
-                }}
-              >
-                Sign out
-              </button>
+              {onSignOut ? (
+                <>
+                  <div className="tb-pop-divider" />
+                  <button
+                    type="button"
+                    className="tb-pop-item"
+                    onClick={() => {
+                      setOpenMenu(null)
+                      onSignOut()
+                    }}
+                  >
+                    Sign out
+                  </button>
+                </>
+              ) : null}
             </div>
           )}
         </div>

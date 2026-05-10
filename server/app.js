@@ -13,9 +13,12 @@ import { agentFiveTurn, agentFiveStream } from './agentFive.js'
 import { buildPptxBuffer } from './exportPptx.js'
 import { buildPdfBuffer } from './exportPdf.js'
 import { runGenerationJob } from './jobRunner.js'
+import { readVDPHeaders, trustVDPHeaders } from './middleware/auth.js'
+import authRouter from './routes/auth.js'
 
 const app = express()
 app.use(express.json({ limit: '50mb' }))
+app.use(readVDPHeaders)
 
 // Run schema migrations BEFORE any route registration. On
 // Vercel this runs once per cold-start; locally it runs once at boot.
@@ -64,12 +67,24 @@ app.get('/api/stats', async (_req, res) => {
   }
 })
 
+app.use('/api', trustVDPHeaders)
+app.use('/api/auth', authRouter)
+
 /**
  * Current user's credit balance plus the per-deck price the client should
  * surface. Used by the TopBar pill and the out-of-credits banner.
  */
-app.get('/api/credits', async (_req, res) => {
-  res.json({ balanceCents: 0, deckCostCents: 0 })
+app.get('/api/credits', async (req, res) => {
+  try {
+    const balanceCents = await getCredits(req.user.id)
+    res.json({ balanceCents, deckCostCents: DECK_GENERATION_CENTS })
+  } catch (err) {
+    console.error('[credits] error:', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable' })
+    }
+    res.status(500).json({ error: 'Failed to load credits' })
+  }
 })
 
 /**
@@ -150,6 +165,16 @@ app.post('/api/generate-deck', async (req, res) => {
       return res.status(400).json({ error: 'Missing "prompt"' })
     }
 
+    const balance = await getCredits(req.user.id)
+    if (balance < DECK_GENERATION_CENTS) {
+      return res.status(402).json({
+        error: 'Insufficient credits',
+        code: 'insufficient_credits',
+        balanceCents: balance,
+        deckCostCents: DECK_GENERATION_CENTS,
+      })
+    }
+
     const deck = await generateDeck({
       prompt: prompt.trim(),
       format,
@@ -159,7 +184,13 @@ app.post('/api/generate-deck', async (req, res) => {
       mode,
     })
 
-    res.json({ deck })
+    const balanceCents = await deductCredits(req.user.id, DECK_GENERATION_CENTS)
+
+    res.json({
+      deck,
+      balanceCents,
+      deckCostCents: DECK_GENERATION_CENTS,
+    })
   } catch (err) {
     console.error('[generate-deck] error:', err)
     res.status(500).json({
@@ -195,7 +226,18 @@ app.post('/api/generate-deck/background', async (req, res) => {
 
   const jobId = (typeof deckId === 'string' && deckId.trim()) ? deckId.trim() : crypto.randomUUID()
   try {
-    await createGenerationJob(jobId, 'public')
+    const balance = await getCredits(req.user.id)
+    if (balance < DECK_GENERATION_CENTS) {
+      return res.status(402).json({
+        error: 'Insufficient credits',
+        code: 'insufficient_credits',
+        balanceCents: balance,
+        deckCostCents: DECK_GENERATION_CENTS,
+      })
+    }
+
+    await createGenerationJob(jobId, req.user.id)
+    await savePromptHistory(req.user.id, prompt.trim(), format)
   } catch (err) {
     if (isDbError(err)) {
       return res.status(503).json({ error: 'Database unavailable. Generation jobs require a database.' })
@@ -211,7 +253,7 @@ app.post('/api/generate-deck/background', async (req, res) => {
   }
 
   // Fire off generation WITHOUT awaiting — it runs as a background task
-  runGenerationJob(jobId, ctx, 'public', 0)
+  runGenerationJob(jobId, ctx, req.user.id, await getCredits(req.user.id).catch(() => 0))
     .catch((err) => console.error('[background-gen] unhandled error:', err))
 
   res.json({ jobId })
@@ -229,7 +271,7 @@ app.get('/api/generate-deck/job/:jobId', async (req, res) => {
 
   let job
   try {
-    job = await getGenerationJob(jobId, 'public')
+    job = await getGenerationJob(jobId, req.user.id)
   } catch (e) {
     if (isDbError(e)) {
       return res.status(503).json({ error: 'Database unavailable' })
@@ -275,7 +317,7 @@ app.get('/api/generate-deck/job/:jobId', async (req, res) => {
   const poll = async () => {
     if (closed) { clearInterval(ping); return }
     try {
-      const updated = await getGenerationJob(jobId, 'public')
+      const updated = await getGenerationJob(jobId, req.user.id)
       if (!updated) { clearInterval(ping); return res.end() }
 
       flush(updated.events || [])
@@ -333,6 +375,17 @@ app.post('/api/generate-deck/stream', async (req, res) => {
       return res.end()
     }
 
+    const balance = await getCredits(req.user.id)
+    if (balance < DECK_GENERATION_CENTS) {
+      send('error', {
+        error: 'Insufficient credits',
+        code: 'insufficient_credits',
+        balanceCents: balance,
+        deckCostCents: DECK_GENERATION_CENTS,
+      })
+      return res.end()
+    }
+
     const ctx = {
       prompt: prompt.trim(),
       format,
@@ -370,7 +423,7 @@ app.post('/api/generate-deck/stream', async (req, res) => {
       deck.id = deckId.trim()
     }
     try {
-      const saved = await saveDeck(deck, 'public')
+      const saved = await saveDeck(deck, req.user.id)
       deck.id = saved.id
       deck.updatedAt = saved.updatedAt
     } catch (e) {
@@ -379,6 +432,15 @@ app.post('/api/generate-deck/stream', async (req, res) => {
       } else {
         console.warn('[stream] failed to persist deck:', e?.message)
       }
+    }
+
+    let balanceCents = balance
+    try {
+      balanceCents = await deductCredits(req.user.id, DECK_GENERATION_CENTS)
+      await savePromptHistory(req.user.id, prompt.trim(), format)
+      send('credits', { balanceCents, deckCostCents: DECK_GENERATION_CENTS })
+    } catch (e) {
+      console.warn('[stream] credit deduction failed:', e?.message)
     }
 
     send('done', { deck })
@@ -394,17 +456,35 @@ app.post('/api/generate-deck/stream', async (req, res) => {
 
 /* ---------------- Prompt history routes ---------------- */
 
-app.get('/api/prompt-history', async (_req, res) => {
-  res.json({ history: [] })
-})
-
-app.delete('/api/prompt-history/:id', async (_req, res) => {
-  res.json({ ok: true })
-})
-
-app.get('/api/decks', async (_req, res) => {
+app.get('/api/prompt-history', async (req, res) => {
   try {
-    const decks = await listDecks('public')
+    const history = await getPromptHistory(req.user.id)
+    res.json({ history })
+  } catch (err) {
+    console.error('[prompt-history] error:', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable', history: [] })
+    }
+    res.status(500).json({ error: 'Failed to load prompt history' })
+  }
+})
+
+app.delete('/api/prompt-history/:id', async (req, res) => {
+  try {
+    await deletePromptHistoryItem(req.params.id, req.user.id)
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[prompt-history delete] error:', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable' })
+    }
+    res.status(500).json({ error: 'Failed to delete prompt history item' })
+  }
+})
+
+app.get('/api/decks', async (req, res) => {
+  try {
+    const decks = await listDecks(req.user.id)
     res.json({ decks })
   } catch (err) {
     console.error('[list decks] error:', err)
@@ -417,7 +497,7 @@ app.get('/api/decks', async (_req, res) => {
 
 app.get('/api/decks/:id', async (req, res) => {
   try {
-    const deck = await getDeck(req.params.id, 'public')
+    const deck = await getDeck(req.params.id, req.user.id)
     if (!deck) return res.status(404).json({ error: 'Deck not found' })
     res.json({ deck })
   } catch (err) {
@@ -435,7 +515,7 @@ app.post('/api/decks', async (req, res) => {
     if (!deck || !Array.isArray(deck.slides)) {
       return res.status(400).json({ error: 'Missing or invalid deck' })
     }
-    const result = await saveDeck(deck, 'public')
+    const result = await saveDeck(deck, req.user.id)
     res.json({ id: result.id, updatedAt: result.updatedAt })
   } catch (err) {
     console.error('[save deck] error:', err)
@@ -450,7 +530,7 @@ app.patch('/api/decks/:id', async (req, res) => {
   try {
     const { title } = req.body || {}
     if (!title?.trim()) return res.status(400).json({ error: 'title is required' })
-    await renameDeck(req.params.id, 'public', title.trim())
+    await renameDeck(req.params.id, req.user.id, title.trim())
     res.json({ ok: true })
   } catch (err) {
     console.error('[rename deck] error:', err)
@@ -463,7 +543,7 @@ app.patch('/api/decks/:id', async (req, res) => {
 
 app.delete('/api/decks/:id', async (req, res) => {
   try {
-    await deleteDeck(req.params.id, 'public')
+    await deleteDeck(req.params.id, req.user.id)
     res.json({ ok: true })
   } catch (err) {
     console.error('[delete deck] error:', err)
@@ -623,9 +703,9 @@ app.post('/api/agentfive/stream', async (req, res) => {
 
 /* ---------------- Agent Five Chats CRUD ---------------- */
 
-app.get('/api/agentfive/chats', async (_req, res) => {
+app.get('/api/agentfive/chats', async (req, res) => {
   try {
-    const chats = await listAgentChats('public')
+    const chats = await listAgentChats(req.user.id)
     res.json({ chats })
   } catch (err) {
     console.error('[agentfive/chats list]', err)
@@ -639,7 +719,7 @@ app.get('/api/agentfive/chats', async (_req, res) => {
 app.post('/api/agentfive/chats', async (req, res) => {
   try {
     const { title = 'New chat', messages = [] } = req.body || {}
-    const id = await createAgentChat('public', title, messages)
+    const id = await createAgentChat(req.user.id, title, messages)
     res.json({ id })
   } catch (err) {
     console.error('[agentfive/chats create]', err)
@@ -652,7 +732,7 @@ app.post('/api/agentfive/chats', async (req, res) => {
 
 app.get('/api/agentfive/chats/:id', async (req, res) => {
   try {
-    const chat = await getAgentChat(req.params.id, 'public')
+    const chat = await getAgentChat(req.params.id, req.user.id)
     if (!chat) return res.status(404).json({ error: 'Chat not found' })
     res.json({ chat })
   } catch (err) {
@@ -667,7 +747,7 @@ app.get('/api/agentfive/chats/:id', async (req, res) => {
 app.put('/api/agentfive/chats/:id', async (req, res) => {
   try {
     const { title, messages } = req.body || {}
-    await updateAgentChat(req.params.id, 'public', { title, messages })
+    await updateAgentChat(req.params.id, req.user.id, { title, messages })
     res.json({ ok: true })
   } catch (err) {
     console.error('[agentfive/chats update]', err)
@@ -680,7 +760,7 @@ app.put('/api/agentfive/chats/:id', async (req, res) => {
 
 app.delete('/api/agentfive/chats/:id', async (req, res) => {
   try {
-    await deleteAgentChat(req.params.id, 'public')
+    await deleteAgentChat(req.params.id, req.user.id)
     res.json({ ok: true })
   } catch (err) {
     console.error('[agentfive/chats delete]', err)

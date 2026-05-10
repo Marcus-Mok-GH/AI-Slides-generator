@@ -20,6 +20,8 @@ import {
   loadDecks,
 } from './lib/api.js'
 import useTheme from './lib/useTheme.js'
+import useCredits from './hooks/useCredits.js'
+import { useAuth } from './context/AuthContext.jsx'
 import MobileNav from './components/MobileNav.jsx'
 import './App.css'
 
@@ -77,6 +79,8 @@ export default function App() {
   const [currentPath, setCurrentPath] = useState(() =>
     typeof window === 'undefined' ? '/' : window.location.pathname,
   )
+  const { user, credits: authCredits, isAuthenticated, setCredits: setAuthCredits } = useAuth()
+  const credits = useCredits(isAuthenticated)
   const { mode: themeMode, setMode: setThemeMode, cycle: cycleTheme } = useTheme()
   const saveTimer = useRef(null)
   const heroRef = useRef(null)
@@ -285,7 +289,12 @@ export default function App() {
         })
       },
       onCredits: ({ balanceCents }) => {
-        // no-op — credits removed with auth
+        credits.setBalanceCents(balanceCents)
+        setAuthCredits((prev) => ({
+          ...(prev || {}),
+          balanceCents,
+          deckCostCents: prev?.deckCostCents ?? credits.deckCostCents,
+        }))
       },
       onDone: (finalDeck) => {
         setDeck({
@@ -295,6 +304,7 @@ export default function App() {
           theme: userTheme ? { ...finalDeck.theme, ...userTheme } : finalDeck.theme,
         })
         setStatus('idle')
+        credits.refresh()
         refreshDecks()
         clearJob()
       },
@@ -487,6 +497,9 @@ export default function App() {
           onSearchChange={setSearchQuery}
           themeMode={themeMode}
           onCycleTheme={cycleTheme}
+          user={user}
+          creditsCents={credits.balanceCents ?? authCredits?.balanceCents ?? null}
+          deckCostCents={credits.deckCostCents ?? authCredits?.deckCostCents ?? 50}
         />
         {activeNav === 'templates' ? (
           <div className="content">

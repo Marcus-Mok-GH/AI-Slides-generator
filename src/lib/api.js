@@ -1,5 +1,6 @@
 /**
- * API client — fully public, no auth.
+ * API client. Browser requests rely on Vercel Deployment Protection; the
+ * backend reads VDP/OIDC headers and returns the current user from /auth/me.
  */
 
 export class UnauthorizedError extends Error {
@@ -30,6 +31,17 @@ async function postJson(url, body) {
 
 async function get(url) {
   return fetch(url)
+}
+
+async function getJson(url) {
+  const res = await fetch(url)
+  const data = await res.json().catch(() => null)
+  if (res.status === 401) {
+    window.dispatchEvent(new CustomEvent('slideai:unauthorized'))
+    throw new UnauthorizedError(data?.error || 'Unauthorized')
+  }
+  if (!res.ok) throw new Error(data?.error || `Server returned ${res.status}`)
+  return data
 }
 
 export async function generateDeck(payload) {
@@ -221,11 +233,11 @@ export async function loadDecks() {
 }
 
 export async function fetchCurrentUser() {
-  return null
+  return getJson('/api/auth/me')
 }
 
 export async function fetchCredits() {
-  return null
+  return getJson('/api/credits')
 }
 
 export async function agentFiveChat({ history, message }) {

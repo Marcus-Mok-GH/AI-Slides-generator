@@ -6,8 +6,10 @@
  *     it as a serverless function.
  */
 import app from '../server/app.js'
+import { readVDPHeaders } from '../server/middleware/auth.js'
 
 const isVercel = process.env.VERCEL === '1'
+app.use(readVDPHeaders)
 
 if (!isVercel) {
   const PORT = process.env.SERVER_PORT || 3001
