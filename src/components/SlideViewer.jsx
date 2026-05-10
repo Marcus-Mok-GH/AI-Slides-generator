@@ -771,14 +771,9 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     if (isStreaming || exportBusy) return
     setExportBusy('pdf')
     try {
-      const { getAccessToken } = await import('../lib/supabase.js')
-      const token = await getAccessToken()
       const res = await fetch('/api/export/pdf', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deck }),
       })
       if (!res.ok) {
@@ -812,14 +807,9 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     if (isStreaming || exportBusy) return
     setExportBusy('pptx')
     try {
-      const { getAccessToken } = await import('../lib/supabase.js')
-      const token = await getAccessToken()
       const res = await fetch('/api/export/pptx', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deck }),
       })
       if (!res.ok) {

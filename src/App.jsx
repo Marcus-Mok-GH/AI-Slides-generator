@@ -8,7 +8,6 @@ import TemplatesPage from './components/TemplatesPage.jsx'
 import MyDecksPage from './components/MyDecksPage.jsx'
 import RecentGallery from './components/RecentGallery.jsx'
 import SlideViewer from './components/SlideViewer.jsx'
-import Landing from './components/Landing.jsx'
 import AgentFive from './components/AgentFive.jsx'
 import {
   startBackgroundDeck,
@@ -21,10 +20,6 @@ import {
   loadDecks,
 } from './lib/api.js'
 import useTheme from './lib/useTheme.js'
-import useAuth from './hooks/useAuth.js'
-import useCredits from './hooks/useCredits.js'
-import SignInModal from './components/SignInModal.jsx'
-import ResetPasswordModal from './components/ResetPasswordModal.jsx'
 import MobileNav from './components/MobileNav.jsx'
 import './App.css'
 
@@ -63,17 +58,6 @@ function deckIdFromLocation() {
 }
 
 export default function App() {
-  const {
-    user,
-    loading: authLoading,
-    isAuthenticated,
-    signIn,
-    signInOpen,
-    closeSignIn,
-    signOut,
-    passwordResetOpen,
-    closePasswordReset,
-  } = useAuth()
   const [deck, setDeck] = useState(null)
   const [status, setStatus] = useState('idle') // idle | streaming | error
   const [error, setError] = useState('')
@@ -94,7 +78,6 @@ export default function App() {
     typeof window === 'undefined' ? '/' : window.location.pathname,
   )
   const { mode: themeMode, setMode: setThemeMode, cycle: cycleTheme } = useTheme()
-  const credits = useCredits(isAuthenticated)
   const saveTimer = useRef(null)
   const heroRef = useRef(null)
 
@@ -103,27 +86,20 @@ export default function App() {
       const decks = await loadDecks()
       setSavedDecks(decks)
     } catch (e) {
-      // 401s are handled globally via the useAuth hook; ignore here so we
-      // don't spam the console while the user is on the landing page.
-      if (e?.status !== 401) {
-        console.warn('Failed to load decks:', e)
-      }
+      console.warn('Failed to load decks:', e)
     }
   }, [])
 
-  // Refresh the gallery whenever the user signs in (and on any later
-  // re-auth after a 401). Skipping this when logged-out avoids hitting the
-  // protected endpoint while showing the landing page.
+  // Load decks on mount.
   useEffect(() => {
-    if (isAuthenticated) refreshDecks()
-    else setSavedDecks([])
-  }, [isAuthenticated, refreshDecks])
+    refreshDecks()
+  }, [refreshDecks])
 
   // Resume any background generation job that was running when the tab
-  // was closed. We check localStorage on every authentication, but only
-  // act when we're not already streaming something.
+  // was closed. We check localStorage on mount, but only act when we're
+  // not already streaming something.
   useEffect(() => {
-    if (!isAuthenticated || status === 'streaming') return
+    if (status === 'streaming') return
     let saved = null
     try { saved = JSON.parse(localStorage.getItem('slideai:activeJob') || 'null') } catch {}
     if (!saved?.jobId) return
@@ -150,52 +126,7 @@ export default function App() {
         setDeck(null)
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated])
-
-  // After a successful login redirect, restore the deck URL the user was on
-  // before they were sent to /api/login. Sign-in breaks out of the workspace
-  // iframe, so returnTo is stashed in localStorage (sessionStorage doesn't
-  // survive a top-level navigation). We still check sessionStorage as a
-  // fallback for the non-iframe case.
-  useEffect(() => {
-    if (!isAuthenticated) return
-    let returnTo = null
-    try {
-      returnTo =
-        localStorage.getItem('slideai:returnTo') ||
-        sessionStorage.getItem('slideai:returnTo')
-      if (returnTo) {
-        localStorage.removeItem('slideai:returnTo')
-        sessionStorage.removeItem('slideai:returnTo')
-      }
-    } catch {
-      /* ignore */
-    }
-    if (returnTo && window.location.pathname === '/' && returnTo !== '/') {
-      window.history.replaceState({}, '', returnTo)
-      // Trigger the URL-sync effect so the deck actually loads.
-      window.dispatchEvent(new PopStateEvent('popstate'))
-    }
-  }, [isAuthenticated])
-
-  // Keep the authenticated app mounted at /app while preserving deep links.
-  useEffect(() => {
-    if (authLoading) return
-    if (isAuthenticated) {
-      if (window.location.pathname === '/') {
-        window.history.replaceState({}, '', '/app')
-        setCurrentPath('/app')
-      }
-      return
-    }
-    // Logged-out visitors should stay on the public landing page (also
-    // bounce them off any protected route like /agentfive).
-    const p = window.location.pathname
-    if (p === '/app' || p.startsWith('/agentfive')) {
-      window.history.replaceState({}, '', '/')
-      setCurrentPath('/')
-    }
-  }, [authLoading, isAuthenticated])
+  }, [])
 
   // Keep `currentPath` in sync with browser back/forward and any
   // pushState navigations (which we accompany with a `popstate` event).
@@ -206,53 +137,13 @@ export default function App() {
     return () => window.removeEventListener('popstate', sync)
   }, [])
 
-  // If the visitor typed a prompt on the public landing page, kick off
-  // generation for them as soon as they're signed in.
-  const pendingHandled = useRef(false)
-  useEffect(() => {
-    if (!isAuthenticated || pendingHandled.current) return
-    let pending = null
-    try {
-      // Sign-in stores the prompt in localStorage so it survives the
-      // top-level navigation; check sessionStorage too for older sessions.
-      const raw =
-        localStorage.getItem('slideai:pendingPrompt') ||
-        sessionStorage.getItem('slideai:pendingPrompt')
-      if (raw) {
-        pending = JSON.parse(raw)
-        localStorage.removeItem('slideai:pendingPrompt')
-        sessionStorage.removeItem('slideai:pendingPrompt')
-      }
-    } catch {
-      /* ignore */
-    }
-    if (pending?.prompt) {
-      pendingHandled.current = true
-      handleGenerate({
-        prompt: pending.prompt,
-        format: pending.format || 'presentation',
-        length: pending.length || '8 cards',
-        tone: pending.tone || 'Professional',
-        language: pending.language || 'English',
-      })
-    }
-    // handleGenerate is stable enough for this one-shot effect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated])
-
   // ---------- URL routing ----------
   // Each deck lives at /app/slide/{id}. Loading that URL directly opens the
   // deck; closing the deck returns the URL to "/app". Browser back/forward
   // also work.
 
   // Honor the URL on first paint and whenever the user hits back/forward.
-  // Skip while auth is still loading or the user is signed out — otherwise
-  // every deck load returns 401 and clears the path.
   useEffect(() => {
-    if (authLoading || !isAuthenticated) {
-      setRouteLoading(false)
-      return
-    }
     let cancelled = false
 
     const syncFromUrl = async () => {
@@ -306,7 +197,7 @@ export default function App() {
     // We intentionally read the freshest `deck.id` inside the effect, so this
     // doesn't need to re-run on every deck change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, isAuthenticated])
+  }, [])
 
   // Whenever the open deck's id changes (newly generated, opened from gallery,
   // or closed), reflect that in the URL bar. We hold off while routeLoading is
@@ -394,7 +285,7 @@ export default function App() {
         })
       },
       onCredits: ({ balanceCents }) => {
-        if (typeof balanceCents === 'number') credits.setBalanceCents(balanceCents)
+        // no-op — credits removed with auth
       },
       onDone: (finalDeck) => {
         setDeck({
@@ -409,7 +300,6 @@ export default function App() {
       },
       onError: (msg, parsed) => {
         if (parsed?.code === 'insufficient_credits') {
-          if (typeof parsed.balanceCents === 'number') credits.setBalanceCents(parsed.balanceCents)
           setError("You're out of credits — top up to keep generating decks.")
         } else {
           setError(msg || 'Failed to generate')
@@ -472,7 +362,6 @@ export default function App() {
       await connectToJob(jobId, buildJobHandlers(userTheme, newDeckId, expectedCount))
     } catch (e) {
       if (e.code === 'insufficient_credits') {
-        if (typeof e.balanceCents === 'number') credits.setBalanceCents(e.balanceCents)
         setError("You're out of credits — top up to keep generating decks.")
       } else {
         setError(e.message || 'Something went wrong')
@@ -554,24 +443,6 @@ export default function App() {
     )
   }, [savedDecks, searchQuery])
 
-  // ---------- auth gating ----------
-  if (authLoading) {
-    return (
-      <div className="route-loading">
-        <div className="route-loading-spinner" aria-hidden />
-        <div className="route-loading-text">Loading…</div>
-      </div>
-    )
-  }
-  if (!isAuthenticated) {
-    return (
-      <>
-        <Landing onSignIn={signIn} themeMode={themeMode} onCycleTheme={cycleTheme} />
-        <SignInModal open={signInOpen} onClose={closeSignIn} />
-      </>
-    )
-  }
-
   // Agent Five lives at /agentfive and /agentfive/[chatId]
   if (currentPath.startsWith('/agentfive')) {
     const chatIdMatch = currentPath.match(/^\/agentfive\/([^/?#]+)/)
@@ -616,10 +487,6 @@ export default function App() {
           onSearchChange={setSearchQuery}
           themeMode={themeMode}
           onCycleTheme={cycleTheme}
-          user={user}
-          onSignOut={signOut}
-          creditsCents={credits.balanceCents}
-          deckCostCents={credits.deckCostCents}
         />
         {activeNav === 'templates' ? (
           <div className="content">
@@ -676,11 +543,6 @@ export default function App() {
           </div>
         )}
       </div>
-
-      <ResetPasswordModal
-        open={passwordResetOpen}
-        onClose={closePasswordReset}
-      />
 
       <MobileNav activeNav={activeNav} onNavigate={handleNavigate} />
     </div>

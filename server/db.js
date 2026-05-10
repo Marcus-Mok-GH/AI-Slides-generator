@@ -6,19 +6,44 @@ const { Pool } = pg
 const connectionString =
   process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL
 
-const isSupabase = /supabase\.(co|com)/i.test(connectionString || '')
+export const hasDb = Boolean(connectionString)
+const isSupabase = hasDb && /supabase\.(co|com)/i.test(connectionString)
 
-export const pool = new Pool({
-  connectionString,
-  ssl: isSupabase ? { rejectUnauthorized: false } : undefined,
-  max: 5,
-  idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 10_000,
-})
+function createMockPool() {
+  const noop = async () => ({ rows: [] })
+  const mock = {
+    query: noop,
+    on: () => {},
+    end: async () => {},
+  }
+  return mock
+}
 
-pool.on('error', (err) => {
-  console.error('[db] unexpected pool error:', err)
-})
+export const pool = hasDb
+  ? new Pool({
+      connectionString,
+      ssl: isSupabase ? { rejectUnauthorized: false } : undefined,
+      max: 5,
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 10_000,
+    })
+  : createMockPool()
+
+if (hasDb) {
+  pool.on('error', (err) => {
+    console.error('[db] unexpected pool error:', err)
+  })
+} else {
+  console.warn('[db] WARNING: DATABASE_URL is not set. Using no-op mock pool. DB-dependent routes will return 503.')
+}
+
+function dbRequired() {
+  if (!hasDb) {
+    const err = new Error('Database unavailable: DATABASE_URL is not configured')
+    err.statusCode = 503
+    throw err
+  }
+}
 
 // Async-safe id generator (handles environments without globalThis.crypto)
 async function generateId() {
@@ -47,12 +72,14 @@ export const LEGACY_USER_CENTS = 10000
 export const DECK_GENERATION_CENTS = 50
 
 /**
- * Idempotent schema setup. Creates a `users` profile table mirroring the
- * Supabase auth user (one row per auth user) and the `decks` table scoped
- * to that user id. We do NOT create a sessions table — Supabase Auth
- * manages sessions client-side via JWTs.
+ * Idempotent schema setup. Creates a `users` profile table and the `decks`
+ * table. No auth / sessions — the app is fully public.
  */
 export async function migrate() {
+  if (!hasDb) {
+    console.warn('[db] migrate() skipped — no DATABASE_URL configured')
+    return
+  }
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id                 VARCHAR PRIMARY KEY,
@@ -66,10 +93,6 @@ export async function migrate() {
   `)
 
   // ---------- Credits column + one-time legacy backfill ----------
-  // Add the column nullable first so we can tell legacy rows apart from
-  // freshly inserted ones. Anyone already in `users` at this point predates
-  // the credits feature and gets the higher legacy grant; new sign-ups get
-  // the smaller starter grant via the column default below.
   await pool.query(`
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS credits_cents INTEGER;
@@ -78,8 +101,6 @@ export async function migrate() {
     `UPDATE users SET credits_cents = $1 WHERE credits_cents IS NULL`,
     [LEGACY_USER_CENTS],
   )
-  // Now lock in the new-user default so future inserts that omit the column
-  // automatically get the starter grant.
   await pool.query(
     `ALTER TABLE users ALTER COLUMN credits_cents SET DEFAULT ${NEW_USER_CENTS}`,
   )
@@ -110,22 +131,10 @@ export async function migrate() {
 /* ---------------- users ---------------- */
 
 export async function upsertUser(user) {
+  dbRequired()
   const { id, email, firstName, lastName, profileImageUrl } = user
   if (!id) throw new Error('upsertUser: id is required')
 
-  // The `email` column has a UNIQUE constraint, so an INSERT can fail two
-  // ways: (a) a row already exists with the same id (re-login — handled by
-  // ON CONFLICT (id)), or (b) a row exists with the same email but a
-  // *different* id. Case (b) happens when the Supabase auth user was
-  // recreated (e.g. project reset, account deletion + re-signup) while our
-  // local row stuck around. If we don't handle it, the INSERT throws
-  // "duplicate key violates users_email_key", no local row is written for
-  // the new auth id, and every authenticated query for that user returns
-  // empty — the UI looks signed in to Supabase but can't load anything.
-  //
-  // Resolution: if a row exists for this email under a stale id, re-key it
-  // to the new auth id. That preserves the user's credits, decks, and any
-  // other data tied to the old id.
   if (email) {
     await pool.query(
       `UPDATE users
@@ -135,9 +144,6 @@ export async function upsertUser(user) {
     )
   }
 
-  // Don't touch credits_cents in the UPDATE branch — only the INSERT path
-  // grants the starter balance via the column default. Subsequent logins
-  // must never reset the running balance.
   const { rows } = await pool.query(
     `INSERT INTO users (id, email, first_name, last_name, profile_image_url)
      VALUES ($1, $2, $3, $4, $5)
@@ -155,12 +161,9 @@ export async function upsertUser(user) {
 
 /* ---------------- credits ---------------- */
 
-/**
- * Read the current balance for a user (in cents). Returns 0 if the user
- * is unknown — callers should treat that as "not enough" without crashing.
- */
 export async function getCredits(userId) {
   if (!userId) return 0
+  dbRequired()
   const { rows } = await pool.query(
     `SELECT credits_cents FROM users WHERE id = $1`,
     [userId],
@@ -168,14 +171,9 @@ export async function getCredits(userId) {
   return rows[0]?.credits_cents ?? 0
 }
 
-/**
- * Atomically deduct `amountCents` from the user's balance. Returns the new
- * balance, or `null` if the user didn't have enough (no row updated).
- * Use this AFTER you've delivered the work — pre-check with `getCredits`
- * to surface "out of credits" early without rolling back side effects.
- */
 export async function deductCredits(userId, amountCents) {
   if (!userId || !Number.isFinite(amountCents) || amountCents <= 0) return null
+  dbRequired()
   const { rows } = await pool.query(
     `UPDATE users
      SET credits_cents = credits_cents - $2,
@@ -192,6 +190,7 @@ export async function deductCredits(userId, amountCents) {
 
 export async function listDecks(userId, limit = 24) {
   if (!userId) return []
+  dbRequired()
   const { rows } = await pool.query(
     `SELECT id, title, subtitle, slide_count, theme, updated_at
      FROM decks
@@ -212,6 +211,7 @@ export async function listDecks(userId, limit = 24) {
 
 export async function getDeck(id, userId) {
   if (!userId) return null
+  dbRequired()
   const { rows } = await pool.query(
     `SELECT id, data, updated_at
      FROM decks
@@ -225,6 +225,7 @@ export async function getDeck(id, userId) {
 
 export async function saveDeck(deck, userId) {
   if (!userId) throw new Error('saveDeck requires userId')
+  dbRequired()
   const id = deck.id || (await generateId())
   const { rows } = await pool.query(
     `INSERT INTO decks (id, user_id, title, subtitle, slide_count, theme, data)
@@ -256,6 +257,7 @@ export async function saveDeck(deck, userId) {
 
 export async function deleteDeck(id, userId) {
   if (!userId) return
+  dbRequired()
   await pool.query(`DELETE FROM decks WHERE id = $1 AND user_id = $2`, [
     id,
     userId,
@@ -264,6 +266,7 @@ export async function deleteDeck(id, userId) {
 
 export async function renameDeck(id, userId, newTitle) {
   if (!userId || !newTitle?.trim()) return
+  dbRequired()
   await pool.query(
     `UPDATE decks
      SET title      = $3,
@@ -277,6 +280,10 @@ export async function renameDeck(id, userId, newTitle) {
 /* ---------------- prompt_history ---------------- */
 
 export async function migratePromptHistory() {
+  if (!hasDb) {
+    console.warn('[db] migratePromptHistory() skipped — no DATABASE_URL configured')
+    return
+  }
   await pool.query(`
     CREATE TABLE IF NOT EXISTS prompt_history (
       id        SERIAL PRIMARY KEY,
@@ -293,6 +300,7 @@ export async function migratePromptHistory() {
 
 export async function savePromptHistory(userId, prompt, format = null) {
   if (!userId || !prompt?.trim()) return
+  dbRequired()
   const trimmed = prompt.trim()
   await pool.query(
     `INSERT INTO prompt_history (user_id, prompt, format, used_at)
@@ -320,6 +328,7 @@ export async function savePromptHistory(userId, prompt, format = null) {
 
 export async function getPromptHistory(userId, limit = 15) {
   if (!userId) return []
+  dbRequired()
   const { rows } = await pool.query(
     `SELECT id, prompt, format, used_at
      FROM prompt_history
@@ -338,12 +347,17 @@ export async function getPromptHistory(userId, limit = 15) {
 
 export async function deletePromptHistoryItem(id, userId) {
   if (!userId) return
+  dbRequired()
   await pool.query(`DELETE FROM prompt_history WHERE id = $1 AND user_id = $2`, [id, userId])
 }
 
 /* ---------------- agent_chats ---------------- */
 
 export async function migrateAgentChats() {
+  if (!hasDb) {
+    console.warn('[db] migrateAgentChats() skipped — no DATABASE_URL configured')
+    return
+  }
   await pool.query(`
     CREATE TABLE IF NOT EXISTS agent_chats (
       id         VARCHAR PRIMARY KEY,
@@ -360,9 +374,86 @@ export async function migrateAgentChats() {
   )
 }
 
+export async function createAgentChat(userId, title = 'New chat', messages = []) {
+  if (!userId) throw new Error('createAgentChat requires userId')
+  dbRequired()
+  const id = await generateId()
+  await pool.query(
+    `INSERT INTO agent_chats (id, user_id, title, messages)
+     VALUES ($1, $2, $3, $4::jsonb)`,
+    [id, userId, title, JSON.stringify(messages)],
+  )
+  return id
+}
+
+export async function listAgentChats(userId, limit = 50) {
+  if (!userId) return []
+  dbRequired()
+  const { rows } = await pool.query(
+    `SELECT id, title, messages, created_at, updated_at
+     FROM agent_chats
+     WHERE user_id = $1
+     ORDER BY updated_at DESC
+     LIMIT $2`,
+    [userId, limit],
+  )
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    messages: r.messages,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }))
+}
+
+export async function getAgentChat(id, userId) {
+  if (!userId) return null
+  dbRequired()
+  const { rows } = await pool.query(
+    `SELECT id, title, messages, created_at, updated_at
+     FROM agent_chats
+     WHERE id = $1 AND user_id = $2`,
+    [id, userId],
+  )
+  if (!rows.length) return null
+  const r = rows[0]
+  return {
+    id: r.id,
+    title: r.title,
+    messages: r.messages,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }
+}
+
+export async function updateAgentChat(id, userId, { title, messages }) {
+  if (!userId) return
+  dbRequired()
+  const sets = []
+  const vals = [id, userId]
+  if (title !== undefined) { sets.push(`title = $${vals.length + 1}`); vals.push(title) }
+  if (messages !== undefined) { sets.push(`messages = $${vals.length + 1}::jsonb`); vals.push(JSON.stringify(messages)) }
+  sets.push('updated_at = NOW()')
+  if (sets.length === 1) return
+  await pool.query(
+    `UPDATE agent_chats SET ${sets.join(', ')} WHERE id = $1 AND user_id = $2`,
+    vals,
+  )
+}
+
+export async function deleteAgentChat(id, userId) {
+  if (!userId) return
+  dbRequired()
+  await pool.query(`DELETE FROM agent_chats WHERE id = $1 AND user_id = $2`, [id, userId])
+}
+
 /* ---------------- agent_plans ---------------- */
 
 export async function migrateAgentPlans() {
+  if (!hasDb) {
+    console.warn('[db] migrateAgentPlans() skipped — no DATABASE_URL configured')
+    return
+  }
   await pool.query(`
     CREATE TABLE IF NOT EXISTS agent_plans (
       id           VARCHAR PRIMARY KEY,
@@ -388,6 +479,7 @@ export async function migrateAgentPlans() {
 export async function createPlan(chatId, userId, planData) {
   if (!chatId) throw new Error('createPlan requires chatId')
   if (!userId) throw new Error('createPlan requires userId')
+  dbRequired()
   const id = await generateId()
   const { rows } = await pool.query(
     `INSERT INTO agent_plans (id, chat_id, user_id, plan_data, current_step, status)
@@ -400,6 +492,7 @@ export async function createPlan(chatId, userId, planData) {
 
 export async function getPlanByChatId(chatId) {
   if (!chatId) return null
+  dbRequired()
   const { rows } = await pool.query(
     `SELECT id, chat_id, user_id, plan_data, current_step, status, created_at, updated_at
      FROM agent_plans
@@ -412,6 +505,7 @@ export async function getPlanByChatId(chatId) {
 
 export async function updatePlanStatus(planId, status, currentStep) {
   if (!planId) return
+  dbRequired()
   const sets = []
   const vals = [planId]
   if (status !== undefined) { sets.push(`status = $${vals.length + 1}`); vals.push(status) }
@@ -426,6 +520,7 @@ export async function updatePlanStatus(planId, status, currentStep) {
 
 export async function getRecentPlans(userId, limit = 20) {
   if (!userId) return []
+  dbRequired()
   const { rows } = await pool.query(
     `SELECT id, chat_id, user_id, plan_data, current_step, status, created_at, updated_at
      FROM agent_plans
@@ -440,6 +535,10 @@ export async function getRecentPlans(userId, limit = 20) {
 /* ---------------- generation_jobs ---------------- */
 
 export async function migrateGenerationJobs() {
+  if (!hasDb) {
+    console.warn('[db] migrateGenerationJobs() skipped — no DATABASE_URL configured')
+    return
+  }
   await pool.query(`
     CREATE TABLE IF NOT EXISTS generation_jobs (
       id         VARCHAR PRIMARY KEY,
@@ -457,6 +556,7 @@ export async function migrateGenerationJobs() {
 }
 
 export async function createGenerationJob(id, userId) {
+  dbRequired()
   await pool.query(
     `INSERT INTO generation_jobs (id, user_id, status, events)
      VALUES ($1, $2, 'pending', '[]')`,
@@ -465,6 +565,7 @@ export async function createGenerationJob(id, userId) {
 }
 
 export async function appendJobEvent(jobId, event, data) {
+  dbRequired()
   await pool.query(
     `UPDATE generation_jobs
      SET events     = events || $1::jsonb,
@@ -475,6 +576,7 @@ export async function appendJobEvent(jobId, event, data) {
 }
 
 export async function updateJobStatus(jobId, status) {
+  dbRequired()
   await pool.query(
     `UPDATE generation_jobs SET status = $1, updated_at = NOW() WHERE id = $2`,
     [status, jobId],
@@ -482,6 +584,7 @@ export async function updateJobStatus(jobId, status) {
 }
 
 export async function getGenerationJob(jobId, userId) {
+  dbRequired()
   const { rows } = await pool.query(
     `SELECT id, user_id, status, events, created_at
      FROM generation_jobs WHERE id = $1`,
@@ -495,14 +598,13 @@ export async function getGenerationJob(jobId, userId) {
 
 /* ---------------- public stats ---------------- */
 
-/**
- * Total decks ever generated + decks created in the current UTC day.
- * Both counts are unauthenticated — used by the public landing page counter.
- * A configurable base offset lets you seed the numbers for new deployments.
- */
 export async function getPublicStats() {
   const BASE_TOTAL = parseInt(process.env.STATS_BASE_TOTAL  || '0', 10)
   const BASE_TODAY = parseInt(process.env.STATS_BASE_TODAY  || '0', 10)
+
+  if (!hasDb) {
+    return { total: BASE_TOTAL, today: BASE_TODAY }
+  }
 
   const { rows } = await pool.query(`
     SELECT
@@ -517,6 +619,7 @@ export async function getPublicStats() {
 }
 
 export async function pruneGenerationJobs() {
+  if (!hasDb) return
   await pool.query(
     `DELETE FROM generation_jobs
      WHERE status IN ('completed', 'failed')

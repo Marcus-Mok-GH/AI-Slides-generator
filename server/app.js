@@ -7,8 +7,8 @@ import {
   getCredits, deductCredits, DECK_GENERATION_CENTS,
   migrateGenerationJobs, createGenerationJob, getGenerationJob,
   getPublicStats,
+  hasDb,
 } from './db.js'
-import { setupAuth, isAuthenticated, currentUserId } from './auth.js'
 import { agentFiveTurn, agentFiveStream } from './agentFive.js'
 import { buildPptxBuffer } from './exportPptx.js'
 import { buildPdfBuffer } from './exportPdf.js'
@@ -17,16 +17,28 @@ import { runGenerationJob } from './jobRunner.js'
 const app = express()
 app.use(express.json({ limit: '50mb' }))
 
-// Run schema migrations and wire auth BEFORE any route registration. On
+// Run schema migrations BEFORE any route registration. On
 // Vercel this runs once per cold-start; locally it runs once at boot.
-await migrate()
-await migratePromptHistory()
-await migrateAgentChats()
-await migrateGenerationJobs()
-await setupAuth(app)
+// Wrap each in try/catch so missing DB doesn't crash the function.
+async function safeMigrate(fn, name) {
+  try {
+    await fn()
+  } catch (err) {
+    console.warn(`[app] ${name} failed (DB likely unavailable):`, err?.message || err)
+  }
+}
+
+await safeMigrate(migrate, 'migrate')
+await safeMigrate(migratePromptHistory, 'migratePromptHistory')
+await safeMigrate(migrateAgentChats, 'migrateAgentChats')
+await safeMigrate(migrateGenerationJobs, 'migrateGenerationJobs')
+
+function isDbError(err) {
+  return err?.statusCode === 503 || /database unavailable/i.test(err?.message)
+}
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true })
+  res.json({ ok: true, dbConnected: hasDb })
 })
 
 /**
@@ -45,6 +57,9 @@ app.get('/api/stats', async (_req, res) => {
     res.json(_statsCache)
   } catch (err) {
     console.error('[stats] error:', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable', total: 0, today: 0 })
+    }
     res.status(500).json({ error: 'stats unavailable' })
   }
 })
@@ -53,14 +68,8 @@ app.get('/api/stats', async (_req, res) => {
  * Current user's credit balance plus the per-deck price the client should
  * surface. Used by the TopBar pill and the out-of-credits banner.
  */
-app.get('/api/credits', isAuthenticated, async (req, res) => {
-  try {
-    const balanceCents = await getCredits(currentUserId(req))
-    res.json({ balanceCents, deckCostCents: DECK_GENERATION_CENTS })
-  } catch (err) {
-    console.error('[credits] error:', err)
-    res.status(500).json({ error: err?.message || 'Failed to load credits' })
-  }
+app.get('/api/credits', async (_req, res) => {
+  res.json({ balanceCents: 0, deckCostCents: 0 })
 })
 
 /**
@@ -77,7 +86,7 @@ app.get('/api/credits', isAuthenticated, async (req, res) => {
  *   - A fallback solid-colour background for slides without an image.
  *   - Speaker notes when present.
  */
-app.post('/api/export/pptx', isAuthenticated, async (req, res) => {
+app.post('/api/export/pptx', async (req, res) => {
   try {
     const { deck } = req.body || {}
     if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
@@ -102,7 +111,7 @@ app.post('/api/export/pptx', isAuthenticated, async (req, res) => {
   }
 })
 
-app.post('/api/export/pdf', isAuthenticated, async (req, res) => {
+app.post('/api/export/pdf', async (req, res) => {
   try {
     const { deck } = req.body || {}
     if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
@@ -126,7 +135,7 @@ app.post('/api/export/pdf', isAuthenticated, async (req, res) => {
   }
 })
 
-app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
+app.post('/api/generate-deck', async (req, res) => {
   try {
     const {
       prompt,
@@ -141,16 +150,6 @@ app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
       return res.status(400).json({ error: 'Missing "prompt"' })
     }
 
-    const userId = currentUserId(req)
-    const balance = await getCredits(userId)
-    if (balance < DECK_GENERATION_CENTS) {
-      return res.status(402).json({
-        error: 'Out of credits',
-        balanceCents: balance,
-        deckCostCents: DECK_GENERATION_CENTS,
-      })
-    }
-
     const deck = await generateDeck({
       prompt: prompt.trim(),
       format,
@@ -160,8 +159,7 @@ app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
       mode,
     })
 
-    const newBalance = await deductCredits(userId, DECK_GENERATION_CENTS)
-    res.json({ deck, balanceCents: newBalance ?? balance })
+    res.json({ deck })
   } catch (err) {
     console.error('[generate-deck] error:', err)
     res.status(500).json({
@@ -179,7 +177,7 @@ app.post('/api/generate-deck', isAuthenticated, async (req, res) => {
  * the HTTP connection. Returns a jobId immediately; the client can close the
  * tab and reconnect later using the job SSE endpoint to get all events.
  */
-app.post('/api/generate-deck/background', isAuthenticated, async (req, res) => {
+app.post('/api/generate-deck/background', async (req, res) => {
   const {
     prompt,
     format    = 'presentation',
@@ -191,27 +189,18 @@ app.post('/api/generate-deck/background', isAuthenticated, async (req, res) => {
     userTheme = null,
   } = req.body || {}
 
-  const userId = currentUserId(req)
-
   if (!prompt?.trim()) {
     return res.status(400).json({ error: 'Missing prompt' })
   }
 
-  const startBalance = await getCredits(userId)
-  if (startBalance < DECK_GENERATION_CENTS) {
-    return res.status(402).json({
-      error: 'Out of credits',
-      code: 'insufficient_credits',
-      balanceCents: startBalance,
-      deckCostCents: DECK_GENERATION_CENTS,
-    })
-  }
-
   const jobId = (typeof deckId === 'string' && deckId.trim()) ? deckId.trim() : crypto.randomUUID()
-  await createGenerationJob(jobId, userId)
-
-  if (userId && prompt?.trim()) {
-    savePromptHistory(userId, prompt.trim(), format).catch(() => {})
+  try {
+    await createGenerationJob(jobId, 'public')
+  } catch (err) {
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable. Generation jobs require a database.' })
+    }
+    throw err
   }
 
   const ctx = {
@@ -222,7 +211,7 @@ app.post('/api/generate-deck/background', isAuthenticated, async (req, res) => {
   }
 
   // Fire off generation WITHOUT awaiting — it runs as a background task
-  runGenerationJob(jobId, ctx, userId, startBalance)
+  runGenerationJob(jobId, ctx, 'public', 0)
     .catch((err) => console.error('[background-gen] unhandled error:', err))
 
   res.json({ jobId })
@@ -235,14 +224,16 @@ app.post('/api/generate-deck/background', isAuthenticated, async (req, res) => {
  * streams new events as they arrive until the job completes or fails.
  * Clients that closed the tab can reconnect and receive the full history.
  */
-app.get('/api/generate-deck/job/:jobId', isAuthenticated, async (req, res) => {
+app.get('/api/generate-deck/job/:jobId', async (req, res) => {
   const { jobId } = req.params
-  const userId = currentUserId(req)
 
   let job
   try {
-    job = await getGenerationJob(jobId, userId)
+    job = await getGenerationJob(jobId, 'public')
   } catch (e) {
+    if (isDbError(e)) {
+      return res.status(503).json({ error: 'Database unavailable' })
+    }
     return res.status(500).json({ error: 'DB error' })
   }
   if (!job) return res.status(404).json({ error: 'Job not found' })
@@ -284,7 +275,7 @@ app.get('/api/generate-deck/job/:jobId', isAuthenticated, async (req, res) => {
   const poll = async () => {
     if (closed) { clearInterval(ping); return }
     try {
-      const updated = await getGenerationJob(jobId, userId)
+      const updated = await getGenerationJob(jobId, 'public')
       if (!updated) { clearInterval(ping); return res.end() }
 
       flush(updated.events || [])
@@ -294,6 +285,11 @@ app.get('/api/generate-deck/job/:jobId', isAuthenticated, async (req, res) => {
         return res.end()
       }
     } catch (e) {
+      if (isDbError(e)) {
+        clearInterval(ping)
+        send('error', { error: 'Database unavailable' })
+        return res.end()
+      }
       console.error('[job-sse] poll error:', e?.message)
     }
 
@@ -305,7 +301,7 @@ app.get('/api/generate-deck/job/:jobId', isAuthenticated, async (req, res) => {
 
 /* ─────────────────────────────────────────────────────────── */
 
-app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
+app.post('/api/generate-deck/stream', async (req, res) => {
   const {
     prompt,
     format = 'presentation',
@@ -317,8 +313,6 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
     userTheme = null,
   } = req.body || {}
 
-  const userId = currentUserId(req)
-
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache, no-transform')
   res.setHeader('Connection', 'keep-alive')
@@ -329,11 +323,6 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
   }
 
-  // Save this prompt to history (fire-and-forget — don't block the stream)
-  if (userId && prompt?.trim()) {
-    savePromptHistory(userId, prompt.trim(), format).catch(() => {})
-  }
-
   // periodic comment to keep proxies from buffering
   const ping = setInterval(() => res.write(': ping\n\n'), 15000)
   req.on('close', () => clearInterval(ping))
@@ -341,19 +330,6 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
   try {
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       send('error', { error: 'Missing "prompt"' })
-      return res.end()
-    }
-
-    // Credit pre-check. We block here (rather than mid-stream) so the user
-    // sees the out-of-credits banner instead of a half-generated deck.
-    const startBalance = await getCredits(userId)
-    if (startBalance < DECK_GENERATION_CENTS) {
-      send('error', {
-        error: 'Out of credits',
-        code: 'insufficient_credits',
-        balanceCents: startBalance,
-        deckCostCents: DECK_GENERATION_CENTS,
-      })
       return res.end()
     }
 
@@ -394,24 +370,16 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
       deck.id = deckId.trim()
     }
     try {
-      const saved = await saveDeck(deck, userId)
+      const saved = await saveDeck(deck, 'public')
       deck.id = saved.id
       deck.updatedAt = saved.updatedAt
     } catch (e) {
-      console.warn('[stream] failed to persist deck:', e?.message)
+      if (isDbError(e)) {
+        send('warning', { message: 'Database unavailable — deck not persisted' })
+      } else {
+        console.warn('[stream] failed to persist deck:', e?.message)
+      }
     }
-
-    // Charge for the deck only after it's been generated AND persisted.
-    // If the deduction returns null (race / concurrent spend) we fall back
-    // to whatever the DB says now so the UI doesn't show a stale balance.
-    let balanceCents = startBalance
-    try {
-      const after = await deductCredits(userId, DECK_GENERATION_CENTS)
-      balanceCents = after ?? (await getCredits(userId))
-    } catch (e) {
-      console.warn('[stream] credit deduction failed:', e?.message)
-    }
-    send('credits', { balanceCents, deckCostCents: DECK_GENERATION_CENTS })
 
     send('done', { deck })
     res.end()
@@ -426,79 +394,82 @@ app.post('/api/generate-deck/stream', isAuthenticated, async (req, res) => {
 
 /* ---------------- Prompt history routes ---------------- */
 
-app.get('/api/prompt-history', isAuthenticated, async (req, res) => {
-  try {
-    const history = await getPromptHistory(currentUserId(req))
-    res.json({ history })
-  } catch (err) {
-    console.error('[prompt-history] GET error:', err)
-    res.status(500).json({ error: err?.message || 'Failed to load history' })
-  }
+app.get('/api/prompt-history', async (_req, res) => {
+  res.json({ history: [] })
 })
 
-app.delete('/api/prompt-history/:id', isAuthenticated, async (req, res) => {
-  try {
-    await deletePromptHistoryItem(Number(req.params.id), currentUserId(req))
-    res.json({ ok: true })
-  } catch (err) {
-    console.error('[prompt-history] DELETE error:', err)
-    res.status(500).json({ error: err?.message || 'Failed to delete item' })
-  }
+app.delete('/api/prompt-history/:id', async (_req, res) => {
+  res.json({ ok: true })
 })
 
-app.get('/api/decks', isAuthenticated, async (req, res) => {
+app.get('/api/decks', async (_req, res) => {
   try {
-    const decks = await listDecks(currentUserId(req))
+    const decks = await listDecks('public')
     res.json({ decks })
   } catch (err) {
     console.error('[list decks] error:', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable', decks: [] })
+    }
     res.status(500).json({ error: err?.message || 'Failed to list decks' })
   }
 })
 
-app.get('/api/decks/:id', isAuthenticated, async (req, res) => {
+app.get('/api/decks/:id', async (req, res) => {
   try {
-    const deck = await getDeck(req.params.id, currentUserId(req))
+    const deck = await getDeck(req.params.id, 'public')
     if (!deck) return res.status(404).json({ error: 'Deck not found' })
     res.json({ deck })
   } catch (err) {
     console.error('[get deck] error:', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable' })
+    }
     res.status(500).json({ error: err?.message || 'Failed to load deck' })
   }
 })
 
-app.post('/api/decks', isAuthenticated, async (req, res) => {
+app.post('/api/decks', async (req, res) => {
   try {
     const { deck } = req.body || {}
     if (!deck || !Array.isArray(deck.slides)) {
       return res.status(400).json({ error: 'Missing or invalid deck' })
     }
-    const result = await saveDeck(deck, currentUserId(req))
+    const result = await saveDeck(deck, 'public')
     res.json({ id: result.id, updatedAt: result.updatedAt })
   } catch (err) {
     console.error('[save deck] error:', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable' })
+    }
     res.status(500).json({ error: err?.message || 'Failed to save deck' })
   }
 })
 
-app.patch('/api/decks/:id', isAuthenticated, async (req, res) => {
+app.patch('/api/decks/:id', async (req, res) => {
   try {
     const { title } = req.body || {}
     if (!title?.trim()) return res.status(400).json({ error: 'title is required' })
-    await renameDeck(req.params.id, currentUserId(req), title.trim())
+    await renameDeck(req.params.id, 'public', title.trim())
     res.json({ ok: true })
   } catch (err) {
     console.error('[rename deck] error:', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable' })
+    }
     res.status(500).json({ error: err?.message || 'Failed to rename deck' })
   }
 })
 
-app.delete('/api/decks/:id', isAuthenticated, async (req, res) => {
+app.delete('/api/decks/:id', async (req, res) => {
   try {
-    await deleteDeck(req.params.id, currentUserId(req))
+    await deleteDeck(req.params.id, 'public')
     res.json({ ok: true })
   } catch (err) {
     console.error('[delete deck] error:', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable' })
+    }
     res.status(500).json({ error: err?.message || 'Failed to delete deck' })
   }
 })
@@ -510,7 +481,7 @@ app.delete('/api/decks/:id', isAuthenticated, async (req, res) => {
  * Body: { url }
  * Response: { url, title, text }
  */
-app.post('/api/fetch-url', isAuthenticated, async (req, res) => {
+app.post('/api/fetch-url', async (req, res) => {
   try {
     const { url } = req.body || {}
     if (!url || typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
@@ -541,7 +512,7 @@ app.post('/api/fetch-url', isAuthenticated, async (req, res) => {
       html
         .replace(/<script[\s\S]*?<\/script>/gi, ' ')
         .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-        .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+        .replace(/<noscript[\s\S]*?<\/script>/gi, ' ')
         .replace(/<header[\s\S]*?<\/header>/gi, ' ')
         .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
         .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
@@ -572,7 +543,7 @@ function decodeEntities(s) {
     .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(parseInt(d, 10)))
 }
 
-app.post('/api/regenerate-slide', isAuthenticated, async (req, res) => {
+app.post('/api/regenerate-slide', async (req, res) => {
   try {
     const { deck, slideIndex, instruction } = req.body || {}
     const slide = await regenerateSlide({
@@ -591,7 +562,7 @@ app.post('/api/regenerate-slide', isAuthenticated, async (req, res) => {
 
 /* ---------------- Agent Five ---------------- */
 
-app.post('/api/agentfive/chat', isAuthenticated, async (req, res) => {
+app.post('/api/agentfive/chat', async (req, res) => {
   try {
     const { history = [], message = '' } = req.body || {}
     if (!message || typeof message !== 'string' || !message.trim()) {
@@ -617,7 +588,7 @@ app.post('/api/agentfive/chat', isAuthenticated, async (req, res) => {
   }
 })
 
-app.post('/api/agentfive/stream', isAuthenticated, async (req, res) => {
+app.post('/api/agentfive/stream', async (req, res) => {
   const { history = [], message = '' } = req.body || {}
   if (!message || typeof message !== 'string' || !message.trim()) {
     return res.status(400).json({ error: 'Missing "message"' })
@@ -652,65 +623,75 @@ app.post('/api/agentfive/stream', isAuthenticated, async (req, res) => {
 
 /* ---------------- Agent Five Chats CRUD ---------------- */
 
-app.get('/api/agentfive/chats', isAuthenticated, async (req, res) => {
+app.get('/api/agentfive/chats', async (_req, res) => {
   try {
-    const userId = await currentUserId(req)
-    const chats = await listAgentChats(userId)
+    const chats = await listAgentChats('public')
     res.json({ chats })
   } catch (err) {
     console.error('[agentfive/chats list]', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable', chats: [] })
+    }
     res.status(500).json({ error: 'Failed to list chats' })
   }
 })
 
-app.post('/api/agentfive/chats', isAuthenticated, async (req, res) => {
+app.post('/api/agentfive/chats', async (req, res) => {
   try {
-    const userId = await currentUserId(req)
     const { title = 'New chat', messages = [] } = req.body || {}
-    const id = await createAgentChat(userId, title, messages)
+    const id = await createAgentChat('public', title, messages)
     res.json({ id })
   } catch (err) {
     console.error('[agentfive/chats create]', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable' })
+    }
     res.status(500).json({ error: 'Failed to create chat' })
   }
 })
 
-app.get('/api/agentfive/chats/:id', isAuthenticated, async (req, res) => {
+app.get('/api/agentfive/chats/:id', async (req, res) => {
   try {
-    const userId = await currentUserId(req)
-    const chat = await getAgentChat(req.params.id, userId)
+    const chat = await getAgentChat(req.params.id, 'public')
     if (!chat) return res.status(404).json({ error: 'Chat not found' })
     res.json({ chat })
   } catch (err) {
     console.error('[agentfive/chats get]', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable' })
+    }
     res.status(500).json({ error: 'Failed to get chat' })
   }
 })
 
-app.put('/api/agentfive/chats/:id', isAuthenticated, async (req, res) => {
+app.put('/api/agentfive/chats/:id', async (req, res) => {
   try {
-    const userId = await currentUserId(req)
     const { title, messages } = req.body || {}
-    await updateAgentChat(req.params.id, userId, { title, messages })
+    await updateAgentChat(req.params.id, 'public', { title, messages })
     res.json({ ok: true })
   } catch (err) {
     console.error('[agentfive/chats update]', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable' })
+    }
     res.status(500).json({ error: 'Failed to update chat' })
   }
 })
 
-app.delete('/api/agentfive/chats/:id', isAuthenticated, async (req, res) => {
+app.delete('/api/agentfive/chats/:id', async (req, res) => {
   try {
-    const userId = await currentUserId(req)
-    await deleteAgentChat(req.params.id, userId)
+    await deleteAgentChat(req.params.id, 'public')
     res.json({ ok: true })
   } catch (err) {
     console.error('[agentfive/chats delete]', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable' })
+    }
     res.status(500).json({ error: 'Failed to delete chat' })
   }
 })
 
-app.post('/api/redesign-slide', isAuthenticated, async (req, res) => {
+app.post('/api/redesign-slide', async (req, res) => {
   try {
     const { deck, slideIndex, instruction } = req.body || {}
     const slide = await redesignSlide({
