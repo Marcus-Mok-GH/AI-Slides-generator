@@ -1,13 +1,6 @@
-/**
- * Minimal Supabase client stub — the app is fully public, no auth needed.
- * If you later need a real Supabase client, install @supabase/supabase-js
- * and restore the createClient call here.
- */
+import { createClient } from '@supabase/supabase-js'
 
-export const supabase = {
-  auth: {
-    getSession: async () => ({ data: { session: null } }),
-    onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
-    signOut: async () => {},
-  },
-}
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)

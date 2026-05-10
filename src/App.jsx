@@ -19,8 +19,8 @@ import {
   deleteDeck as deleteDeckApi,
   renameDeck as renameDeckApi,
   loadDecks,
-  fetchCurrentUser,
 } from './lib/api.js'
+import { supabase } from './lib/supabase.js'
 import useTheme from './lib/useTheme.js'
 import MobileNav from './components/MobileNav.jsx'
 import './App.css'
@@ -83,7 +83,7 @@ export default function App() {
   const saveTimer = useRef(null)
   const heroRef = useRef(null)
 
-  // Auth state
+  // Auth state with Supabase
   const [user, setUser] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
 
@@ -96,13 +96,13 @@ export default function App() {
     }
   }, [])
 
-  // Fetch auth state on mount
+  // Fetch auth state on mount using Supabase
   useEffect(() => {
     let cancelled = false
     async function checkAuth() {
       try {
-        const u = await fetchCurrentUser()
-        if (!cancelled) setUser(u)
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!cancelled) setUser(session?.user || null)
       } catch (e) {
         console.warn('Auth check failed:', e)
       } finally {
@@ -110,7 +110,19 @@ export default function App() {
       }
     }
     checkAuth()
-    return () => { cancelled = true }
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user || null)
+        setAuthLoading(false)
+      }
+    )
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
   }, [])
 
   // Load decks only when authenticated
@@ -455,21 +467,28 @@ export default function App() {
     )
   }, [savedDecks, searchQuery])
 
-  // Auth handlers
-  const handleSignIn = useCallback(() => {
-    // Store intended destination so we can return after auth
+  // Supabase auth handlers
+  const handleSignIn = useCallback(async () => {
     try {
-      localStorage.setItem('slideai:returnTo', window.location.pathname + window.location.search)
-    } catch {}
-    // Navigate to the auth login page — for Supabase/VDP we redirect to /api/auth/login
-    // or let the landing handle it. For now we use a simple redirect.
-    window.location.href = '/api/auth/login'
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/app`,
+        },
+      })
+      if (error) throw error
+    } catch (e) {
+      console.error('Sign in failed:', e)
+      setError('Failed to sign in. Please try again.')
+    }
   }, [])
 
   const handleSignOut = useCallback(async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-    } catch {}
+      await supabase.auth.signOut()
+    } catch (e) {
+      console.warn('Sign out failed:', e)
+    }
     setUser(null)
     setSavedDecks([])
     setDeck(null)

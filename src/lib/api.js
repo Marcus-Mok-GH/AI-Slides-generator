@@ -2,6 +2,8 @@
  * API client — VDP auth aware.
  */
 
+import { supabase } from './supabase.js'
+
 export class UnauthorizedError extends Error {
   constructor(message = 'Unauthorized') {
     super(message)
@@ -10,27 +12,17 @@ export class UnauthorizedError extends Error {
   }
 }
 
-function getAuthToken() {
-  // Supabase stores session in localStorage under keys like:
-  // sb-<project-ref>-auth-token
+async function getAuthToken() {
   try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key && key.endsWith('-auth-token')) {
-        const raw = localStorage.getItem(key)
-        if (!raw) continue
-        const parsed = JSON.parse(raw)
-        if (parsed && parsed.access_token) {
-          return parsed.access_token
-        }
-      }
-    }
-  } catch {}
-  return null
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.access_token || null
+  } catch {
+    return null
+  }
 }
 
-function authHeaders() {
-  const token = getAuthToken()
+async function authHeaders() {
+  const token = await getAuthToken()
   if (!token) return {}
   return { Authorization: `Bearer ${token}` }
 }
