@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { fetchCurrentUser } from '../lib/api.js'
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
+import { fetchCurrentUser, login as apiLogin, register as apiRegister, logout as apiLogout } from '../lib/api.js'
 
 const AuthContext = createContext(null)
 
@@ -9,31 +9,57 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  const loadUser = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await fetchCurrentUser()
+      setUser(data?.user || null)
+      setCredits(data?.credits || null)
+    } catch (err) {
+      setUser(null)
+      setCredits(null)
+      setError(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
-    let alive = true
+    loadUser()
+  }, [loadUser])
 
-    async function load() {
-      setLoading(true)
-      setError(null)
-      try {
-        const data = await fetchCurrentUser()
-        if (!alive) return
-        setUser(data?.user || null)
-        setCredits(data?.credits || null)
-      } catch (err) {
-        if (!alive) return
-        setUser(null)
-        setCredits(null)
-        setError(err)
-      } finally {
-        if (alive) setLoading(false)
-      }
+  useEffect(() => {
+    function onUnauthorized() {
+      setUser(null)
+      setCredits(null)
+      setError(new Error('Session expired. Please sign in again.'))
     }
+    window.addEventListener('slideai:unauthorized', onUnauthorized)
+    return () => window.removeEventListener('slideai:unauthorized', onUnauthorized)
+  }, [])
 
-    load()
-    return () => {
-      alive = false
-    }
+  const handleLogin = useCallback(async (credentials) => {
+    const data = await apiLogin(credentials)
+    setUser(data?.user || null)
+    setCredits(data?.credits || null)
+    setError(null)
+    return data
+  }, [])
+
+  const handleRegister = useCallback(async (credentials) => {
+    const data = await apiRegister(credentials)
+    setUser(data?.user || null)
+    setCredits(data?.credits || null)
+    setError(null)
+    return data
+  }, [])
+
+  const handleLogout = useCallback(() => {
+    apiLogout()
+    setUser(null)
+    setCredits(null)
+    setError(null)
   }, [])
 
   const value = useMemo(
@@ -44,8 +70,11 @@ export function AuthProvider({ children }) {
       error,
       isAuthenticated: Boolean(user),
       setCredits,
+      login: handleLogin,
+      register: handleRegister,
+      logout: handleLogout,
     }),
-    [credits, error, loading, user],
+    [credits, error, loading, user, handleLogin, handleRegister, handleLogout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

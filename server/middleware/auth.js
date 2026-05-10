@@ -1,126 +1,98 @@
-import { upsertUser } from '../db.js'
+import bcrypt from 'bcrypt'
+import jwt from 'jsonwebtoken'
+import { upsertUser, findUserByEmail, createUser } from '../db.js'
 
-const VDP_HEADER = 'x-vercel-deployment-protection'
+const JWT_SECRET = process.env.JWT_SECRET || 'slideai-dev-secret-change-me'
+const JWT_EXPIRES_IN = '7d'
 
-function decodeJwtPayload(token) {
-  if (!token || typeof token !== 'string') return {}
-  const [, payload] = token.split('.')
-  if (!payload) return {}
+export function signToken(user) {
+  return jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName || user.first_name || null,
+      lastName: user.lastName || user.last_name || null,
+    },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN },
+  )
+}
 
+export function verifyToken(token) {
   try {
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
-    const padded = normalized.padEnd(
-      normalized.length + ((4 - (normalized.length % 4)) % 4),
-      '=',
-    )
-    return JSON.parse(Buffer.from(padded, 'base64').toString('utf8'))
+    return jwt.verify(token, JWT_SECRET)
   } catch {
-    return {}
-  }
-}
-
-function splitName(name = '') {
-  const parts = String(name).trim().split(/\s+/).filter(Boolean)
-  return {
-    firstName: parts[0] || '',
-    lastName: parts.slice(1).join(' '),
-  }
-}
-
-function readHeader(req, name) {
-  return req.get?.(name) || req.headers?.[name.toLowerCase()] || ''
-}
-
-function readVercelOidcHeaders(req) {
-  const headers = {}
-  for (const [key, value] of Object.entries(req.headers || {})) {
-    if (key.startsWith('x-vercel-oidc-')) {
-      headers[key] = Array.isArray(value) ? value[0] : value
-    }
-  }
-  return headers
-}
-
-function isLocalRequest(req) {
-  if (process.env.VERCEL === '1') return false
-  const host = readHeader(req, 'host')
-  return !host || /^localhost(?::\d+)?$/i.test(host) || /^127\.0\.0\.1(?::\d+)?$/i.test(host)
-}
-
-export function readVDPUser(req) {
-  const protection = readHeader(req, VDP_HEADER)
-  const authorized = protection.toLowerCase() === 'authorized'
-
-  if (!authorized && !isLocalRequest(req)) {
     return null
   }
-
-  const oidcHeaders = readVercelOidcHeaders(req)
-  const claims = decodeJwtPayload(oidcHeaders['x-vercel-oidc-token'])
-  const rawName =
-    oidcHeaders['x-vercel-oidc-name'] ||
-    claims.name ||
-    claims.username ||
-    ''
-  const { firstName, lastName } = splitName(rawName)
-  const email =
-    oidcHeaders['x-vercel-oidc-email'] ||
-    claims.email ||
-    ''
-  const id =
-    oidcHeaders['x-vercel-oidc-user-id'] ||
-    oidcHeaders['x-vercel-oidc-sub'] ||
-    claims.user_id ||
-    claims.sub ||
-    email ||
-    (isLocalRequest(req) ? 'local-vdp-user' : '')
-
-  if (!id) return null
-
-  return {
-    id: String(id),
-    email: email ? String(email) : null,
-    firstName: firstName || null,
-    lastName: lastName || null,
-    profileImageUrl:
-      oidcHeaders['x-vercel-oidc-picture'] ||
-      claims.picture ||
-      null,
-    vdpAuthorized: authorized,
-  }
 }
 
-export function readVDPHeaders(req, _res, next) {
-  req.vdpUser = readVDPUser(req)
-  next()
+export async function hashPassword(password) {
+  return bcrypt.hash(password, 12)
 }
 
-export async function trustVDPHeaders(req, res, next) {
-  const user = req.vdpUser || readVDPUser(req)
-  if (!user) {
-    return res.status(401).json({ error: 'VDP authorization required' })
+export async function comparePassword(password, hash) {
+  return bcrypt.compare(password, hash)
+}
+
+function getTokenFromRequest(req) {
+  const auth = req.get?.('authorization') || req.headers?.authorization || ''
+  if (auth.startsWith('Bearer ')) return auth.slice(7)
+  return null
+}
+
+export async function authMiddleware(req, res, next) {
+  const token = getTokenFromRequest(req)
+  if (!token) {
+    return res.status(401).json({ error: 'Authentication required' })
   }
 
-  req.user = user
+  const decoded = verifyToken(token)
+  if (!decoded) {
+    return res.status(401).json({ error: 'Invalid or expired token' })
+  }
 
   try {
-    const dbUser = await upsertUser(user)
-    if (dbUser) {
-      req.user = {
-        ...user,
-        id: dbUser.id,
-        email: dbUser.email,
-        firstName: dbUser.first_name,
-        lastName: dbUser.last_name,
-        profileImageUrl: dbUser.profile_image_url,
-        creditsCents: dbUser.credits_cents,
+    const dbUser = await findUserByEmail(decoded.email)
+    if (!dbUser) {
+      return res.status(401).json({ error: 'User not found' })
+    }
+
+    req.user = {
+      id: dbUser.id,
+      email: dbUser.email,
+      firstName: dbUser.first_name,
+      lastName: dbUser.last_name,
+      profileImageUrl: dbUser.profile_image_url,
+      creditsCents: dbUser.credits_cents,
+    }
+    next()
+  } catch (err) {
+    console.error('[auth] middleware error:', err?.message || err)
+    return res.status(500).json({ error: 'Authentication failed' })
+  }
+}
+
+export async function optionalAuthMiddleware(req, _res, next) {
+  const token = getTokenFromRequest(req)
+  if (token) {
+    const decoded = verifyToken(token)
+    if (decoded) {
+      try {
+        const dbUser = await findUserByEmail(decoded.email)
+        if (dbUser) {
+          req.user = {
+            id: dbUser.id,
+            email: dbUser.email,
+            firstName: dbUser.first_name,
+            lastName: dbUser.last_name,
+            profileImageUrl: dbUser.profile_image_url,
+            creditsCents: dbUser.credits_cents,
+          }
+        }
+      } catch {
+        // ignore optional auth failures
       }
     }
-  } catch (err) {
-    if (err?.statusCode !== 503) {
-      console.warn('[auth] failed to upsert VDP user:', err?.message || err)
-    }
   }
-
   next()
 }

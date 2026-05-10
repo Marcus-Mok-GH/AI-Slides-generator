@@ -1,4 +1,5 @@
 import { useAuth } from '../context/AuthContext.jsx'
+import LoginPage from './LoginPage.jsx'
 import '../App.css'
 
 export default function AuthGuard({ children }) {
@@ -14,11 +15,7 @@ export default function AuthGuard({ children }) {
   }
 
   if (!isAuthenticated) {
-    return (
-      <div className="route-loading">
-        <div className="route-loading-text">Deployment access required.</div>
-      </div>
-    )
+    return <LoginPage />
   }
 
   return children

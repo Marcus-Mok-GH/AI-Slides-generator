@@ -1,6 +1,5 @@
 /**
- * API client. Browser requests rely on Vercel Deployment Protection; the
- * backend reads VDP/OIDC headers and returns the current user from /auth/me.
+ * API client. All requests include the JWT token from localStorage.
  */
 
 export class UnauthorizedError extends Error {
@@ -11,10 +10,15 @@ export class UnauthorizedError extends Error {
   }
 }
 
+function getAuthHeaders() {
+  const token = localStorage.getItem('slideai:token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 async function postJson(url, body) {
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(body),
   })
   let data = null
@@ -30,11 +34,11 @@ async function postJson(url, body) {
 }
 
 async function get(url) {
-  return fetch(url)
+  return fetch(url, { headers: getAuthHeaders() })
 }
 
 async function getJson(url) {
-  const res = await fetch(url)
+  const res = await fetch(url, { headers: getAuthHeaders() })
   const data = await res.json().catch(() => null)
   if (res.status === 401) {
     window.dispatchEvent(new CustomEvent('slideai:unauthorized'))
@@ -42,6 +46,26 @@ async function getJson(url) {
   }
   if (!res.ok) throw new Error(data?.error || `Server returned ${res.status}`)
   return data
+}
+
+export async function login({ email, password }) {
+  const data = await postJson('/api/auth/login', { email, password })
+  if (data.token) {
+    localStorage.setItem('slideai:token', data.token)
+  }
+  return data
+}
+
+export async function register({ email, password, firstName, lastName }) {
+  const data = await postJson('/api/auth/register', { email, password, firstName, lastName })
+  if (data.token) {
+    localStorage.setItem('slideai:token', data.token)
+  }
+  return data
+}
+
+export function logout() {
+  localStorage.removeItem('slideai:token')
 }
 
 export async function generateDeck(payload) {
@@ -70,7 +94,7 @@ export async function redesignSlide({ deck, slideIndex, instruction }) {
 export async function startBackgroundDeck(payload) {
   const res = await fetch('/api/generate-deck/background', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payload),
   })
   if (res.status === 402) {
@@ -89,7 +113,9 @@ export async function startBackgroundDeck(payload) {
 }
 
 export async function connectToJob(jobId, handlers = {}) {
-  const res = await fetch(`/api/generate-deck/job/${encodeURIComponent(jobId)}`)
+  const res = await fetch(`/api/generate-deck/job/${encodeURIComponent(jobId)}`, {
+    headers: getAuthHeaders(),
+  })
   if (res.status === 404) {
     handlers.onError?.('Job not found — it may have expired.')
     return
@@ -138,7 +164,7 @@ export async function connectToJob(jobId, handlers = {}) {
 export async function streamGenerateDeck(payload, handlers = {}) {
   const res = await fetch('/api/generate-deck/stream', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payload),
   })
   if (!res.ok || !res.body) {
@@ -210,6 +236,7 @@ export async function saveDeck(deck) {
 export async function deleteDeck(id) {
   const res = await fetch(`/api/decks/${encodeURIComponent(id)}`, {
     method: 'DELETE',
+    headers: getAuthHeaders(),
   })
   if (!res.ok) throw new Error(`Server returned ${res.status}`)
   return true
@@ -218,7 +245,7 @@ export async function deleteDeck(id) {
 export async function renameDeck(id, newTitle) {
   const res = await fetch(`/api/decks/${encodeURIComponent(id)}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ title: newTitle }),
   })
   if (!res.ok) throw new Error(`Server returned ${res.status}`)
@@ -246,7 +273,7 @@ export async function agentFiveChat({ history, message }) {
 }
 
 export async function listAgentChats() {
-  const res = await fetch('/api/agentfive/chats')
+  const res = await fetch('/api/agentfive/chats', { headers: getAuthHeaders() })
   const data = await res.json()
   return data.chats || []
 }
@@ -257,7 +284,9 @@ export async function createAgentChat({ title, messages = [] } = {}) {
 }
 
 export async function getAgentChat(id) {
-  const res = await fetch(`/api/agentfive/chats/${encodeURIComponent(id)}`)
+  const res = await fetch(`/api/agentfive/chats/${encodeURIComponent(id)}`, {
+    headers: getAuthHeaders(),
+  })
   if (res.status === 404) return null
   const data = await res.json()
   return data.chat || null
@@ -266,7 +295,7 @@ export async function getAgentChat(id) {
 export async function updateAgentChat(id, { title, messages } = {}) {
   const res = await fetch(`/api/agentfive/chats/${encodeURIComponent(id)}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ title, messages }),
   })
   if (!res.ok) throw new Error(`Server returned ${res.status}`)
@@ -276,13 +305,14 @@ export async function updateAgentChat(id, { title, messages } = {}) {
 export async function deleteAgentChat(id) {
   await fetch(`/api/agentfive/chats/${encodeURIComponent(id)}`, {
     method: 'DELETE',
+    headers: getAuthHeaders(),
   })
 }
 
 export async function streamAgentFive({ history, message }, handlers = {}) {
   const res = await fetch('/api/agentfive/stream', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ history, message }),
   })
   if (!res.ok || !res.body) {

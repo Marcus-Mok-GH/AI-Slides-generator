@@ -87,10 +87,14 @@ export async function migrate() {
       first_name         VARCHAR,
       last_name          VARCHAR,
       profile_image_url  VARCHAR,
+      password_hash      VARCHAR,
       created_at         TIMESTAMP DEFAULT NOW(),
       updated_at         TIMESTAMP DEFAULT NOW()
     );
   `)
+
+  // Add password_hash to existing tables
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR;`)
 
   // ---------- Credits column + one-time legacy backfill ----------
   await pool.query(`
@@ -155,6 +159,32 @@ export async function upsertUser(user) {
        updated_at        = NOW()
      RETURNING id, email, first_name, last_name, profile_image_url, credits_cents`,
     [id, email, firstName, lastName, profileImageUrl],
+  )
+  return rows[0]
+}
+
+export async function findUserByEmail(email) {
+  dbRequired()
+  const { rows } = await pool.query(
+    `SELECT id, email, first_name, last_name, profile_image_url, credits_cents, password_hash
+     FROM users WHERE email = $1`,
+    [email],
+  )
+  return rows[0] || null
+}
+
+export async function createUser({ id, email, firstName, lastName, passwordHash }) {
+  dbRequired()
+  const { rows } = await pool.query(
+    `INSERT INTO users (id, email, first_name, last_name, password_hash, credits_cents)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (email) DO UPDATE SET
+       first_name   = EXCLUDED.first_name,
+       last_name    = EXCLUDED.last_name,
+       password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
+       updated_at   = NOW()
+     RETURNING id, email, first_name, last_name, profile_image_url, credits_cents`,
+    [id, email, firstName, lastName, passwordHash, NEW_USER_CENTS],
   )
   return rows[0]
 }

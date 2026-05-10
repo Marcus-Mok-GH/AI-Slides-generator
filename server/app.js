@@ -13,12 +13,11 @@ import { agentFiveTurn, agentFiveStream } from './agentFive.js'
 import { buildPptxBuffer } from './exportPptx.js'
 import { buildPdfBuffer } from './exportPdf.js'
 import { runGenerationJob } from './jobRunner.js'
-import { readVDPHeaders, trustVDPHeaders } from './middleware/auth.js'
+import { authMiddleware, optionalAuthMiddleware } from './middleware/auth.js'
 import authRouter from './routes/auth.js'
 
 const app = express()
 app.use(express.json({ limit: '50mb' }))
-app.use(readVDPHeaders)
 
 // Run schema migrations BEFORE any route registration. On
 // Vercel this runs once per cold-start; locally it runs once at boot.
@@ -67,8 +66,11 @@ app.get('/api/stats', async (_req, res) => {
   }
 })
 
-app.use('/api', trustVDPHeaders)
-app.use('/api/auth', authRouter)
+// Auth routes — optional auth so register/login work without a token
+app.use('/api/auth', optionalAuthMiddleware, authRouter)
+
+// All other /api routes require JWT auth
+app.use('/api', authMiddleware)
 
 /**
  * Current user's credit balance plus the per-deck price the client should
