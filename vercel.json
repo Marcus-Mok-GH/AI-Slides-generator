@@ -11,8 +11,5 @@
       "src": "/(.*)",
       "dest": "api/index.js"
     }
-  ],
-  "env": {
-    "FIRECRAWL_API_KEY": "@firecrawl-api-key"
-  }
+  ]
 }
