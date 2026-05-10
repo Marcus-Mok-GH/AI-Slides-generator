@@ -14,10 +14,5 @@
   ],
   "env": {
     "FIRECRAWL_API_KEY": "@firecrawl-api-key"
-  },
-  "functions": {
-    "api/index.js": {
-      "includeFiles": "server/**/*"
-    }
   }
 }
