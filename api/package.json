@@ -1,0 +1,8 @@
+{
+  "name": "ai-slides-generator-api",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^5.2.1",
+    "firecrawl": "^4.22.2"
+  }
+}

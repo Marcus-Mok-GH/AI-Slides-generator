@@ -14,5 +14,9 @@
   ],
   "env": {
     "FIRECRAWL_API_KEY": "@firecrawl-api-key"
-  }
+  },
+  "includeFiles": [
+    "server/**/*",
+    "api/**/*"
+  ]
 }
