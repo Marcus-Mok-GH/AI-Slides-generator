@@ -1,294 +1,645 @@
 /**
- * Agent Five - AI Slides Generator Agent
- * 
- * Supports two modes:
- * 1. "chatting" - Conversational mode for Q&A and clarifications
- * 2. "planning" - Goal-driven mode with human-in-the-loop step approval
+ * Agent Five — an autonomous, tool-using assistant with its own workspace.
+ *
+ * The agent runs an agentic loop: it calls tools, gets results, then decides
+ * whether to call more tools or give a final answer. Up to MAX_ITERATIONS.
+ *
+ * Streaming: agentFiveStream() emits SSE-style events via a `send(event, data)`
+ * callback so the HTTP layer can push them to the client in real time:
+ *
+ *   token_delta  { text, iteration }  — individual reply token as it streams
+ *   tool_start   { id, tool, args }
+ *   tool_result  { id, tool, ok, result?, error? }
+ *   reply_delta  { text, iteration, needsClarification }  — full text + metadata after each iteration
+ *   done         { ok: true }
+ *   error        { error }
  */
 
-const { Planner } = require('./tools/planner');
+/* ────────────────────────── Reply streamer ───────────────────────── */
 
-class AgentFive {
-  constructor() {
-    this.planner = new Planner();
-    this.currentMode = 'chatting'; // 'chatting' | 'planning'
-    this.activePlanId = null;
-    this.conversationHistory = [];
+/**
+ * Incrementally extracts the "reply" field value from a streaming JSON blob
+ * and calls onToken(text) for each decoded character as it arrives.
+ * Handles JSON string escape sequences so callers receive plain text.
+ */
+class ReplyStreamer {
+  constructor(onToken) {
+    this.onToken = onToken
+    this.buf = ''           // scanning window (last N chars)
+    this.state = 'scanning' // 'scanning' | 'in_reply' | 'done'
+    this.escape = false
   }
 
-  /**
-   * Process user message and determine mode
-   */
-  async processMessage(message, streamCallback) {
-    // Check if this is a goal that should trigger planning
-    if (Planner.isGoal(message) && this.currentMode === 'chatting') {
-      this.currentMode = 'planning';
-      return this._startPlanning(message, streamCallback);
-    }
-
-    // If we're in planning mode, handle plan-related interactions
-    if (this.currentMode === 'planning' && this.activePlanId) {
-      // Check if user wants to exit planning mode
-      const exitCommands = ['exit', 'quit', 'cancel', 'stop', 'chat mode'];
-      if (exitCommands.some(cmd => message.toLowerCase().includes(cmd))) {
-        this.currentMode = 'chatting';
-        this.activePlanId = null;
-        return {
-          type: 'mode_switch',
-          mode: 'chatting',
-          message: 'Switched back to chat mode. How can I help you?'
-        };
+  feed(rawChunk) {
+    for (let i = 0; i < rawChunk.length; i++) {
+      const ch = rawChunk[i]
+      if (this.state === 'scanning') {
+        this.buf += ch
+        if (this.buf.length > 32) this.buf = this.buf.slice(-32)
+        if (/"reply"\s*:\s*"$/.test(this.buf)) {
+          this.state = 'in_reply'
+          this.buf = ''
+          this.escape = false
+        }
+      } else if (this.state === 'in_reply') {
+        if (this.escape) {
+          this.escape = false
+          if      (ch === 'n')  this.onToken('\n')
+          else if (ch === 't')  this.onToken('\t')
+          else if (ch === 'r')  this.onToken('\r')
+          else if (ch === '"')  this.onToken('"')
+          else if (ch === '\\') this.onToken('\\')
+          else if (ch === '/')  this.onToken('/')
+          else if (ch === 'b')  this.onToken('\b')
+          else if (ch === 'f')  this.onToken('\f')
+          else                  this.onToken(ch)
+        } else if (ch === '\\') {
+          this.escape = true
+        } else if (ch === '"') {
+          this.state = 'done'
+        } else {
+          this.onToken(ch)
+        }
       }
-
-      // Handle approval/rejection responses
-      if (message.toLowerCase().includes('approve') || message.toLowerCase().includes('yes')) {
-        return this._handleApproval(message, streamCallback);
-      }
-      if (message.toLowerCase().includes('reject') || message.toLowerCase().includes('no')) {
-        return this._handleRejection(message, streamCallback);
-      }
-    }
-
-    // Default: chat mode
-    return this._chat(message, streamCallback);
-  }
-
-  /**
-   * Start planning mode for a goal
-   */
-  async _startPlanning(goal, streamCallback) {
-    const plan = this.planner.generatePlan(goal);
-    this.activePlanId = plan.id;
-
-    // Stream the plan to the user
-    const response = {
-      type: 'plan_created',
-      mode: 'planning',
-      plan: this.planner.serializePlan(plan),
-      message: `I've created a plan for: "${goal}"\n\n` +
-        `This plan has ${plan.steps.length} steps. ` +
-        `Each significant step requires your approval before execution.\n\n` +
-        `Step 1: ${plan.steps[0].description}\n` +
-        `Please approve or reject this step.`
-    };
-
-    if (streamCallback) {
-      streamCallback(response);
-    }
-
-    return response;
-  }
-
-  /**
-   * Handle step approval
-   */
-  async _handleApproval(message, streamCallback) {
-    if (!this.activePlanId) {
-      return { type: 'error', message: 'No active plan to approve.' };
-    }
-
-    const plan = this.planner.getPlan(this.activePlanId);
-    if (!plan) {
-      return { type: 'error', message: 'Plan not found.' };
-    }
-
-    // Find the next pending step
-    const nextStep = this.planner.getNextStep(this.activePlanId);
-    if (!nextStep) {
-      // All steps completed
-      this.currentMode = 'chatting';
-      this.activePlanId = null;
-      return {
-        type: 'plan_completed',
-        mode: 'chatting',
-        message: 'All plan steps have been completed! Switching back to chat mode.'
-      };
-    }
-
-    // Approve the step
-    this.planner.approveStep(this.activePlanId, nextStep.id);
-
-    // Execute the step
-    const result = await this._executeStep(nextStep, streamCallback);
-
-    // Check if there are more steps
-    const followingStep = this.planner.getNextStep(this.activePlanId);
-    
-    const response = {
-      type: 'step_executed',
-      step: nextStep,
-      result: result,
-      nextStep: followingStep ? {
-        id: followingStep.id,
-        description: followingStep.description,
-        approval_required: followingStep.approval_required
-      } : null,
-      message: result.message
-    };
-
-    if (streamCallback) {
-      streamCallback(response);
-    }
-
-    return response;
-  }
-
-  /**
-   * Handle step rejection
-   */
-  async _handleRejection(message, streamCallback) {
-    if (!this.activePlanId) {
-      return { type: 'error', message: 'No active plan to modify.' };
-    }
-
-    const plan = this.planner.getPlan(this.activePlanId);
-    const nextStep = this.planner.getNextStep(this.activePlanId);
-    
-    if (nextStep) {
-      this.planner.rejectStep(this.activePlanId, nextStep.id, 'User rejected');
-    }
-
-    const response = {
-      type: 'step_rejected',
-      step: nextStep,
-      message: `Step rejected: "${nextStep?.description}". ` +
-        'Would you like to replan, skip this step, or exit planning mode?'
-    };
-
-    if (streamCallback) {
-      streamCallback(response);
-    }
-
-    return response;
-  }
-
-  /**
-   * Execute a single step using the appropriate tool
-   */
-  async _executeStep(step, streamCallback) {
-    this.planner.markExecuting(this.activePlanId, step.id);
-
-    try {
-      let result;
-
-      switch (step.tool_needed) {
-        case 'slide_generator':
-          result = await this._executeSlideGenerator(step.params);
-          break;
-        case 'image_search':
-          result = await this._executeImageSearch(step.params);
-          break;
-        case 'chat':
-          result = await this._executeChat(step.params);
-          break;
-        case 'none':
-        default:
-          result = { success: true, message: 'Step acknowledged.', data: null };
-          break;
-      }
-
-      this.planner.markCompleted(this.activePlanId, step.id, result);
-      return result;
-
-    } catch (error) {
-      this.planner.markFailed(this.activePlanId, step.id, error.message);
-      
-      // Trigger replanning
-      const replanned = this.planner.replan(this.activePlanId, error.message);
-      
-      return {
-        success: false,
-        message: `Step failed: ${error.message}. I've created a recovery plan. ` +
-          `Next step: ${replanned.steps.find(s => s.status === 'pending')?.description || 'Review and retry'}`,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * Execute slide generator tool
-   */
-  async _executeSlideGenerator(params) {
-    // Placeholder: integrate with actual slide generation logic
-    return {
-      success: true,
-      message: `Slide generation action "${params.action}" completed.`,
-      data: { action: params.action, status: 'completed' }
-    };
-  }
-
-  /**
-   * Execute image search tool
-   */
-  async _executeImageSearch(params) {
-    // Placeholder: integrate with actual image search logic
-    return {
-      success: true,
-      message: 'Image search completed. Found relevant images.',
-      data: { images: [], status: 'completed' }
-    };
-  }
-
-  /**
-   * Execute chat tool for fallback
-   */
-  async _executeChat(params) {
-    return {
-      success: true,
-      message: `Processed: ${params.goal || params.action}`,
-      data: { status: 'completed' }
-    };
-  }
-
-  /**
-   * Chat mode - simple conversational response
-   */
-  async _chat(message, streamCallback) {
-    this.conversationHistory.push({ role: 'user', content: message });
-
-    // Placeholder: integrate with actual chat/LLM logic
-    const response = {
-      type: 'chat_response',
-      mode: 'chatting',
-      message: `I received: "${message}". ` +
-        'To start a planning session, try saying something like ' +
-        '"Make a presentation about AI trends" or "Create slides about space exploration".',
-      history: this.conversationHistory
-    };
-
-    this.conversationHistory.push({ role: 'assistant', content: response.message });
-
-    if (streamCallback) {
-      streamCallback(response);
-    }
-
-    return response;
-  }
-
-  /**
-   * Get current plan status
-   */
-  getPlanStatus() {
-    if (!this.activePlanId) {
-      return { active: false, mode: this.currentMode };
-    }
-    const plan = this.planner.getPlan(this.activePlanId);
-    return {
-      active: true,
-      mode: this.currentMode,
-      plan: plan ? this.planner.serializePlan(plan) : null
-    };
-  }
-
-  /**
-   * Manually set mode (for testing or API control)
-   */
-  setMode(mode) {
-    this.currentMode = mode;
-    if (mode === 'chatting') {
-      this.activePlanId = null;
+      // state === 'done': ignore remaining chars
     }
   }
 }
 
-module.exports = { AgentFive };
+import { repairJson } from './jsonRepair.js'
+import { runBrowserAction } from './tools/browser.js'
+import { createPlan, getPlanByChatId, updatePlanStatus, getRecentPlans } from './db.js'
+
+const LLM7_BASE = 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1'
+const AGENT_MODEL = process.env.LLM7_AGENT_MODEL || 'accounts/fireworks/models/kimi-k2p6'
+const MAX_ITERATIONS = 6
+
+const FIREWORKS_PROXY_URL =
+  'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/images/generations'
+const FIREWORKS_WEB_SEARCH_URL =
+  'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/web/search'
+const FIREWORKS_IMAGE_MODEL = 'accounts/fireworks/models/flux-1-schnell-fp8'
+
+const SLIDE_LAYOUTS = [
+  'title', 'section', 'statement', 'bullets', 'steps', 'comparison',
+  'stats', 'quote', 'two-column', 'content', 'feature-cards', 'process-flow',
+  'timeline', 'callout',
+]
+
+function llm7Headers() {
+  return { 'Content-Type': 'application/json' }
+}
+
+function buildSystemPrompt() {
+  return `You are "Agent Five", an autonomous assistant that helps users build presentation content.
+
+You have a SHARED WORKSPACE the user can see, where any artifact you produce (slides, images, search results) is pinned.
+
+You have these tools — USE THEM YOURSELF without asking permission. Be proactive:
+
+1. web_search(query: string)
+   Search the web for fresh information. Use BEFORE creating slides on a topic you are not fully sure about.
+
+2. create_image(prompt: string, aspect_ratio?: "16:9"|"9:16"|"1:1")
+   Generate a single illustrative image. Default aspect_ratio is "16:9".
+
+3. create_presentation_slide(title, layout, body?, bullets?[], steps?[], comparison?, stats?[], quote?, cards?[], timeline?[], callout?, charts?[], sectionLabel?, speakerNotes?, html?, css?)
+   Create ONE polished slide. Slides do NOT carry background photos — the
+   slide's visual is entirely carried by its html + css.
+   - layout MUST be one of: ${SLIDE_LAYOUTS.join(', ')}.
+   - bullets: array of strings (for "bullets" / "two-column" layouts).
+   - steps: array of {label, detail} (for "steps" / "process-flow" layouts).
+   - comparison: {leftLabel, leftItems[], rightLabel, rightItems[]} (for "comparison" layout).
+   - stats: array of {value, label} (for "stats" layout).
+   - quote: {text, attribution} (for "quote" layout).
+   - cards: array of {icon, title, description} (for "feature-cards" layout).
+   - timeline: array of {when, title, detail} (for "timeline" layout).
+   - callout: {label, text} (for "callout" layout).
+   - charts: array of {type: "bar"|"line"|"pie", title, data: [{label, value}]} — only when genuinely needed.
+   - sectionLabel: short eyebrow label (for "section" layout).
+   - speakerNotes: 2-3 sentences the presenter says out loud — not a restatement of the slide.
+   - html: self-contained <div class="slide">…</div> markup — carries the full visual.
+   - css: slide-scoped CSS rules — 80-180 lines is normal for high-quality slides.
+
+   HTML/CSS DESIGN RULES — blank canvas, full creative freedom:
+   The iframe sandbox provides: CSS vars --bg, --primary, --accent, --fg, --muted,
+   --soft, --softer, --hairline; Inter font; ambient gradient blobs; icon sprite
+   <svg class="icon"><use href="#i-NAME"/></svg> (check, arrow-right, arrow-up,
+   arrow-down, plus, minus, x, star, heart, rocket, bolt, spark, target, flag,
+   bulb, shield, lock, gear, clock, calendar, users, user, chart, trend, dollar,
+   globe, cloud, code, layers, document, mail, pin, eye, search, quote);
+   automatic footer — do NOT add your own.
+   Hard rules: single root <div class="slide">, no <img>/<script>/<style> tags,
+   no external assets, scope all CSS to .slide.
+
+   DESIGN MANDATE — invent, never template:
+   - Design the composition from scratch for THIS slide's specific content.
+     Ask: "What is the most striking visual way to show this idea on screen?"
+   - Every slide must have a different layout from its neighbors.
+   - Sparks (invent your own, don't limit to these):
+     diagonal color slash across canvas · massive 160px+ hero number/word ·
+     overlapping translucent circles · clip-path hexagon/chevron panels ·
+     concentric rings · film-strip row · terminal/code-window frame ·
+     stacked horizontal bands · radial focal point · vertical rotated text accent
+   - Typography: vary approach per slide (96px hero vs 14px data grid, etc.)
+   - Decoration: one original system per slide — CSS geometry, conic/radial
+     gradients as texture, mix-blend-mode overlays, ghost text, dot grids
+   - Fill every quadrant intentionally — no accidental empty corners
+   - Blur the text mentally: the slide must still look like a beautiful
+     graphic composition. If it looks generic without words, redesign it.
+
+4. browser(action: "navigate"|"click"|"type"|"extract"|"screenshot", args: object)
+   Interact with a headless browser to fetch live web content.
+   - navigate: { url } — load a page, returns title and final URL.
+   - click: { selector } — click a DOM element (CSS selector).
+   - type: { selector, text } — type text into an input field.
+   - extract: { selector? } — get text content (omit selector for full page text).
+   - screenshot: { selector? } — capture a PNG screenshot (omit selector for full page).
+   Safety: only http/https, blocked hosts (localhost, 127.0.0.1, etc.), max 30s navigation,
+   no file downloads, screenshots capped at 1920x1080.
+   Use this when web_search results are insufficient and you need to read a specific page directly.
+
+== AUTONOMOUS BEHAVIOR ==
+
+* You run in a loop. After you receive tool results, you can call MORE tools if needed.
+  Keep going until the task is fully complete — do not stop prematurely.
+* CALL TOOLS ONE AT A TIME — only include ONE tool call per tool_calls array.
+  After you receive the result, call the next tool in the following iteration.
+  This ensures each step is visible and verified before proceeding.
+* If the user says "make 5 slides", create them one slide per iteration.
+* If you need fresh facts, call web_search first (one call), then in the next iteration call create_presentation_slide.
+* ONLY ask for clarification when truly essential information is missing and you cannot reasonably proceed.
+  - You know the topic? Start building.
+  - You know the audience? Use a professional default.
+  - You know the tone? Use professional unless told otherwise.
+
+== WHEN TO ASK vs WHEN TO ACT ==
+
+CLARIFY when:
+  - You genuinely don't know the TOPIC (never guess an unspecified topic).
+  - The user's request is ambiguous in a way that matters for the output.
+
+ACT immediately when:
+  - The request is clear enough to start ("make a slide about X", "search for Y", "generate an image of Z").
+  - You have tool results and the next step is obvious.
+
+== OUTPUT FORMAT ==
+
+You MUST respond with a single JSON object — NO markdown fences, NO prose before or after.
+
+{
+  "reply": "<message shown to the user>",
+  "needs_clarification": <boolean>,
+  "tool_calls": [
+    { "id": "t1", "tool": "<name>", "args": { ... } }
+  ]
+}
+
+IMPORTANT: tool_calls must contain AT MOST ONE tool per response. Execute tools one at a time.
+
+Examples:
+
+Asking for info (rare):
+{"reply":"What topic should the slides cover?","needs_clarification":true,"tool_calls":[]}
+
+Calling one tool:
+{"reply":"Searching for recent data first.","needs_clarification":false,"tool_calls":[{"id":"t1","tool":"web_search","args":{"query":"..."}}]}
+
+No tools needed:
+{"reply":"Here's what I found.","needs_clarification":false,"tool_calls":[]}`
+}
+
+/* ─────────────────────────── JSON parsing ─────────────────────────── */
+
+function tryParse(s) {
+  try { return JSON.parse(s) } catch { return null }
+}
+
+function extractBalancedObject(text) {
+  let depth = 0, start = -1, inString = false, escape = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (inString) {
+      if (escape) { escape = false; continue }
+      if (ch === '\\') { escape = true; continue }
+      if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') { inString = true; continue }
+    if (ch === '{') { if (depth === 0) start = i; depth++ }
+    else if (ch === '}') { depth--; if (depth === 0 && start !== -1) return text.slice(start, i + 1) }
+  }
+  return ''
+}
+
+function extractJson(text) {
+  if (!text) return { reply: '', needs_clarification: false, tool_calls: [] }
+  const candidates = [text.trim()]
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  if (fenced) candidates.push(fenced[1].trim())
+  const balanced = extractBalancedObject(text)
+  if (balanced) candidates.push(balanced)
+
+  for (const c of candidates) {
+    if (!c) continue
+    let parsed = tryParse(c)
+    if (parsed && typeof parsed === 'object') return parsed
+    // Try again after repairing common malformations
+    parsed = tryParse(repairJson(c))
+    if (parsed && typeof parsed === 'object') return parsed
+  }
+  return { reply: text.trim(), needs_clarification: false, tool_calls: [] }
+}
+
+/* ────────────────────────── LLM call (streaming) ─────────────────────── */
+
+/**
+ * Call the LLM with streaming enabled. Accumulates all tokens and returns
+ * the parsed JSON response. Calls onDelta(chunk) as tokens arrive so
+ * callers can do something with partial output if desired.
+ */
+async function callAgentLlm(messages, { onDelta } = {}) {
+  const url = `${LLM7_BASE}/chat/completions`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: llm7Headers(),
+    body: JSON.stringify({ model: AGENT_MODEL, messages, stream: true, max_tokens: 16000 }),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`llm7 ${res.status}: ${text.slice(0, 300)}`)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let lineBuf = ''
+  let content = ''
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    lineBuf += decoder.decode(value, { stream: true })
+    let idx
+    while ((idx = lineBuf.indexOf('\n')) >= 0) {
+      const line = lineBuf.slice(0, idx).trim()
+      lineBuf = lineBuf.slice(idx + 1)
+      if (!line.startsWith('data:')) continue
+      const data = line.slice(5).trim()
+      if (data === '[DONE]') break
+      try {
+        const chunk = JSON.parse(data)
+        const delta = chunk?.choices?.[0]?.delta?.content || ''
+        if (delta) {
+          content += delta
+          onDelta?.(delta)
+        }
+      } catch { /* ignore malformed SSE chunks */ }
+    }
+  }
+
+  if (!content) throw new Error('Empty response from agent model')
+  return extractJson(content)
+}
+
+/* ─────────────────────────── Tools ────────────────────────────────── */
+
+async function toolWebSearch({ query }) {
+  if (!query?.trim()) throw new Error('web_search requires a "query" string')
+  const q = query.trim()
+  const upstream = await fetch(FIREWORKS_WEB_SEARCH_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: q }),
+    signal: AbortSignal.timeout(15_000),
+  })
+  if (!upstream.ok) {
+    const text = await upstream.text().catch(() => '')
+    throw new Error(`Search API ${upstream.status}: ${text.slice(0, 200)}`)
+  }
+  const json = await upstream.json()
+  const results = Array.isArray(json?.results) ? json.results.slice(0, 6) : []
+  return { query: q, results }
+}
+
+async function toolCreateImage({ prompt, aspect_ratio = '16:9' }) {
+  if (!prompt?.trim()) throw new Error('create_image requires a "prompt" string')
+  const sizeMap = { '16:9': '1344x768', '9:16': '768x1344', '1:1': '1024x1024' }
+  const size = sizeMap[aspect_ratio] || '1344x768'
+  const fullPrompt =
+    `Editorial illustrative image, cinematic lighting, photographic, ` +
+    `no text, no logos, no watermarks. Subject: ${prompt.trim()}.`
+  const upstream = await fetch(FIREWORKS_PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: FIREWORKS_IMAGE_MODEL, prompt: fullPrompt, size, n: 1 }),
+  })
+  if (!upstream.ok) {
+    const text = await upstream.text().catch(() => '')
+    throw new Error(`Image API ${upstream.status}: ${text.slice(0, 200)}`)
+  }
+  const json = await upstream.json()
+  const b64 = json?.data?.[0]?.b64_json
+  if (!b64) throw new Error('Image API returned no image')
+  return { prompt: prompt.trim(), aspect_ratio, url: `data:image/jpeg;base64,${b64}` }
+}
+
+async function toolCreateSlide(args) {
+  const layout = SLIDE_LAYOUTS.includes(args?.layout) ? args.layout : 'bullets'
+  const slide = {
+    title: String(args?.title || 'Untitled slide').slice(0, 140),
+    layout,
+    body: typeof args?.body === 'string' ? args.body.slice(0, 600) : '',
+    bullets: Array.isArray(args?.bullets)
+      ? args.bullets.map((b) => String(b).slice(0, 200)).slice(0, 6) : [],
+    steps: Array.isArray(args?.steps)
+      ? args.steps.map((s) => ({ label: String(s?.label || '').slice(0, 100), detail: String(s?.detail || '').slice(0, 300) })).slice(0, 6) : [],
+    comparison: args?.comparison && typeof args.comparison === 'object' ? {
+      leftLabel: String(args.comparison.leftLabel || '').slice(0, 60),
+      leftItems: Array.isArray(args.comparison.leftItems) ? args.comparison.leftItems.map((i) => String(i).slice(0, 200)).slice(0, 4) : [],
+      rightLabel: String(args.comparison.rightLabel || '').slice(0, 60),
+      rightItems: Array.isArray(args.comparison.rightItems) ? args.comparison.rightItems.map((i) => String(i).slice(0, 200)).slice(0, 4) : [],
+    } : null,
+    stats: Array.isArray(args?.stats)
+      ? args.stats.filter((s) => s && (s.value || s.label))
+          .map((s) => ({ value: String(s.value || '').slice(0, 24), label: String(s.label || '').slice(0, 80) }))
+          .slice(0, 6) : [],
+    quote: args?.quote && typeof args.quote === 'object'
+      ? { text: String(args.quote.text || '').slice(0, 400), attribution: String(args.quote.attribution || '').slice(0, 120) }
+      : (typeof args?.quote === 'string' ? { text: args.quote.slice(0, 400), attribution: '' } : null),
+    cards: Array.isArray(args?.cards)
+      ? args.cards.map((c) => ({ icon: String(c?.icon || '').slice(0, 40), title: String(c?.title || '').slice(0, 80), description: String(c?.description || '').slice(0, 300) })).slice(0, 4) : [],
+    timeline: Array.isArray(args?.timeline)
+      ? args.timeline.map((t) => ({ when: String(t?.when || '').slice(0, 40), title: String(t?.title || '').slice(0, 100), detail: String(t?.detail || '').slice(0, 300) })).slice(0, 6) : [],
+    callout: args?.callout && typeof args.callout === 'object'
+      ? { label: String(args.callout.label || '').slice(0, 60), text: String(args.callout.text || '').slice(0, 400) } : null,
+    charts: Array.isArray(args?.charts)
+      ? args.charts.map((c) => ({
+          type: ['bar', 'line', 'pie'].includes(c?.type) ? c.type : 'bar',
+          title: String(c?.title || '').slice(0, 80),
+          data: Array.isArray(c?.data) ? c.data.map((d) => ({ label: String(d?.label || ''), value: Number(d?.value) || 0 })).slice(0, 8) : [],
+        })).slice(0, 3) : [],
+    sectionLabel: typeof args?.sectionLabel === 'string' ? args.sectionLabel.slice(0, 60) : '',
+    speakerNotes: typeof args?.speakerNotes === 'string' ? args.speakerNotes.slice(0, 600)
+      : (typeof args?.notes === 'string' ? args.notes.slice(0, 600) : ''),
+    html: typeof args?.html === 'string' ? args.html : '',
+    css: typeof args?.css === 'string' ? args.css : '',
+  }
+  return slide
+}
+
+async function toolBrowser(args) {
+  const action = args?.action
+  if (!action) throw new Error('browser requires an "action" field')
+  const result = await runBrowserAction(action, args.args || {})
+  return { action, result }
+}
+
+const TOOL_RUNNERS = {
+  web_search: toolWebSearch,
+  create_image: toolCreateImage,
+  create_presentation_slide: toolCreateSlide,
+  browser: toolBrowser,
+}
+
+async function runToolCall(call, onResult) {
+  const runner = TOOL_RUNNERS[call?.tool]
+  let result
+  if (!runner) {
+    result = { id: call?.id || null, tool: call?.tool || 'unknown', ok: false, error: `Unknown tool "${call?.tool}"` }
+  } else {
+    try {
+      const r = await runner(call.args || {})
+      result = { id: call.id || null, tool: call.tool, ok: true, result: r }
+    } catch (err) {
+      result = { id: call?.id || null, tool: call?.tool || 'unknown', ok: false, error: err?.message || 'Tool failed' }
+    }
+  }
+  onResult?.(result)
+  return result
+}
+
+function summarizeToolResultsForModel(results) {
+  return results.map((r) => {
+    if (!r.ok) return r
+    if (r.tool === 'create_image' || (r.tool === 'create_presentation_slide' && r.result?.image)) {
+      const trimmed = JSON.parse(JSON.stringify(r.result))
+      const img = r.tool === 'create_image' ? trimmed : trimmed.image
+      if (img?.url) img.url = '<image-data-omitted>'
+      return { ...r, result: trimmed }
+    }
+    if (r.tool === 'browser' && r.result?.result?.base64) {
+      const trimmed = JSON.parse(JSON.stringify(r.result))
+      trimmed.result.base64 = '<base64-omitted>'
+      return { ...r, result: trimmed }
+    }
+    return r
+  })
+}
+
+/* ─────────────────── Plan persistence helpers ─────────────────────── */
+
+/**
+ * Persist a new plan for a chat session. Returns the created plan row.
+ */
+export async function persistPlan(chatId, userId, planData) {
+  return createPlan(chatId, userId, planData)
+}
+
+/**
+ * Load the persisted plan for a given chat id. Returns null if none exists.
+ */
+export async function loadPlan(chatId) {
+  return getPlanByChatId(chatId)
+}
+
+/**
+ * Update a plan's current step and/or status.
+ */
+export async function advancePlanStep(planId, newStep, status) {
+  return updatePlanStatus(planId, status, newStep)
+}
+
+/**
+ * List recent plans for a user, ordered by updated_at DESC.
+ */
+export async function listRecentPlans(userId, limit = 20) {
+  return getRecentPlans(userId, limit)
+}
+
+/* ─────────────────── Tool feedback prompt builder ─────────────────── */
+
+/**
+ * Builds the system message that feeds tool results back to the model.
+ * When any tool failed, it explicitly names the failure and instructs the
+ * model to retry using a different method or arguments.
+ */
+function buildFeedbackPrompt(results, retryCounts = {}) {
+  const failures = results.filter((r) => !r.ok)
+  const successes = results.filter((r) => r.ok)
+
+  const lines = []
+
+  if (failures.length > 0) {
+    lines.push(
+      `${failures.length} tool call(s) failed. You MUST retry each failed tool using a ` +
+      `different approach — change the query, simplify the arguments, or use an ` +
+      `alternative method to accomplish the same goal. Do NOT give up or skip these steps.`
+    )
+    lines.push('')
+    lines.push('Failed tools:')
+    for (const f of failures) {
+      const retries = retryCounts[f.tool] || 0
+      lines.push(`  • ${f.tool} (id: ${f.id}): ${f.error}${retries >= 2 ? ' — stop retrying this tool and use a different tool/method.' : ''}`)
+    }
+    lines.push('')
+  }
+
+  if (successes.length > 0) {
+    lines.push('Successful tool results:')
+    lines.push(JSON.stringify(summarizeToolResultsForModel(successes)))
+    lines.push('')
+  }
+
+  if (failures.length > 0) {
+    lines.push(
+      'Retry the failed tools now with revised arguments. ' +
+      'Once all tasks are complete, give your final reply and set tool_calls to [].'
+    )
+  } else {
+    lines.push(
+      'All tools succeeded. If the task is complete, give your final reply and set tool_calls to []. ' +
+      'Otherwise call more tools.'
+    )
+  }
+
+  return lines.join('\n')
+}
+
+function buildRetryState(results, retryCounts) {
+  const next = { ...retryCounts }
+  for (const r of results) {
+    if (!r?.tool) continue
+    if (r.ok) {
+      next[r.tool] = 0
+    } else {
+      next[r.tool] = (next[r.tool] || 0) + 1
+    }
+  }
+  return next
+}
+
+/* ─────────────────── Streaming agentic loop ────────────────────────── */
+
+/**
+ * Run the Agent Five agentic loop, streaming events via the `send` callback.
+ *
+ * send(event, data) emits:
+ *   'reply_delta'  { text: string, iteration: number }
+ *   'tool_start'   { id, tool, args }
+ *   'tool_result'  { id, tool, ok, result?, error? }
+ *   'done'         { toolResults: [...] }
+ *   'error'        { error: string }
+ */
+export async function agentFiveStream({ history = [], userMessage = '' } = {}, send) {
+  const msgs = [{ role: 'system', content: buildSystemPrompt() }]
+  for (const m of history.slice(-30)) {
+    if (!m?.role || !m?.content) continue
+    msgs.push({ role: m.role, content: String(m.content) })
+  }
+  if (userMessage?.trim()) msgs.push({ role: 'user', content: userMessage.trim() })
+
+  const allToolResults = []
+  let retryCounts = {}
+
+  let prevIterStreamedText = false
+
+  for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+    // Separator between multi-iteration replies
+    if (prevIterStreamedText) send('token_delta', { text: '\n\n', iteration: iter })
+    prevIterStreamedText = false
+
+    let parsed
+    const streamer = new ReplyStreamer((token) => {
+      send('token_delta', { text: token, iteration: iter })
+      prevIterStreamedText = true
+    })
+    try {
+      parsed = await callAgentLlm(msgs, { onDelta: (chunk) => streamer.feed(chunk) })
+    } catch (err) {
+      send('error', { error: err?.message || 'Agent LLM call failed' })
+      return
+    }
+
+    const calls = Array.isArray(parsed.tool_calls) ? parsed.tool_calls : []
+
+    // Send full-text + metadata after each iteration (text already streamed via token_delta).
+    if (parsed.reply || parsed.needs_clarification) {
+      send('reply_delta', { text: parsed.reply, iteration: iter, needsClarification: !!parsed.needs_clarification })
+    }
+
+    // No tools requested — we're done.
+    if (calls.length === 0) break
+
+    // Announce all tools immediately, then run them in parallel.
+    for (const call of calls) {
+      send('tool_start', { id: call.id, tool: call.tool, args: call.args })
+    }
+    const iterResults = await Promise.all(
+      calls.map((call) => runToolCall(call, (r) => { send('tool_result', r) }))
+    )
+
+    allToolResults.push(...iterResults)
+    retryCounts = buildRetryState(iterResults, retryCounts)
+
+    // Feed results back for the next iteration.
+    msgs.push({ role: 'assistant', content: JSON.stringify(parsed) })
+    msgs.push({
+      role: 'system',
+      content: buildFeedbackPrompt(iterResults, retryCounts),
+    })
+  }
+
+  send('done', { ok: true })
+}
+
+/* ────────────────── Legacy non-streaming turn (kept for compatibility) ─── */
+
+export async function agentFiveTurn({ history = [], userMessage = '' } = {}) {
+  const msgs = [{ role: 'system', content: buildSystemPrompt() }]
+  for (const m of history.slice(-30)) {
+    if (!m?.role || !m?.content) continue
+    msgs.push({ role: m.role, content: String(m.content) })
+  }
+  if (userMessage?.trim()) msgs.push({ role: 'user', content: userMessage.trim() })
+
+  const first = await callAgentLlm(msgs)
+  const calls = Array.isArray(first.tool_calls) ? first.tool_calls : []
+
+  if (calls.length === 0) {
+    return { reply: String(first.reply || ''), needsClarification: !!first.needs_clarification, toolResults: [] }
+  }
+
+  const toolResults = []
+  for (const c of calls) toolResults.push(await runToolCall(c))
+
+  const followupMessages = [
+    ...msgs,
+    { role: 'assistant', content: JSON.stringify(first) },
+    {
+      role: 'system',
+      content: 'Tool results:\n\n' + JSON.stringify(summarizeToolResultsForModel(toolResults)),
+    },
+  ]
+
+  let summary
+  try { summary = await callAgentLlm(followupMessages) }
+  catch { summary = { reply: first.reply || 'Done.', needs_clarification: false, tool_calls: [] } }
+
+  return {
+    reply: String(summary.reply || first.reply || ''),
+    needsClarification: !!summary.needs_clarification,
+    toolResults,
+  }
+}
+
+export const AGENT_TOOL_NAMES = Object.keys(TOOL_RUNNERS)

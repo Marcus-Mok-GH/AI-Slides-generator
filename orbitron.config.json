@@ -1,0 +1,13 @@
+{
+  "baseUrl": "https://orbitron--pastelsjuice8t.replit.app",
+  "chatPath": "/api/chat",
+  "modelsPath": "/api/models",
+  "model": "gpt-4.1-mini",
+  "temperature": 0.2,
+  "maxTokens": 2048,
+  "retries": 3,
+  "apiKey": "sk-sb-v1-x_Z5xu7RobK3uNwDJBupH5FHr2f_g3SenZcFLpgMyS4",
+  "systemPrompt": "You are a concise, practical coding assistant for a terminal workflow.",
+  "autosave": true,
+  "theme": "default"
+}

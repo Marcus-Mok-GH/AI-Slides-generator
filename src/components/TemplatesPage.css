@@ -1,0 +1,184 @@
+.tpl-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 32px 80px;
+}
+
+/* ---- Header ---- */
+.tpl-header {
+  margin-bottom: 28px;
+}
+.tpl-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 6px;
+  letter-spacing: -0.5px;
+}
+.tpl-sub {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ---- Category pills ---- */
+.tpl-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+.tpl-cat-btn {
+  padding: 7px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease;
+}
+.tpl-cat-btn:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+.tpl-cat-btn.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ---- Card grid ---- */
+.tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 18px;
+}
+
+/* ---- Card ---- */
+.tpl-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    transform 200ms cubic-bezier(0.16,1,0.3,1),
+    box-shadow 200ms ease,
+    border-color 200ms ease;
+}
+.tpl-card:hover,
+.tpl-card.is-hovered {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 36px rgba(0,0,0,.18);
+  border-color: var(--accent);
+}
+.tpl-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- Thumbnail ---- */
+.tpl-thumb {
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Slide mock lines */
+.tpl-mock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  width: 80%;
+}
+.tm-line,
+.tm-block {
+  display: block;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.35);
+  height: 8px;
+}
+.tm-block {
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.18);
+}
+.tm-line.w80 { width: 80%; }
+.tm-line.w65 { width: 65%; }
+.tm-line.w55 { width: 55%; }
+.tm-line.w40 { width: 40%; }
+
+/* ---- Card info ---- */
+.tpl-info {
+  padding: 14px 16px;
+  flex: 1;
+}
+.tpl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.tpl-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tpl-tag {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.tpl-desc {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ---- Hover overlay ---- */
+.tpl-use-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(124, 92, 255, 0.82);
+  opacity: 0;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+  backdrop-filter: blur(2px);
+}
+.tpl-card:hover .tpl-use-overlay,
+.tpl-card.is-hovered .tpl-use-overlay {
+  opacity: 1;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 600px) {
+  .tpl-page { padding: 24px 16px 60px; }
+  .tpl-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .tpl-title { font-size: 22px; }
+}

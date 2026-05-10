@@ -1,155 +1,174 @@
 /**
- * Firecrawl-based Browser Tool
+ * Browser tool for Agent Five — interactive headless browser via Puppeteer.
  *
- * Replaces Puppeteer with Firecrawl for cloud-native browser automation.
- * Compatible with serverless environments (Vercel, etc.).
+ * Safety guards:
+ *   - URL whitelist / blocklist
+ *   - Max navigation timeout
+ *   - No file downloads (blocked by intercepting requests)
+ *   - Screenshot size limits (max 1920x1080)
  *
- * Usage:
- *   const { BrowserTool } = require('./browser');
- *   const browser = new BrowserTool();
- *   const result = await browser.scrape('https://example.com');
+ * Supported actions:
+ *   navigate   { url: string }
+ *   click      { selector: string }
+ *   type       { selector: string, text: string }
+ *   extract    { selector?: string }   — returns text content
+ *   screenshot { selector?: string }    — returns base64 PNG
  */
 
-const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY || '';
-const FIRECRAWL_BASE_URL = process.env.FIRECRAWL_BASE_URL || 'https://api.firecrawl.dev';
+// import puppeteer from 'puppeteer'  // dynamically imported below
 
-class BrowserTool {
-  constructor(apiKey = FIRECRAWL_API_KEY, baseUrl = FIRECRAWL_BASE_URL) {
-    this.apiKey = apiKey;
-    this.baseUrl = baseUrl.replace(/\/$/, '');
-  }
+const MAX_NAV_TIMEOUT = 30_000
+const MAX_SCREENSHOT_W = 1920
+const MAX_SCREENSHOT_H = 1080
 
-  /**
-   * Internal: perform a fetch with standard headers and error handling.
-   */
-  async _request(endpoint, body = {}, method = 'POST') {
-    if (!this.apiKey) {
-      throw new Error('Firecrawl API key is missing. Set FIRECRAWL_API_KEY.');
-    }
+// Blocklist: never visit these
+const BLOCKED_HOSTS = [
+  'localhost',
+  '127.0.0.1',
+  '0.0.0.0',
+  '::1',
+  '[::1]',
+]
 
-    const url = `${this.baseUrl}${endpoint}`;
-    const options = {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: method !== 'GET' ? JSON.stringify(body) : undefined,
-    };
+// Whitelist: if non-empty, ONLY these hosts are allowed
+const ALLOWED_HOSTS = [] // e.g. ['example.com', 'wikipedia.org']
 
-    let response;
-    try {
-      response = await fetch(url, options);
-    } catch (networkErr) {
-      throw new Error(`Firecrawl network error: ${networkErr.message}`);
-    }
-
-    let data;
-    try {
-      data = await response.json();
-    } catch {
-      const text = await response.text();
-      throw new Error(
-        `Firecrawl HTTP ${response.status}: ${text || response.statusText}`
-      );
-    }
-
-    if (!response.ok || data.success === false) {
-      const msg = data.message || data.error || JSON.stringify(data);
-      throw new Error(`Firecrawl error (${response.status}): ${msg}`);
-    }
-
-    return data;
-  }
-
-  /**
-   * Scrape a single URL.
-   *
-   * @param {string} url - Target URL
-   * @param {Object} [options]
-   * @param {boolean} [options.onlyMainContent=true] - Strip nav/ads/footer
-   * @param {string} [options.formats='markdown'] - Comma-separated: markdown,html,text,screenshot,links
-   * @param {boolean} [options.waitFor=0] - Milliseconds to wait before extraction
-   * @returns {Promise<Object>} - { success, data, ... }
-   */
-  async scrape(url, options = {}) {
-    if (!url || typeof url !== 'string') {
-      throw new Error('URL is required and must be a string.');
-    }
-
-    const body = {
-      url,
-      onlyMainContent: options.onlyMainContent !== false,
-      formats: options.formats || 'markdown',
-      ...(options.waitFor ? { waitFor: options.waitFor } : {}),
-    };
-
-    return this._request('/v1/scrape', body);
-  }
-
-  /**
-   * Interact with a page (click, type, scroll, screenshot) via Firecrawl.
-   *
-   * @param {string} url - Starting URL
-   * @param {Array<Object>} actions - Ordered list of actions
-   *   e.g. [{ type: 'click', selector: '#btn' }, { type: 'type', selector: '#q', text: 'hello' }]
-   * @param {Object} [options]
-   * @param {string} [options.formats='markdown'] - Desired output formats
-   * @returns {Promise<Object>}
-   */
-  async interact(url, actions = [], options = {}) {
-    if (!url || typeof url !== 'string') {
-      throw new Error('URL is required and must be a string.');
-    }
-    if (!Array.isArray(actions) || actions.length === 0) {
-      throw new Error('At least one action is required for interact.');
-    }
-
-    const body = {
-      url,
-      actions,
-      formats: options.formats || 'markdown',
-    };
-
-    return this._request('/v1/interact', body);
-  }
-
-  /**
-   * Convenience: scrape and return markdown content only.
-   */
-  async getMarkdown(url, options = {}) {
-    const res = await this.scrape(url, { ...options, formats: 'markdown' });
-    return res.data?.markdown || '';
-  }
-
-  /**
-   * Convenience: scrape and return screenshot URL (if available).
-   */
-  async getScreenshot(url, options = {}) {
-    const res = await this.scrape(url, { ...options, formats: 'screenshot' });
-    return res.data?.screenshot || null;
-  }
-
-  /**
-   * Search the web using Firecrawl (if supported by your plan).
-   *
-   * @param {string} query - Search query
-   * @param {Object} [options]
-   * @param {number} [options.limit=5] - Max results
-   * @returns {Promise<Object>}
-   */
-  async search(query, options = {}) {
-    if (!query || typeof query !== 'string') {
-      throw new Error('Query is required and must be a string.');
-    }
-
-    const body = {
-      query,
-      limit: options.limit || 5,
-    };
-
-    return this._request('/v1/search', body);
-  }
+function isHostBlocked(hostname) {
+  const h = hostname.toLowerCase()
+  if (BLOCKED_HOSTS.some((b) => h === b || h.endsWith(`.${b}`))) return true
+  if (ALLOWED_HOSTS.length > 0 && !ALLOWED_HOSTS.some((a) => h === a || h.endsWith(`.${a}`))) return true
+  return false
 }
 
-module.exports = { BrowserTool };
+function validateUrl(raw) {
+  let url
+  try { url = new URL(raw) } catch { throw new Error(`Invalid URL: "${raw}"`) }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error(`Only http/https allowed, got: ${url.protocol}`)
+  if (isHostBlocked(url.hostname)) throw new Error(`URL host is blocked: ${url.hostname}`)
+  return url
+}
+
+let browser = null
+let page = null
+
+async function ensureBrowser() {
+  if (!browser) {
+    const puppeteer = await import('puppeteer').then(m => m.default || m)
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    })
+  }
+  if (!page) {
+    page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 720 })
+    await page.setRequestInterception(true)
+    page.on('request', (req) => {
+      const resourceType = req.resourceType()
+      // Block document downloads and binary resources
+      if (resourceType === 'document' && req.url().match(/\.(pdf|zip|exe|dmg|pkg|deb|rpm|tar\.gz|tgz|bz2|7z|jar|war|apk|ipa)$/i)) {
+        req.abort('blockedbyclient')
+        return
+      }
+      if (['media', 'font'].includes(resourceType)) {
+        req.abort('blockedbyclient')
+        return
+      }
+      req.continue()
+    })
+  }
+  return { browser, page }
+}
+
+async function closeBrowser() {
+  if (page) { await page.close().catch(() => {}); page = null }
+  if (browser) { await browser.close().catch(() => {}); browser = null }
+}
+
+/* ─────────────────────── Actions ─────────────────────── */
+
+async function actionNavigate({ url }) {
+  const validated = validateUrl(url)
+  const { page } = await ensureBrowser()
+  await page.goto(validated.href, { waitUntil: 'networkidle2', timeout: MAX_NAV_TIMEOUT })
+  const title = await page.title().catch(() => '')
+  const finalUrl = page.url()
+  return { action: 'navigate', url: finalUrl, title }
+}
+
+async function actionClick({ selector }) {
+  if (!selector?.trim()) throw new Error('click requires "selector"')
+  const { page } = await ensureBrowser()
+  await page.waitForSelector(selector, { timeout: 10_000 })
+  await page.click(selector)
+  // Small pause for any navigation / re-render
+  await new Promise((r) => setTimeout(r, 500))
+  return { action: 'click', selector, clicked: true }
+}
+
+async function actionType({ selector, text }) {
+  if (!selector?.trim()) throw new Error('type requires "selector"')
+  if (typeof text !== 'string') throw new Error('type requires "text"')
+  const { page } = await ensureBrowser()
+  await page.waitForSelector(selector, { timeout: 10_000 })
+  await page.focus(selector)
+  await page.keyboard.type(text, { delay: 10 })
+  return { action: 'type', selector, typed: text.length }
+}
+
+async function actionExtract({ selector }) {
+  const { page } = await ensureBrowser()
+  if (selector?.trim()) {
+    const el = await page.$(selector)
+    if (!el) return { action: 'extract', selector, text: '', found: false }
+    const text = await page.evaluate((e) => e.innerText || e.textContent || '', el)
+    return { action: 'extract', selector, text: String(text).slice(0, 5000), found: true }
+  }
+  const text = await page.evaluate(() => document.body.innerText || '')
+  return { action: 'extract', text: String(text).slice(0, 5000), found: true }
+}
+
+async function actionScreenshot({ selector }) {
+  const { page } = await ensureBrowser()
+  let clip = null
+  if (selector?.trim()) {
+    const el = await page.$(selector)
+    if (!el) throw new Error(`Element not found for screenshot: ${selector}`)
+    const box = await el.boundingBox()
+    if (!box) throw new Error(`Element has no bounding box: ${selector}`)
+    clip = {
+      x: box.x,
+      y: box.y,
+      width: Math.min(Math.round(box.width), MAX_SCREENSHOT_W),
+      height: Math.min(Math.round(box.height), MAX_SCREENSHOT_H),
+    }
+  } else {
+    const viewport = await page.viewport()
+    clip = { x: 0, y: 0, width: Math.min(viewport.width, MAX_SCREENSHOT_W), height: Math.min(viewport.height, MAX_SCREENSHOT_H) }
+  }
+  const buf = await page.screenshot({ clip, encoding: 'base64', type: 'png' })
+  return { action: 'screenshot', format: 'png', base64: buf, width: clip.width, height: clip.height }
+}
+
+const ACTIONS = {
+  navigate: actionNavigate,
+  click: actionClick,
+  type: actionType,
+  extract: actionExtract,
+  screenshot: actionScreenshot,
+}
+
+/**
+ * Run a browser action.
+ * @param {string} action — one of: navigate, click, type, extract, screenshot
+ * @param {object} args   — action-specific arguments
+ * @returns {object} structured result
+ */
+export async function runBrowserAction(action, args = {}) {
+  const fn = ACTIONS[action]
+  if (!fn) throw new Error(`Unknown browser action "${action}". Supported: ${Object.keys(ACTIONS).join(', ')}`)
+  return fn(args)
+}
+
+/** Close the underlying browser (call on shutdown / error). */
+export { closeBrowser }

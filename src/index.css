@@ -1,0 +1,198 @@
+:root {
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f4f6fb;
+  --border: #e5eaf3;
+  --border-strong: #d6ddeb;
+  --text: #0f172a;
+  --text-muted: #556075;
+  --text-soft: #8490a6;
+  --accent: #2f5bea;
+  --accent-hover: #254bd1;
+  --accent-soft: #eaf0ff;
+  --pink: #8b9cff;
+  --orange: #6f86ff;
+  --green: #2ecc71;
+  --hover-overlay: rgba(0, 0, 0, 0.035);
+  --on-surface: white;
+  --accent-light: #9a7bff;
+  --error-bg: #fff1f1;
+  --error-border: #fecaca;
+  --error-text: #b91c1c;
+  --shadow-sm: 0 2px 10px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 20px 48px rgba(15, 23, 42, 0.12);
+  --shadow-xl: 0 28px 72px rgba(15, 23, 42, 0.16);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0b1220;
+  --surface: #111827;
+  --surface-2: #172033;
+  --border: #243149;
+  --border-strong: #32415f;
+  --text: #f5f7ff;
+  --text-muted: #a6b2c9;
+  --text-soft: #77839c;
+  --accent: #7d90ff;
+  --accent-hover: #9aa8ff;
+  --accent-soft: #1a2440;
+  --pink: #a7b3ff;
+  --orange: #8ea0ff;
+  --green: #3dd68c;
+  --hover-overlay: rgba(255, 255, 255, 0.045);
+  --on-surface: var(--surface);
+  --accent-light: #b09eff;
+  --error-bg: #2d1215;
+  --error-border: #5c2124;
+  --error-text: #fca5a5;
+  --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.38);
+  --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.46);
+  --shadow-xl: 0 24px 74px rgba(0, 0, 0, 0.58);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  line-height: 1.45;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease,
+    color var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-out-back),
+    box-shadow var(--duration-base) ease;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  transition: border-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease,
+    background-color var(--duration-fast) ease;
+}
+
+/* ── Global mobile helpers ── */
+@media (max-width: 720px) {
+  /* Prevent iOS auto-zoom on inputs with font-size < 16px.
+     Component-level 16px rules take priority; this catches any that were missed.
+     Uses high specificity but NOT !important so components can still override. */
+  :root input[type="text"],
+  :root input[type="email"],
+  :root input[type="password"],
+  :root input[type="search"],
+  :root input[type="number"],
+  :root input[type="tel"],
+  :root input[type="url"],
+  :root textarea,
+  :root select {
+    font-size: 16px;
+  }
+  /* Minimum touch target for primary interactive elements.
+     Excludes small utility buttons (close/X icons, delete dots) that have
+     sufficient padding or are adjacent to larger tap areas. */
+  button:not(.row-x):not(.search-clear):not(.af-sidebar-delete):not(.deck-more):not(.editor-close):not(.notes-drawer-close):not(.notes-panel-close),
+  [role="button"],
+  a {
+    min-height: 44px;
+  }
+  button:where([class*="chip"], [class*="tag"], [class*="pill"]),
+  a:where([class*="chip"], [class*="tag"], [class*="pill"]) {
+    min-height: 36px;
+  }
+}
+
+/* Utility animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
