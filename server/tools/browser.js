@@ -15,7 +15,7 @@
  *   screenshot { selector?: string }    — returns base64 PNG
  */
 
-import puppeteer from 'puppeteer'
+// import puppeteer from 'puppeteer'  // dynamically imported below
 
 const MAX_NAV_TIMEOUT = 30_000
 const MAX_SCREENSHOT_W = 1920
@@ -53,6 +53,7 @@ let page = null
 
 async function ensureBrowser() {
   if (!browser) {
+    const puppeteer = await import('puppeteer').then(m => m.default || m)
     browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
