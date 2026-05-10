@@ -1845,12 +1845,13 @@
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(15, 15, 26, 0.45);
+    background: rgba(15, 15, 26, var(--editor-backdrop-opacity, 0.45));
     border: none;
     padding: 0;
     z-index: 40;
     cursor: pointer;
     animation: fade-in 200ms ease;
+    transition: background-color var(--duration-fast) ease;
   }
   @keyframes fade-in {
     from { opacity: 0; }

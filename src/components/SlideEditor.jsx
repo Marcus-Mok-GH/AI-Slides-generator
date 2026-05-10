@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import { regenerateSlide, redesignSlide } from '../lib/api.js'
 import './SlideEditor.css'
 
@@ -14,6 +14,40 @@ const LAYOUTS = [
   { id: 'two-column', label: 'Two-col', hint: 'Prose + bullets' },
   { id: 'content', label: 'Content', hint: 'Title + subhead' },
 ]
+
+const DISMISS_THRESHOLD = 100
+const DRAG_ZONE_HEIGHT = 120
+
+function FieldMeta({ hint, count, max }) {
+  return (
+    <div className="field-meta">
+      <span>{hint}</span>
+      <span>{count}{max ? `/${max}` : ''}</span>
+    </div>
+  )
+}
+
+function AutoTextarea({ value, onChange, className = 'ed-textarea', ...props }) {
+  const ref = useRef(null)
+  const textValue = value ?? ''
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [textValue])
+
+  return (
+    <textarea
+      ref={ref}
+      className={`${className} auto-textarea`}
+      value={textValue}
+      onChange={onChange}
+      {...props}
+    />
+  )
+}
 
 function ListEditor({ items, onChange, placeholder, max = 8 }) {
   const update = (i, val) => {
@@ -208,32 +242,66 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
   // Swipe-to-dismiss state
   const touchStartY = useRef(0)
   const touchCurrentY = useRef(0)
+  const dragEnabled = useRef(false)
   const [swipeOffset, setSwipeOffset] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const [showScrollTop, setShowScrollTop] = useState(false)
   const editorRef = useRef(null)
 
   const handleTouchStart = useCallback((e) => {
+    if (!editorRef.current) return
+    const editorTop = editorRef.current.getBoundingClientRect().top
+    dragEnabled.current = e.touches[0].clientY < editorTop + DRAG_ZONE_HEIGHT
     touchStartY.current = e.touches[0].clientY
     touchCurrentY.current = e.touches[0].clientY
   }, [])
 
   const handleTouchMove = useCallback((e) => {
-    if (!editorRef.current) return
+    if (!editorRef.current || !dragEnabled.current) return
     const currentY = e.touches[0].clientY
     const delta = currentY - touchStartY.current
-    // Only allow downward swipes (positive delta) from the top area
-    if (delta > 0 && touchStartY.current < editorRef.current.getBoundingClientRect().top + 80) {
+    // Only allow downward swipes from the drawer grab/header area.
+    if (delta > 0) {
+      e.preventDefault()
       touchCurrentY.current = currentY
+      setIsDragging(true)
       setSwipeOffset(delta)
     }
   }, [])
 
   const handleTouchEnd = useCallback(() => {
     const delta = touchCurrentY.current - touchStartY.current
-    if (delta > 120 && onClose) {
+    if (delta > DISMISS_THRESHOLD && onClose) {
       onClose()
     }
+    dragEnabled.current = false
+    setIsDragging(false)
     setSwipeOffset(0)
   }, [onClose])
+
+  const handleScroll = useCallback(() => {
+    setShowScrollTop((editorRef.current?.scrollTop || 0) > 240)
+  }, [])
+
+  const scrollToTop = useCallback(() => {
+    editorRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
+
+  useEffect(() => {
+    const progress = Math.min(swipeOffset / DISMISS_THRESHOLD, 1)
+    document.documentElement.style.setProperty(
+      '--editor-backdrop-opacity',
+      `${0.45 + progress * 0.18}`,
+    )
+    document.documentElement.style.setProperty(
+      '--editor-drag-shadow',
+      `${0.18 + progress * 0.14}`,
+    )
+    return () => {
+      document.documentElement.style.removeProperty('--editor-backdrop-opacity')
+      document.documentElement.style.removeProperty('--editor-drag-shadow')
+    }
+  }, [swipeOffset])
 
   function patch(partial) {
     onChangeSlide({ ...slide, ...partial })
@@ -289,13 +357,17 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
 
   return (
     <aside
-      className="editor"
+      className={`editor ${isDragging ? 'is-dragging' : ''}`}
       ref={editorRef}
       style={swipeOffset > 0 ? { transform: `translateY(${swipeOffset}px)` } : undefined}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onScroll={handleScroll}
     >
+      <div className="editor-grab-area" aria-hidden="true">
+        <span className="editor-grab-handle" />
+      </div>
       <div className="editor-head">
         <div className="editor-head-text">
           <span className="editor-eyebrow">Editing slide {slideIndex + 1}</span>
@@ -339,6 +411,14 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
               : 'Slide title'
           }
         />
+        <FieldMeta
+          hint={
+            slide.layout === 'statement'
+              ? 'Keep it direct enough to read at a glance.'
+              : 'Short titles work best on slides.'
+          }
+          count={(slide.title || '').length}
+        />
       </CollapsibleSection>
 
       {slide.layout === 'section' && (
@@ -360,7 +440,7 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
               ? 'Optional sub-line'
               : 'Body'
         }>
-          <textarea
+          <AutoTextarea
             className="ed-textarea"
             rows={3}
             value={slide.body}
@@ -372,6 +452,16 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
                   ? 'Optional one-line context'
                   : 'Short subhead (≤ 18 words)'
             }
+          />
+          <FieldMeta
+            hint={
+              slide.layout === 'title'
+                ? 'One sentence that sets context.'
+                : slide.layout === 'statement'
+                  ? 'Optional context, not a second headline.'
+                  : 'Use one tight idea; bullets carry detail.'
+            }
+            count={(slide.body || '').length}
           />
         </CollapsibleSection>
       )}
@@ -416,7 +506,7 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
 
       {slide.layout === 'quote' && (
         <CollapsibleSection label="Quote">
-          <textarea
+          <AutoTextarea
             className="ed-textarea"
             rows={3}
             value={slide.quote?.text || ''}
@@ -448,7 +538,7 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
       )}
 
       <CollapsibleSection label="Speaker notes">
-        <textarea
+        <AutoTextarea
           className="ed-textarea"
           rows={2}
           value={slide.speakerNotes}
@@ -460,7 +550,7 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
       <div className="ed-divider" />
 
       <CollapsibleSection label="Regenerate with AI" defaultOpen={false}>
-        <textarea
+        <AutoTextarea
           className="ed-textarea"
           rows={2}
           value={instruction}
@@ -506,7 +596,7 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
           </>
         ) : (
           <>
-            <textarea
+            <AutoTextarea
               className="ed-textarea"
               rows={3}
               value={redesignBrief}
@@ -552,6 +642,21 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
           </>
         )}
       </CollapsibleSection>
+      <button
+        type="button"
+        className={`editor-scroll-top ${showScrollTop ? 'is-visible' : ''}`}
+        onClick={scrollToTop}
+        aria-label="Scroll editor to top"
+      >
+        ↑
+      </button>
+      {onClose && (
+        <div className="editor-done-bar">
+          <button type="button" className="editor-done" onClick={onClose}>
+            Done
+          </button>
+        </div>
+      )}
     </aside>
   )
 }

@@ -11,6 +11,12 @@
   animation: slideInRight 280ms var(--ease-out-expo) forwards;
 }
 
+.editor-grab-area,
+.editor-done-bar,
+.editor-scroll-top {
+  display: none;
+}
+
 @keyframes slideInRight {
   from { opacity: 0; transform: translateX(20px); }
   to { opacity: 1; transform: translateX(0); }
@@ -167,9 +173,35 @@
   background: var(--on-surface);
 }
 
+.ed-input:focus-visible,
+.ed-textarea:focus-visible,
+.layout-btn:focus-visible,
+.ed-section-toggle:focus-visible,
+.row-x:focus-visible,
+.add-row:focus-visible,
+.regen-btn:focus-visible,
+.redesign-cancel:focus-visible,
+.editor-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .ed-textarea {
   resize: vertical;
   line-height: 1.45;
+}
+
+.auto-textarea {
+  overflow: hidden;
+}
+
+.field-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-soft);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .layout-grid {
@@ -488,25 +520,42 @@
     border-left: none;
     border-top: 1px solid var(--border);
     border-radius: 24px 24px 0 0;
-    box-shadow: 0 -12px 48px rgba(15, 15, 26, 0.18);
-    padding: 0 0 calc(24px + env(safe-area-inset-bottom));
+    box-shadow: 0 -14px 54px rgba(15, 15, 26, var(--editor-drag-shadow, 0.18));
+    padding: 0 0 calc(12px + env(safe-area-inset-bottom));
     z-index: 50;
     animation: drawer-up 280ms var(--ease-out-expo) forwards;
     /* Smooth swipe transition */
-    transition: transform 80ms linear;
+    transition: transform 160ms var(--ease-out-expo),
+      box-shadow var(--duration-fast) ease;
     touch-action: pan-y;
   }
 
+  .editor.is-dragging {
+    transition: none;
+  }
+
   /* Drag handle bar */
-  .editor::before {
-    content: '';
+  .editor-grab-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding-top: 6px;
+    cursor: grab;
+    flex-shrink: 0;
+    touch-action: none;
+  }
+  .editor.is-dragging .editor-grab-area {
+    cursor: grabbing;
+  }
+  .editor-grab-handle {
     display: block;
-    width: 44px;
-    height: 5px;
+    width: 58px;
+    height: 7px;
     border-radius: 999px;
     background: var(--border-strong);
-    margin: 10px auto 6px;
-    flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px var(--border), 0 1px 3px rgba(15, 15, 26, 0.12);
+    opacity: 0.95;
   }
 
   /* Sticky header */
@@ -515,7 +564,7 @@
     top: 0;
     background: var(--surface);
     z-index: 2;
-    padding: 10px 20px 8px;
+    padding: 10px 20px 10px;
     margin: 0;
     border-bottom: 1px solid var(--border);
   }
@@ -523,8 +572,8 @@
   .editor-close {
     display: grid;
     place-items: center;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
   }
 
   @keyframes drawer-up {
@@ -544,38 +593,53 @@
     border-radius: 10px;
   }
   .ed-section-toggle {
-    padding: 12px 14px;
-    min-height: 44px;
+    padding: 14px 16px;
+    min-height: 48px;
   }
   .ed-section-body {
-    padding: 0 14px 14px;
+    padding: 0 16px 16px;
   }
-}
-
-/* Make form controls touch-friendly without zoom on iOS */
-@media (max-width: 720px) {
+  .ed-label {
+    font-size: 12px;
+  }
   .ed-input,
   .ed-textarea {
     font-size: 16px;
     padding: 12px 14px;
-    min-height: 44px;
+    min-height: 46px;
   }
   .ed-textarea {
-    min-height: 80px;
+    min-height: 86px;
+  }
+  .field-meta {
+    font-size: 12px;
   }
   .layout-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
   }
   .layout-btn {
-    padding: 12px 8px;
-    font-size: 13px;
-    min-height: 44px;
+    min-height: 48px;
+    padding: 12px 10px;
+    font-size: 14px;
+    touch-action: manipulation;
+  }
+  .layout-btn:active {
+    transform: scale(0.96);
+    background: var(--accent-soft);
   }
   .row-x {
-    width: 40px;
-    height: 40px;
-    font-size: 16px;
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+  .stat-row .ed-input.value {
+    max-width: 112px;
+  }
+  .add-row {
+    padding: 11px 14px;
+    min-height: 44px;
+    font-size: 14px;
   }
   .regen-btn {
     padding: 12px 16px;
@@ -585,11 +649,75 @@
   .redesign-cancel {
     min-height: 48px;
     padding: 12px 14px;
+    font-size: 14px;
   }
-  .add-row {
-    padding: 10px 14px;
-    min-height: 44px;
+  .editor-scroll-top {
+    position: sticky;
+    bottom: calc(74px + env(safe-area-inset-bottom));
+    align-self: flex-end;
+    width: 44px;
+    height: 44px;
+    margin: -44px 16px 0 auto;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-md);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px);
+    transition: opacity var(--duration-fast) ease,
+      transform var(--duration-fast) var(--ease-out-expo),
+      background-color var(--duration-fast) ease;
+    z-index: 3;
+    place-items: center;
   }
+  .editor-scroll-top.is-visible {
+    display: grid;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+  .editor-scroll-top:active {
+    transform: translateY(0) scale(0.94);
+  }
+  .editor-done-bar {
+    display: block;
+    position: sticky;
+    bottom: 0;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    margin-top: 6px;
+    background: linear-gradient(to top, var(--surface) 72%, transparent);
+    z-index: 4;
+  }
+  .editor-done {
+    width: 100%;
+    min-height: 48px;
+    border: none;
+    border-radius: 12px;
+    background: var(--accent);
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 8px 22px rgba(124, 92, 255, 0.28);
+    transition: transform var(--duration-fast) var(--ease-out-back),
+      background-color var(--duration-fast) ease,
+      box-shadow var(--duration-base) ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .editor-done:active {
+    transform: scale(0.98);
+  }
+  .editor-done:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Make form controls touch-friendly without zoom on iOS */
+@media (max-width: 720px) {
   .editor {
     max-height: 88vh;
   }
