@@ -8,7 +8,13 @@ function userInitials(user) {
   const l = user.lastName?.[0] || ''
   const initials = (f + l).toUpperCase()
   if (initials) return initials
-  if (user.email) return user.email[0].toUpperCase()
+  if (user.email) {
+    const local = user.email.split('@')[0] || ''
+    const parts = local.split(/[^a-zA-Z0-9]+/).filter(Boolean)
+    if (parts.length === 0) return 'U'
+    if (parts.length === 1) return parts[0][0].toUpperCase()
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
   return 'U'
 }
 
