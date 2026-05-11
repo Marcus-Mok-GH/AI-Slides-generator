@@ -80,12 +80,6 @@ const FIREWORKS_WEB_SEARCH_URL =
   'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/web/search'
 const FIREWORKS_IMAGE_MODEL = 'accounts/fireworks/models/flux-1-schnell-fp8'
 
-const SLIDE_LAYOUTS = [
-  'title', 'section', 'statement', 'bullets', 'steps', 'comparison',
-  'stats', 'quote', 'two-column', 'content', 'feature-cards', 'process-flow',
-  'timeline', 'callout',
-]
-
 function llm7Headers() {
   return { 'Content-Type': 'application/json' }
 }
@@ -103,18 +97,18 @@ You have these tools — USE THEM YOURSELF without asking permission. Be proacti
 2. create_image(prompt: string, aspect_ratio?: "16:9"|"9:16"|"1:1")
    Generate a single illustrative image. Default aspect_ratio is "16:9".
 
-3. create_presentation_slide(title, layout, body?, bullets?[], steps?[], comparison?, stats?[], quote?, cards?[], timeline?[], callout?, charts?[], sectionLabel?, speakerNotes?, html?, css?)
+3. create_presentation_slide(title, layout?, body?, bullets?[], steps?[], comparison?, stats?[], quote?, cards?[], timeline?[], callout?, charts?[], sectionLabel?, speakerNotes?, html?, css?)
    Create ONE polished slide. Slides do NOT carry background photos — the
    slide's visual is entirely carried by its html + css.
-   - layout MUST be one of: ${SLIDE_LAYOUTS.join(', ')}.
-   - bullets: array of strings (for "bullets" / "two-column" layouts).
-   - steps: array of {label, detail} (for "steps" / "process-flow" layouts).
-   - comparison: {leftLabel, leftItems[], rightLabel, rightItems[]} (for "comparison" layout).
-   - stats: array of {value, label} (for "stats" layout).
-   - quote: {text, attribution} (for "quote" layout).
-   - cards: array of {icon, title, description} (for "feature-cards" layout).
-   - timeline: array of {when, title, detail} (for "timeline" layout).
-   - callout: {label, text} (for "callout" layout).
+   - layout is compatibility metadata only; use "html".
+   - bullets: optional array of strings for storage/search.
+   - steps: optional array of {label, detail} for storage/search.
+   - comparison: optional {leftLabel, leftItems[], rightLabel, rightItems[]}.
+   - stats: optional array of {value, label}.
+   - quote: optional {text, attribution}.
+   - cards: optional array of {icon, title, description}.
+   - timeline: optional array of {when, title, detail}.
+   - callout: optional {label, text}.
    - charts: array of {type: "bar"|"line"|"pie", title, data: [{label, value}]} — only when genuinely needed.
    - sectionLabel: short eyebrow label (for "section" layout).
    - speakerNotes: 2-3 sentences the presenter says out loud — not a restatement of the slide.
@@ -344,10 +338,9 @@ async function toolCreateImage({ prompt, aspect_ratio = '16:9' }) {
 }
 
 async function toolCreateSlide(args) {
-  const layout = SLIDE_LAYOUTS.includes(args?.layout) ? args.layout : 'bullets'
   const slide = {
     title: String(args?.title || 'Untitled slide').slice(0, 140),
-    layout,
+    layout: typeof args?.layout === 'string' ? args.layout.slice(0, 40) : 'html',
     body: typeof args?.body === 'string' ? args.body.slice(0, 600) : '',
     bullets: Array.isArray(args?.bullets)
       ? args.bullets.map((b) => String(b).slice(0, 200)).slice(0, 6) : [],

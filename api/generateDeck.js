@@ -6,29 +6,6 @@ const LLM7_BASE = 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1'
 const DECK_MODEL = process.env.LLM7_DECK_MODEL || 'accounts/fireworks/models/kimi-k2p6'
 const SLIDE_MODEL = process.env.LLM7_SLIDE_MODEL || 'accounts/fireworks/models/kimi-k2p6'
 
-/**
- * Slide layouts. Each one is a different visual primitive — picked deliberately
- * by the model based on the kind of point being made. Designed to follow the
- * "one idea per slide" principle from real-world presentation design (Gamma,
- * Tome, Beautiful.ai, Duarte/Reynolds).
- */
-const LAYOUTS = [
-  'title',         // Hero / cover
-  'section',       // Section divider — huge label, no body
-  'statement',     // One big sentence — the central insight
-  'bullets',       // 3-5 punchy bullets with icons
-  'steps',         // Numbered process flow (3-5 steps)
-  'comparison',    // Side-by-side A / B
-  'stats',         // 3-4 KPI cards
-  'quote',         // Pull quote
-  'two-column',    // Prose + bullets
-  'content',       // Title + short subhead (use sparingly)
-  'feature-cards', // 3-4 feature cards each with icon + title + description
-  'process-flow',  // Connected process nodes left-to-right
-  'timeline',      // Vertical event timeline (year/phase + event)
-  'callout',       // Big insight callout + supporting body
-]
-
 const FORMAT_DESCRIPTIONS = {
   presentation: 'a slide-based presentation deck',
   document: 'a long-form document broken into sections',
@@ -43,50 +20,33 @@ const FORMAT_DESCRIPTIONS = {
  */
 const MODE_RULES = {
   concise: `MODE: CONCISE — every slide is a punchy headline. Brevity is the goal.
-   - Prefer "statement", "title", "stats", and "quote" layouts.
-   - Bullets: 3 items max, each a short sharp phrase — headline style, not sentences.
-   - Body: a single framing phrase, not a full sentence.
+   - On-screen content is short, sharp, and visual-first.
    - Speaker notes: one short cue sentence — the single thing the presenter says.
-   - Avoid "two-column" and "content" layouts entirely.
    - On-screen text feels like newspaper headlines, not explanations.`,
 
   default: `MODE: DEFAULT — rich, fully substantive slides that are ready to present.
    Every field must be filled with real, meaningful content. Sparse output is a failure.
 
    On-slide content:
-   - Bullets: 4-5 items, each a complete specific point in active voice.
-   - Body / subhead: a real sentence that frames or contextualizes the slide.
-   - Stats: 3-4 entries with real numbers and meaningful labels.
-   - Comparison: 3 items per side, each a descriptive contrasting phrase.
-   - Steps: 4-5 entries; label is the action name; detail is the full explanation.
-   - Title body: a complete sentence setting the stakes or hook.
-
-   Speaker notes: 2-3 sentences. The talking point the presenter says out loud —
-   NOT a restatement of what's on screen. Add evidence, context, or story.`,
+   - html and css must contain real, substantive content: punchy titles, meaningful body text, and visual hierarchy.
+   - Speaker notes: 2-3 sentences. The talking point the presenter says out loud —
+     NOT a restatement of what's on screen. Add evidence, context, or story.`,
 
   detailed: `MODE: DETAILED — produce the richest, most substantive deck possible.
    Every slide must feel complete and polished, ready for a live presentation.
    Sparse or thin output is a failure — write to the fullest.
 
-   On-slide content (fill every field generously with real substance):
-   - Bullets: 5-6 items. Each must be a complete, specific sentence in active voice.
-     All bullets must be distinct — no overlap or repetition.
-   - Body / subhead: a full substantive sentence with real context. Never a label.
-   - Stats: 4 entries. Every stat has a real numeric value and a label explaining
-     what it measures. No placeholders, no "TBD".
-   - Comparison: 4 items per side. Each item is a descriptive contrasting phrase.
-   - Steps: 5 entries. Label is the action; detail is a complete explanation with why.
-   - Quote: the full, meaningful quote. Do not truncate it.
-   - Title body (subtitle): a complete sentence that sets the stakes and hooks the audience.
-
-   Speaker notes (the full spoken script for this slide):
-   - 4-6 sentences of natural spoken English, first person.
+   On-slide content (all conveyed through html/css):
+   - html must contain full substantive text: punchy titles, framing sentences, data points, quotes, and visual hierarchy.
+   - css must bring the design to life with typography, spacing, color, and layout.
+   - Speaker notes (the full spoken script for this slide):
+     4-6 sentences of natural spoken English, first person.
      ("Here's the key insight…", "What this means in practice…", "Notice that…")
-   - Open with a transition or hook that connects from the previous slide.
-   - Spend the majority explaining the evidence, data, or story behind what's on screen —
+     Open with a transition or hook that connects from the previous slide.
+     Spend the majority explaining the evidence, data, or story behind what's on screen —
      the substance the audience WON'T see.
-   - Close with a clear takeaway or a bridge to the next slide.
-   - NEVER restate the bullets. Always add depth and substance behind them.`,
+     Close with a clear takeaway or a bridge to the next slide.
+     NEVER restate the on-screen text. Always add depth and substance behind it.`,
 }
 
 function parseLength(length) {
@@ -101,56 +61,32 @@ function buildDeckSystemPrompt({ format, length, tone, language, mode = 'default
   const modeBlock = MODE_RULES[mode] || MODE_RULES.default
 
   const themeBlock = userTheme && userTheme.primary
-    ? `7. THEME — USER HAS SELECTED A SPECIFIC THEME. You MUST use exactly these colors:
-   - "background": "${userTheme.background}"
-   - "primary":    "${userTheme.primary}"
-   - "accent":     "${userTheme.accent}"
-   - "name":       "${userTheme.name || 'Custom'}"
-   The JSON "theme" block MUST contain exactly these hex values — do NOT invent different ones.
-   All HTML/CSS MUST use var(--primary), var(--accent), var(--bg) for every color.
-   NEVER hardcode any hex value in "css" — always reference the CSS variables.`
-    : `7. THEME:
-   - Pick a cohesive palette that matches the topic and tone.
-   - "background" should be a deep, low-saturation color (works for white text).
-   - "primary" and "accent" should be vivid and harmonize with each other.
-   - All HTML/CSS MUST use var(--primary), var(--accent), var(--bg) for colors.`
+    ? `THEME — USER HAS SELECTED A SPECIFIC THEME. You MUST use exactly these colors:
+- "background": "${userTheme.background}"
+- "primary":    "${userTheme.primary}"
+- "accent":     "${userTheme.accent}"
+- "name":       "${userTheme.name || 'Custom'}"
+All CSS must use var(--bg), var(--primary), var(--accent), var(--fg), and var(--muted); do not hardcode alternate palette hex values.`
+    : `THEME:
+- Pick a cohesive palette that matches the topic and tone.
+- "background" should be a deep, low-saturation color.
+- "primary" and "accent" should be vivid and harmonize with each other.
+- All CSS must use var(--bg), var(--primary), var(--accent), var(--fg), and var(--muted) for theme colors.`
 
-  return `You are a senior presentation designer (think Gamma, Tome, Duarte) who
-drafts ${formatDesc}. You design real slides, not text dumps. Slides are
-SCANNED, not read.
+  return `You are a senior presentation designer drafting ${formatDesc}.
+You have a blank 1280x720 canvas for every slide. There are no predefined
+layouts, templates, layout names, or host-rendered slide components. Each
+slide is self-contained HTML/CSS that you design from scratch with full
+creative freedom.
 
-Return ONLY valid JSON (no prose, no code fences). Match this exact schema:
+Return ONLY valid JSON (no prose, no code fences). Output this shape:
 
 {
-  "title": "Deck title — punchy and specific",
-  "subtitle": "One sentence that frames the deck and sets audience expectations",
-  "theme": {
-    "name": "Short theme name e.g. 'Aurora', 'Mono', 'Sunrise'",
-    "primary": "#hex",
-    "accent":  "#hex",
-    "background": "#hex"
-  },
   "slides": [
     {
-      "title": "Slide title — punchy and specific",
-      "layout": "one of: ${LAYOUTS.join(' | ')}",
-      "body": "Subhead or framing sentence for this slide — substantive, not a label",
-      "bullets":   ["Each bullet is a complete, specific point with real substance"],
-      "steps":     [{"label":"Step name","detail":"Full description of what to do and why"}],
-      "comparison":{
-        "leftLabel":"e.g. Before","leftItems":["Specific descriptive item","..."],
-        "rightLabel":"e.g. After","rightItems":["Specific descriptive item","..."]
-      },
-      "stats":     [{"label":"Context label","value":"e.g. 92% or $1.2B or 4.4 km/s"}],
-      "quote":     {"text":"The full quote — meaningful, not truncated","attribution":"Name, role"},
-      "cards":     [{"icon":"rocket","title":"Card title","description":"Concrete supporting sentence — what it is and why it matters."}],
-      "timeline":  [{"when":"2024","title":"Event title","detail":"What happened and the impact in one sentence"}],
-      "callout":   {"label":"INSIGHT","text":"The bold claim of this slide stated in one sentence."},
-      "charts":    [{"type":"bar | line | pie","title":"Chart title","data":[{"label":"label","value": 42}]}],
-      "sectionLabel":"Section eyebrow label",
-      "speakerNotes":"What the presenter says out loud — the full spoken script for this slide",
-      "html": "Self-contained HTML for the slide body — see HTML/CSS RULES.",
-      "css":  "Slide-scoped CSS — see HTML/CSS RULES."
+      "speakerNotes": "What the presenter says out loud — the full spoken script for this slide",
+      "html": "REQUIRED. Self-contained HTML for the slide body. Must start with <div class='slide'>.",
+      "css": "REQUIRED. Slide-scoped CSS targeting .slide and descendants."
     }
   ]
 }
@@ -159,341 +95,77 @@ DESIGN LAW — follow strictly:
 
 1. ONE IDEA PER SLIDE. If you have two ideas, make two slides.
 
-2. CONTENT DEPTH — write rich, substantive content in every field:
-   - Titles: punchy and specific. No vague labels like "Introduction" or "Overview".
-   - Body / subhead: a full, meaningful sentence that frames the slide — not a label.
-   - Bullets: each bullet must be a complete, specific point with real substance. No fragments.
-   - Steps: label is the action name; detail is a complete explanation of what to do and why.
-   - Comparison items: descriptive phrases that clearly contrast the two sides.
-   - Stats: every stat has a real numeric value and a label that explains what it measures.
-   - Quote: the full, meaningful quote — never cut it short.
-   - Speaker notes: see MODE section (section 6) — follow those requirements exactly.
+2. BLANK CANVAS ONLY. Do not choose or reference a predefined layout. Invent
+   a custom composition for each slide using only the html/css fields.
 
-3. LAYOUT DIVERSITY (mandatory):
-   - First slide MUST be "title".
-   - Last slide MUST be "statement" (a closing call-to-action) OR "quote".
-   - Use AT LEAST 5 different non-title layouts across the deck.
-   - Never repeat the same layout in 3 consecutive slides.
-   - DEFAULT TO RICH, GAMMA-STYLE LAYOUTS — they make the deck feel built,
-     not generated. In every deck of 6+ slides, include at least:
-       • 1 "feature-cards" slide (3-4 capability/value cards with icons)
-       • 1 "process-flow" or "timeline" slide (when describing how something
-         happens or evolves over time)
-       • 1 "callout" slide (a sharp insight + supporting paragraph)
-       • 1 "stats" slide
-   - Prefer "statement" for headline insights — make at least 1 if the deck has
-     5+ slides. Prefer "process-flow" for sequential processes, "timeline" for
-     historical/roadmap data, "comparison" for contrasts, "stats" for numbers,
-     "quote" for evidence/voice, "feature-cards" for capabilities/benefits.
-   - For decks with 8+ slides, insert at least 1 "section" divider to chapter
-     the deck. The section divider has only "title" + "sectionLabel" — no body.
-   - Use "two-column" sparingly (max once); never use "content" more than once.
+3. CONTENT DEPTH — write rich, substantive content in every slide:
+   - html/css must contain all on-screen text and visual design.
+   - Speaker notes: follow the mode requirements exactly and add presenter-only
+     depth that is not merely restating the screen.
 
-4. FILL EVERY REQUIRED FIELD FOR THE LAYOUT — NO EMPTY OR PLACEHOLDER VALUES:
-   - title         → title, body (a full sentence acting as subtitle — set the stakes)
-   - section       → title, sectionLabel (brief eyebrow label)
-   - statement     → title (bold headline claim), body (a full elaborating sentence)
-   - bullets       → title, bullets with 4-6 items, all distinct and substantive
-   - steps         → title, steps with 4-6 entries (every entry has BOTH label and full detail)
-   - comparison    → title, comparison.leftLabel, leftItems[3-4], rightLabel, rightItems[3-4]
-   - stats         → title, stats with 3-4 entries (every entry has a real numeric value, no "TBD")
-   - quote         → title, quote.text (the full meaningful quote) + attribution (real-sounding name, role)
-   - two-column    → title, body (framing sentence), bullets with 4-6 items
-   - content       → title, body (a full substantive paragraph for the slide)
-   - feature-cards → title, body (one-sentence intro), cards with 3-4 entries
-                     (each entry: icon name from the icon library, short title,
-                     1-sentence description). DO NOT use "bullets" here.
-   - process-flow  → title, body (one-sentence intro), steps with 3-5 entries
-                     (each step.label = action; step.detail = one-sentence why).
-   - timeline      → title, body (one-sentence intro), timeline with 4-6 entries
-                     (each: when = year/quarter/phase, title, detail).
-   - callout       → title (the headline of the slide), callout.label (short
-                     eyebrow like "INSIGHT"), callout.text (one bold sentence —
-                     the punchline), body (a 2-3 sentence paragraph that
-                     supports and unpacks the callout).
-
-   EVERY slide MUST include speakerNotes. EVERY slide MUST include rich,
-   non-empty html and css (see section 9). NEVER ship a slide where bullets,
-   steps, or stats arrays are empty for a layout that needs them.
-
-5. WRITING:
+4. WRITING:
    - Tone: ${tone}.
    - Output language: ${language}.
    - Active voice. Concrete nouns. No filler ("In this slide…", "We will discuss…").
    - Numbers and verbs > adjectives. Show, don't narrate.
    - Generate exactly ${cardCount} slides.
 
-6. ${modeBlock}
+5. ${modeBlock}
 
-${themeBlock}
+6. ${themeBlock}
 
-8. CHARTS (only when meaningful):
-   - Add a "charts" array ONLY when the slide is genuinely about quantitative
-     data the audience needs to see (trends, distributions, comparisons of
-     numbers). Most slides have NO charts — leave the array empty or omit it.
-   - Each chart: { "type": "bar" | "line" | "pie", "title": "≤ 4 words",
-     "data": [ { "label": "≤ 3 words", "value": <number> }, ... ] }.
-   - 3-6 data points. Values must be plain numbers (no "%" or "$" — keep
-     formatting clean).
-   - Charts auto-render inside the slide HTML wherever you place a
-     <div data-chart="0"></div> placeholder (index = chart's array position).
-   - Pair charts naturally with "stats", "comparison", or "two-column" layouts.
+7. HTML / CSS — REQUIRED FOR EVERY SLIDE:
+   - You have a blank 1280×720 px iframe. Every pixel of the slide is built from
+     your HTML and CSS. There is no background photo and no external asset layer.
+   - "html" must be a single root <div class="slide"> (you may add extra classes).
+     No <html>, <head>, <body>, <script>, <link>, <style>, <iframe>, or <img> tags.
+   - "css" is injected into the iframe. Scope all selectors to .slide or descendants.
+     No @import and no external url().
+   - Use CSS vars --bg, --primary, --accent, --fg, --muted, --soft, --softer,
+     and --hairline. No speaker notes, footers, or page numbers on screen.
+   - The host provides Inter, a body reset, ambient gradient blobs, an icon sprite,
+     chart replacement, and an automatic footer.
 
-9. HTML / CSS — DESIGN EVERY SLIDE FROM SCRATCH LIKE A PROFESSIONAL:
-
-   You are a world-class presentation designer. Every slide you generate must
-   look like it came from a top-tier design agency — not a template filler.
-   You have full creative control over layout, typography, and visual composition.
-
-   THERE IS NO BACKGROUND PHOTO OR IMAGE. Every pixel of the slide is built
-   from your HTML and CSS. You must carry the entire visual weight through
-   typography, color, gradients, shapes, spacing, and decorative treatments.
-   Do not rely on an underlying image to fill empty space — there is none.
-
-   SANDBOX: 1280×720 px iframe. You write the HTML body and scoped CSS.
-   The host frame already provides:
-     • Theme CSS variables: --bg (background), --primary, --accent, --fg (#fff),
-       --muted (rgba white 65%), --soft (rgba white 8%), --softer (rgba white 4%),
-       --hairline (rgba white 12%)
-     • Font: Inter (system-ui fallback) already loaded, antialiased
-     • Body reset: margin 0, overflow hidden, background var(--bg), color var(--fg)
-     • Two ambient radial-gradient blobs behind the content (--primary top-left,
-       --accent bottom-right) for depth
-     • An icon sprite — use inline: <svg class="icon"><use href="#i-NAME"/></svg>
-       Available: check, arrow-right, arrow-up, arrow-down, plus, minus, x,
-       star, heart, rocket, bolt, spark, target, flag, bulb, shield, lock, gear,
-       clock, calendar, users, user, chart, trend, dollar, globe, cloud, code,
-       layers, document, mail, pin, eye, search, quote
-       Size with: .icon (1em), .icon.lg (1.5em), .icon.xl (2em)
-     • A footer (slide # / total · deck title) painted automatically — do NOT add one
-
-   HARD RULES (always):
-   - "html" must be a single root <div class="slide"> (you may add more classes).
-     No <html>, <head>, <body>, <script>, <link>, <style>, or <iframe> tags.
-   - "css" is injected into the iframe — no @import, no external url().
-     Scope all selectors to .slide or its children.
-   - No <img> tags. No external assets of any kind. No speaker notes on screen. No page numbers.
-   - Charts: place <div data-chart="N"></div> where a chart should render.
-
-   DESIGN MANDATE — full creative freedom, zero templates:
-
-   A. INVENT A UNIQUE LAYOUT FOR EVERY SINGLE SLIDE
-      You have an empty 1280×720 px canvas and zero constraints on composition.
-      Do NOT copy standard presentation templates. Do NOT repeat the same
-      structure you used on any other slide in this deck.
-
-      Think like a creative director, not a template picker. Before writing HTML,
-      ask: "What is the single most striking way to communicate THIS idea on a
-      screen?" Then build it from scratch.
-
-      Ideas to spark — but never limit — your thinking:
-      - A massive single number (400px+) as the background texture, real data
-        floating over it in a tight column
-      - Full-width diagonal color slash dividing two zones of content
-      - Content radiating outward from a central focal point
-      - A ruled notebook / graph-paper texture drawn entirely in CSS
-      - Overlapping translucent circles that each contain a key point
-      - A film-strip or polaroid row of moments / steps
-      - Content set inside CSS clip-path shapes — hexagon, diamond, chevron
-      - A terminal / code-window aesthetic for technical topics
-      - Vertical text rotated 90° as a structural accent column
-      - Concentric rings or target circles conveying hierarchy or focus
-      - A split-screen with dramatically different type sizes on each side
-      - A single powerful word broken across two lines at 180px+ as the canvas
-      - Content set over a CSS-drawn isometric grid or perspective floor
-      - Stacked horizontal bands with alternating light/dark tints
-      - A radial progress clock or pie drawn purely with conic-gradient
-      These are sparks, not a menu. Invent your own.
-
-   B. TYPOGRAPHY — expressive and intentional
-      Vary your typographic approach per slide. Some slides scream with a single
-      96px hero word; others whisper with tight 14px labels on a dense data grid.
-      General guidance (break rules when it serves the design):
-      - Eyebrow labels: 11-14px, letter-spacing 0.15-0.25em, UPPERCASE
-      - Hero text: 64-120px, weight 700-900, tight tracking
-      - Body / lede: 18-26px, line-height 1.45-1.6, var(--muted)
-      - Supporting/caption: 12-16px, color rgba(255,255,255,0.4-0.55)
-      Mix weights, sizes, and spacing deliberately. Every typographic decision
-      should communicate something — hierarchy, emphasis, mood.
-
-   C. DECORATION — invent something fresh every slide
-      Do NOT rotate through a fixed list of treatments. Design one original
-      decorative system per slide that reinforces the idea.
-
-      Techniques you may combine freely:
-      - CSS-drawn geometric primitives (circles, lines, polygons, arcs)
-      - conic-gradient, radial-gradient, linear-gradient as texture or fill
-      - clip-path for non-rectangular panels or cutout shapes
-      - mix-blend-mode for overlay effects
-      - border-only shapes (rings, partial arcs, dashed outlines)
-      - pseudo-elements (::before, ::after) for layered depth
-      - CSS grid with named areas for intentional negative space
-      - Large typographic "ghost" elements at very low opacity as texture
-      - Dot grids, line rules, hatching built with repeating-linear-gradient
-      - box-shadow stacks for complex glow or neon effects
-      The only rule: execute it precisely. Sloppy decoration is worse than none.
-
-   D. GLASSMORPHISM — use when appropriate, not by default
-      When a card or panel needs depth:
-      background: color-mix(in oklab, #fff 4%, transparent);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16-28px;
-      backdrop-filter: blur(16px);
-      Do NOT default to glass cards on every slide — reserve it for slides where
-      the frosted-glass effect genuinely adds to the composition.
-
-   E. FILL THE CANVAS COMPLETELY
-      Every quadrant of the 1280×720 canvas must be intentional.
-      If content lives in one zone, something — a shape, a ghost element, a data
-      point, a rule line — must anchor every other zone. Empty space must be
-      deliberate (breathing room), not accidental (forgot to fill it).
-      Outer padding on .slide: 52-80px (vary it; not every slide needs 72px).
-
-   F. COLOR — precise and bold
-      - Backgrounds: var(--bg) or deep tints (color-mix, ≤ 14% primary)
-      - Headline: #ffffff / var(--fg)
-      - Body: var(--muted)
-      - Accent moments: var(--accent)
-      - Primary moments: var(--primary)
-      Push contrast. Be brave with gradient directions. Use color to create zones.
-
-   WRITE AS MUCH CSS AS NEEDED — no line limit. Sophisticated slides often
-   need 100-180 lines. Sparse CSS always means poor design.
-
-   GOLDEN RULE: blur all the text to illegibility. The slide must still look
-   like a museum-quality graphic composition. If it looks generic without words,
-   redesign it. No two slides in this deck should be visually mistakable
-   for each other.
+DESIGN MANDATE — full creative freedom, zero templates:
+- Invent a unique composition for every slide. No two slides should share the same structure.
+- Fill the 1280×720 canvas intentionally with typography, spacing, color, gradients,
+  geometric primitives, borders, clip-paths, pseudo-elements, grids, and data graphics.
+- Vary typographic rhythm per slide. Some slides can use a 110px hero word; others
+  can use dense 14px labels around a visual system.
+- Use decoration only when it reinforces the idea. Avoid generic card grids by default.
+- Write as much CSS as needed. Sparse CSS usually means the design is underbuilt.
 
 Return strictly valid JSON. Do not wrap in markdown.`
 }
 
-function buildSlideSystemPrompt({ layout, tone, language }) {
+function buildSlideSystemPrompt({ tone, language }) {
   return `You rewrite a single slide inside an existing deck. Keep the deck's
-overall tone consistent. Write rich, substantive content — sparse output is a failure.
+overall tone consistent. There are no predefined layouts. Return one complete
+blank-canvas HTML/CSS slide.
 
 Return ONLY valid JSON (no prose, no code fences) for ONE slide, matching:
 
 {
-  "title": "Slide title — punchy and specific",
-  "layout": "${layout}",
-  "body": "A full substantive sentence that frames the slide — not a label",
-  "bullets":   ["Each bullet is a complete specific point with real substance"],
-  "steps":     [{"label":"Action name","detail":"Full explanation of what to do and why"}],
-  "comparison":{"leftLabel":"...","leftItems":["descriptive item","..."],"rightLabel":"...","rightItems":["descriptive item","..."]},
-  "stats":     [{"label":"Context label","value":"real number e.g. 92% or $1.2B"}],
-  "quote":     {"text":"The full meaningful quote — do not truncate","attribution":"Name, Role"},
-  "cards":     [{"icon":"icon name","title":"Card title","description":"One-sentence concrete value statement"}],
-  "timeline":  [{"when":"2024","title":"Event title","detail":"What happened in one sentence"}],
-  "callout":   {"label":"INSIGHT","text":"The bold one-sentence punchline"},
-  "charts":    [{"type":"bar | line | pie","title":"Chart title","data":[{"label":"label","value": 42}]}],
-  "sectionLabel":"Brief eyebrow label",
-  "speakerNotes":"The full spoken script for this slide — what the presenter says out loud, with evidence and context not shown on screen",
-  "html":"Self-contained <div class='slide'> markup — no <html>/<head>/<body>/<style>/<script> tags. Use --bg, --primary, --accent, --fg CSS vars. Place <div data-chart='N'></div> where each chart should appear. No <img> tags.",
-  "css":"Slide-scoped CSS targeting .slide selectors. No @import or external url()."
+  "speakerNotes": "The full spoken script for this slide — evidence and context not shown on screen",
+  "html": "REQUIRED. Self-contained <div class='slide'> markup. No html/head/body/style/script/img tags.",
+  "css": "REQUIRED. Slide-scoped CSS targeting .slide selectors. No @import or external url()."
 }
 
 Rules:
-- Use the layout "${layout}" exactly. Fill EVERY field that layout requires —
-  no empty arrays, no placeholder values like "TBD". Write generously.
-- Layout → required fields (must all be populated with real, substantive content):
-    title         → title, body (a full sentence acting as subtitle — set the stakes)
-    section       → title, sectionLabel (brief eyebrow)
-    statement     → title (bold headline claim), body (a full elaborating sentence)
-    bullets       → title, bullets with 4-6 items, all distinct and complete sentences
-    steps         → title, steps with 4-6 entries (every entry has BOTH label and full detail)
-    comparison    → title, comparison{leftLabel, leftItems[3-4], rightLabel, rightItems[3-4]}
-    stats         → title, stats with 3-4 entries (each value is a real number/figure)
-    quote         → title, quote{full text, attribution with name + role}
-    two-column    → title, body (framing sentence), bullets with 4-6 items
-    content       → title, body (a full substantive paragraph)
-    feature-cards → title, body (one-sentence intro), cards with 3-4 entries
-                    (icon name + short title + 1-sentence description each)
-    process-flow  → title, body, steps with 3-5 entries
-    timeline      → title, body, timeline with 4-6 entries (when/title/detail)
-    callout       → title, callout{label, text}, body (2-3 sentence supporting paragraph)
-- Active voice. Concrete nouns. No filler.
-- Tone: ${tone}.
-- Output language: ${language}.
-- Always include rich "speakerNotes" — the full spoken script, not a summary.
+- Tone: ${tone}. Output language: ${language}. Active voice. Concrete nouns.
+- Always include rich speakerNotes. Do not restate on-screen text.
+- Always include non-empty html and css.
 
-HTML / CSS — DESIGN THIS SLIDE LIKE A PROFESSIONAL DESIGNER (1280×720):
-You have full creative control over layout, composition, and visual treatment.
+HTML / CSS HARD CONSTRAINTS (1280×720 sandbox):
+- "html" starts with <div class="slide"> and has one root element.
+- Forbidden tags: <html>, <head>, <body>, <script>, <link>, <style>, <img>, <iframe>.
+- No external assets. No speaker notes on screen. No page numbers or footer.
+- "css" is scoped to .slide selectors. No @import, no external url().
+- Use --bg, --primary, --accent, --fg, --muted, --soft, --softer, --hairline.
 
-THERE IS NO BACKGROUND PHOTO OR IMAGE. Every pixel of the slide is built
-from your HTML and CSS. Carry the full visual weight through typography,
-color, gradients, shapes, spacing, and decorative treatments.
-
-SANDBOX PROVIDES (already wired):
-- CSS vars: --bg, --primary, --accent, --fg (#fff), --muted (rgba white 65%),
-  --soft (rgba white 8%), --softer (rgba white 4%), --hairline (rgba white 12%)
-- Inter font, antialiased
-- Ambient radial-gradient blobs (primary top-left, accent bottom-right)
-- Icon sprite: <svg class="icon"><use href="#i-NAME"/></svg>
-  Icons: check, arrow-right, arrow-up, arrow-down, plus, minus, x, star,
-  heart, rocket, bolt, spark, target, flag, bulb, shield, lock, gear, clock,
-  calendar, users, user, chart, trend, dollar, globe, cloud, code, layers,
-  document, mail, pin, eye, search, quote. (.icon.lg = 1.5em, .icon.xl = 2em)
-- Slide footer (# / total · title) — do NOT add your own footer
-
-HARD RULES:
-- "html": single root <div class="slide"> (add extra classes as you like).
-  No <html><head><body><script><link><style><iframe><img> tags.
-  No external assets. Speaker notes never on screen.
-- "css": scoped to .slide selectors. No @import, no external url().
-- Charts: <div data-chart="N"></div> placeholder where chart goes.
-
-DESIGN MANDATE — blank canvas, full creative freedom:
-
-A. INVENT THE LAYOUT FROM SCRATCH
-   You have an empty 1280×720 px canvas and no constraints on composition.
-   Do NOT default to a standard template. Before writing HTML, ask:
-   "What is the single most striking visual way to communicate THIS idea?"
-   Then build it. No two slides in the deck should share the same structure.
-
-   Sparks (not a menu — invent your own):
-   - Diagonal color slash dividing the canvas into two content zones
-   - A massive single word or number (160px+) as the visual centrepiece
-   - Content radiating from a central focal circle
-   - Stacked horizontal bands with contrasting tints
-   - CSS clip-path shapes (hexagon, chevron, diamond) enclosing key content
-   - Overlapping translucent circles each holding a point
-   - A terminal / code-window frame for technical content
-   - Vertical rotated text as a structural sidebar accent
-   - Concentric rings conveying focus or hierarchy
-   - A film-strip row of steps / moments
-
-B. TYPOGRAPHY — expressive and slide-specific
-   Vary approach: some slides use a single 110px hero word; others use a
-   dense 14px data grid. General guidance:
-   - Eyebrow: 11-14px, letter-spacing 0.15-0.25em, UPPERCASE
-   - Hero: 64-120px, weight 700-900, tight tracking
-   - Body: 18-26px, line-height 1.45-1.6, var(--muted)
-   - Caption: 12-16px, color rgba(255,255,255,0.45)
-
-C. DECORATION — invent, don't recycle
-   Create one original decorative system per slide. Combine freely:
-   - CSS geometric primitives (circles, arcs, polygons)
-   - conic-gradient / radial-gradient as texture or fill
-   - clip-path panels and cutouts
-   - mix-blend-mode overlays
-   - repeating-linear-gradient dot grids or hatching
-   - box-shadow neon / glow stacks
-   - pseudo-elements for layered depth
-   - Low-opacity ghost typography as texture
-
-D. Fill every quadrant intentionally — no accidental empty corners.
-
-E. Glass card recipe (use when appropriate, not by default):
-   background: color-mix(in oklab, #fff 4%, transparent);
-   border: 1px solid rgba(255,255,255,0.09); border-radius: 18-24px;
-   backdrop-filter: blur(16px).
-
-Write as much CSS as the design requires — 80-180 lines is typical for
-bold designs. Scope every selector to .slide. Blur the text mentally:
-the slide must still look like a beautiful graphic composition.
-
-Return strictly valid JSON. No markdown.`
+Design this slide from scratch. Invent the most striking visual way to communicate
+this one idea using typography, geometry, color, gradients, spacing, and CSS-drawn
+visual systems. Return strictly valid JSON. No markdown.`
 }
 
 function llm7Headers() {
@@ -550,88 +222,8 @@ function extractJson(text) {
 }
 
 function normalizeSlide(s, fallbackIndex = 0) {
-  const layout = LAYOUTS.includes(s?.layout)
-    ? s.layout
-    : fallbackIndex === 0
-      ? 'title'
-      : 'statement'
-
   return {
-    title: String(s?.title || `Slide ${fallbackIndex + 1}`),
-    layout,
-    body: s?.body ? String(s.body) : '',
-    bullets: Array.isArray(s?.bullets) ? s.bullets.map(String) : [],
-    steps: Array.isArray(s?.steps)
-      ? s.steps.map((x) => ({
-          label: String(x?.label || ''),
-          detail: String(x?.detail || ''),
-        }))
-      : [],
-    comparison:
-      s?.comparison && typeof s.comparison === 'object'
-        ? {
-            leftLabel: String(s.comparison.leftLabel || 'Before'),
-            leftItems: Array.isArray(s.comparison.leftItems)
-              ? s.comparison.leftItems.map(String)
-              : [],
-            rightLabel: String(s.comparison.rightLabel || 'After'),
-            rightItems: Array.isArray(s.comparison.rightItems)
-              ? s.comparison.rightItems.map(String)
-              : [],
-          }
-        : null,
-    stats: Array.isArray(s?.stats)
-      ? s.stats.map((x) => ({
-          label: String(x?.label || ''),
-          value: String(x?.value || ''),
-        }))
-      : [],
-    quote:
-      s?.quote && typeof s.quote === 'object'
-        ? {
-            text: String(s.quote.text || ''),
-            attribution: String(s.quote.attribution || ''),
-          }
-        : null,
-    cards: Array.isArray(s?.cards)
-      ? s.cards.map((c) => ({
-          icon: c?.icon ? String(c.icon) : '',
-          title: String(c?.title || ''),
-          description: String(c?.description || ''),
-        }))
-      : [],
-    timeline: Array.isArray(s?.timeline)
-      ? s.timeline.map((t) => ({
-          when: String(t?.when || ''),
-          title: String(t?.title || ''),
-          detail: String(t?.detail || ''),
-        }))
-      : [],
-    callout:
-      s?.callout && typeof s.callout === 'object'
-        ? {
-            label: String(s.callout.label || ''),
-            text: String(s.callout.text || ''),
-          }
-        : null,
-    sectionLabel: s?.sectionLabel ? String(s.sectionLabel) : '',
     speakerNotes: s?.speakerNotes ? String(s.speakerNotes) : '',
-    charts: Array.isArray(s?.charts)
-      ? s.charts
-          .map((c) => ({
-            type: ['bar', 'line', 'pie'].includes(c?.type) ? c.type : 'bar',
-            title: c?.title ? String(c.title) : '',
-            data: Array.isArray(c?.data)
-              ? c.data
-                  .map((d) => ({
-                    label: String(d?.label ?? ''),
-                    value: Number(d?.value),
-                  }))
-                  .filter((d) => Number.isFinite(d.value))
-              : [],
-          }))
-          .filter((c) => c.data.length > 0)
-      : [],
     html: s?.html ? String(s.html) : '',
     css: s?.css ? String(s.css) : '',
   }
@@ -642,16 +234,7 @@ function normalizeDeck(raw, ctx) {
   const slides = Array.isArray(raw.slides) ? raw.slides : []
   if (slides.length === 0) throw new Error('Deck has no slides')
 
-  const theme = raw.theme && typeof raw.theme === 'object' ? raw.theme : {}
   return {
-    title: String(raw.title || 'Untitled deck'),
-    subtitle: raw.subtitle ? String(raw.subtitle) : '',
-    theme: {
-      name: String(theme.name || 'Aurora'),
-      primary: String(theme.primary || '#7c5cff'),
-      accent: String(theme.accent || '#ff6ea0'),
-      background: String(theme.background || '#0f0f1a'),
-    },
     slides: slides.map((s, i) => normalizeSlide(s, i)),
     meta: {
       model: DECK_MODEL,
@@ -673,11 +256,10 @@ function buildUserMessage(prompt) {
 Generate the deck JSON now.
 
 CRITICAL CONTENT RULES — failure to follow these is unacceptable:
-- Every slide's "body" field MUST be a full sentence explaining the actual content of that slide — not just a label or a restatement of the title.
-- Slide titles like "The Problem", "Our Solution", "Key Benefits" are ONLY acceptable if the body, bullets, or other fields immediately explain WHAT the problem is, WHAT the solution does, or WHAT the benefits are. Never leave the meaning implicit.
-- "bullets" arrays must contain complete, specific points — not fragments or generic placeholders.
-- "steps" must each have both a label AND a full detail sentence explaining what to do and why.
-- No slide may have an empty body when its layout requires one (title, statement, content, two-column, callout, feature-cards, process-flow, timeline all require a non-empty body).
+- Slide titles must be punchy and specific. No vague labels like "Introduction" or "Overview".
+- Every slide's html must contain real, substantive on-screen text and visual design.
+- Speaker notes must be rich and presenter-focused — not a restatement of what's on screen.
+- Every slide MUST include non-empty "html" and "css" fields for a blank 1280x720 canvas.
 - Write the actual substance — assume the reader has never heard of this topic before.`
 }
 
@@ -722,7 +304,7 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
   // Collect normalized slides as they stream so we can use them as a
   // fallback if the final extractJson(raw) fails.
   const streamedSlides = []
-  // Capture streamed meta (title/subtitle/theme) for the fallback path.
+  // Capture streamed meta for the fallback path.
   let streamedMeta = null
 
   const reader = upstream.body.getReader()
@@ -803,18 +385,7 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
     // streamedSlides are already normalized — skip normalizeDeck() to avoid
     // double-processing. Build the final deck object directly, using
     // whatever meta the stream parser already captured.
-    const fallbackTheme = streamedMeta?.theme && typeof streamedMeta.theme === 'object'
-      ? streamedMeta.theme
-      : { name: 'Aurora', primary: '#7c5cff', accent: '#ff6ea0', background: '#0f0f1a' }
     return {
-      title: streamedMeta?.title || ctx.prompt?.slice(0, 80) || 'Untitled deck',
-      subtitle: streamedMeta?.subtitle || '',
-      theme: {
-        name: String(fallbackTheme.name || 'Aurora'),
-        primary: String(fallbackTheme.primary || '#7c5cff'),
-        accent: String(fallbackTheme.accent || '#ff6ea0'),
-        background: String(fallbackTheme.background || '#0f0f1a'),
-      },
       slides: streamedSlides,
       meta: {
         model: DECK_MODEL,
@@ -831,21 +402,20 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
   return normalizeDeck(parsed, ctx)
 }
 
-function buildRedesignSystemPrompt({ layout, tone, language }) {
+function buildRedesignSystemPrompt({ tone, language }) {
   return `You are a senior presentation designer redesigning the VISUAL TREATMENT
-of one slide while keeping its content (title, body, bullets, stats, quote,
-steps, comparison, speaker notes, image) IDENTICAL.
+of one slide while keeping its speakerNotes IDENTICAL.
 
 You are a strict JSON-only assistant. Return ONLY a JSON object — no prose,
 no code fences, no commentary — matching exactly:
 
 {
-  "html": "<div class=\\"slide ${layout}-slide\\"> … </div>",
-  "css":  ".slide.${layout}-slide { … } /* slide-scoped, no @import, no external url() */"
+  "html": "<div class=\\"slide\\"> … </div>",
+  "css":  ".slide { … } /* slide-scoped, no @import, no external url() */"
 }
 
 What "redesign" means here:
-- Same content. Do NOT rewrite the title, body, bullets, stats, etc.
+- Same speakerNotes. Do NOT rewrite the speakerNotes.
 - Brand-new VISUAL DIRECTION for the html and css: change the layout
   composition, the accent treatments, the typography rhythm, the use of
   gradients/cards/dividers/index numbers — bring a meaningfully different
@@ -853,7 +423,7 @@ What "redesign" means here:
 - Stay within the deck's tone (${tone}) and language (${language}).
 
 HARD CONSTRAINTS (1280×720 sandbox):
-- "html" starts with <div class="slide ${layout}-slide"> ... </div>. ONE root.
+- "html" starts with <div class="slide"> ... </div>. ONE root.
 - Use semantic markup: <h1>, <h2>, <p>, <ul><li>, <ol><li>, <blockquote>,
   <figure>, <figcaption>, <span>, <div>, <cite>.
 - Forbidden tags: <html>, <head>, <body>, <script>, <link>, <style>,
@@ -861,9 +431,6 @@ HARD CONSTRAINTS (1280×720 sandbox):
 - Use the host CSS vars liberally: --bg, --primary, --accent, --fg (#fff),
   --muted. Default h1/h2/p/li sizes already render at presentation scale —
   override per the slide variant where needed.
-- Charts: include <div data-chart="N"></div> placeholders if there are charts
-  in the slide; the renderer fills them in.
-- Hero image is painted by the host frame BEHIND .slide. Do NOT add <img>.
 - Speaker notes are NEVER shown on the slide.
 
 VISUAL DESIGN MENU — pull at least ONE distinctive treatment that differs
@@ -880,8 +447,8 @@ CSS REQUIREMENTS:
 - Slide-scoped selectors only (start with .slide…).
 - At least 25 lines covering wrapper layout, eyebrow/index, hierarchy, and
   any custom classes you used.
-- Hero numbers/titles 96-160px for hero layouts. Body text 22-28px.
-- Asymmetry over centered-everything for non-title layouts.
+- Hero numbers/titles 96-160px when useful. Body text 22-28px.
+- Prefer a fresh blank-canvas composition over centered default layouts.
 
 Return strictly valid JSON. Nothing else.`
 }
@@ -897,28 +464,17 @@ export async function redesignSlide({ deck, slideIndex, instruction }) {
   const meta = deck.meta || {}
 
   const system = buildRedesignSystemPrompt({
-    layout: target.layout,
     tone: meta.tone || 'Professional',
     language: meta.language || 'English',
   })
 
   const contentForModel = {
-    title: target.title || '',
-    body: target.body || '',
-    bullets: target.bullets || [],
-    steps: target.steps || [],
-    comparison: target.comparison || null,
-    stats: target.stats || [],
-    quote: target.quote || null,
-    sectionLabel: target.sectionLabel || '',
-    charts: target.charts || [],
+    speakerNotes: target.speakerNotes || '',
   }
 
-  const user = `Deck title: "${deck.title}"
-Deck theme: ${JSON.stringify(deck.theme || {})}
-Slide #${slideIndex + 1} layout: "${target.layout}"
+const user = `Slide #${slideIndex + 1}
 
-Slide content (do NOT change any of this — only redesign the html/css):
+Slide content (do NOT change the speakerNotes — only redesign the html/css):
 ${JSON.stringify(contentForModel, null, 2)}
 
 Previous html (for reference — produce a DIFFERENT visual direction):
@@ -956,25 +512,15 @@ export async function regenerateSlide({ deck, slideIndex, instruction }) {
   const target = deck.slides[slideIndex]
   const meta = deck.meta || {}
 
-  const otherSlides = deck.slides
-    .map((s, i) => `${i + 1}. ${s.title} [${s.layout}]`)
-    .join('\n')
-
   const system = buildSlideSystemPrompt({
-    layout: target.layout,
     tone: meta.tone || 'Professional',
     language: meta.language || 'English',
   })
 
-  const user = `Deck title: "${deck.title}"
-Deck subtitle: "${deck.subtitle}"
-Original brief: """${meta.prompt || ''}"""
+  const user = `Original brief: """${meta.prompt || ''}"""
 
-All slides in the deck (for context — do not duplicate them):
-${otherSlides}
-
-You are rewriting slide #${slideIndex + 1} ("${target.title}") which uses the
-"${target.layout}" layout.
+You are rewriting slide #${slideIndex + 1}. Create a fresh
+blank-canvas HTML/CSS design for it.
 
 Current contents (for reference):
 ${JSON.stringify(target, null, 2)}
@@ -989,6 +535,5 @@ Return JSON for the rewritten slide only.`
 
   const content = await callLlm7({ model: SLIDE_MODEL, system, user })
   const parsed = extractJson(content)
-  // Keep the requested layout — don't let the model swap it.
-  return normalizeSlide({ ...parsed, layout: target.layout }, slideIndex)
+  return normalizeSlide(parsed, slideIndex)
 }

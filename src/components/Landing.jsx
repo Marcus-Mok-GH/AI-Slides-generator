@@ -121,17 +121,17 @@ const FEATURES = [
   {
     icon: '✦',
     title: 'AI that drafts the whole thing',
-    body: 'Outline, theme, layouts, copy, speaker notes — written in one pass.',
+    body: 'Outline, theme, HTML/CSS, copy, speaker notes — written in one pass.',
   },
   {
     icon: '◧',
-    title: '10 polished slide layouts',
-    body: 'Title, bullets, comparisons, quotes, stats — auto‑picked per slide.',
+    title: 'Raw HTML + CSS per slide',
+    body: 'Every slide is generated as bespoke HTML and CSS on a blank canvas — no templates, no rigid layouts.',
   },
   {
     icon: '✎',
     title: 'Edit any card, instantly',
-    body: 'Swap layouts, rewrite a single slide, regenerate with one click.',
+    body: 'Edit the HTML and CSS of any slide, or ask the AI to regenerate it.',
   },
   {
     icon: '⤓',
@@ -210,7 +210,7 @@ const EXAMPLES = [
 const FAQS = [
   {
     q: 'How is this different from PowerPoint or Google Slides?',
-    a: 'You start from a prompt, not a blank canvas. We pick a theme, write the copy, choose layouts, and lay everything out for you in seconds.',
+    a: 'You start from a prompt, not a blank canvas. Our AI generates custom HTML and CSS for every slide directly — bespoke design, written in seconds.',
   },
   {
     q: 'Do I need a credit card to try it?',
@@ -218,7 +218,7 @@ const FAQS = [
   },
   {
     q: 'Can I edit what the AI wrote?',
-    a: 'Every word, layout, color and slide order is editable. You can also ask the AI to rewrite a single slide.',
+    a: 'Every word, HTML, CSS, and slide order is editable. You can also ask the AI to rewrite a single slide.',
   },
   {
     q: 'Do my decks save automatically?',
@@ -551,8 +551,8 @@ function PromptShowcase({ onSignIn }) {
     <section className="g-showcase" id="showcase">
       <div className="g-showcase-head">
         <div className="g-eyebrow">Try it</div>
-        <h2>From a single prompt to a full deck.</h2>
-        <p>Type what you want to present. We'll handle the outline, the layouts, the writing, and the visuals.</p>
+        <h2>From a single prompt to a bespoke deck.</h2>
+        <p>Type what you want to present. Our AI builds every slide as custom HTML and CSS — designed from scratch, just for you.</p>
       </div>
 
       <div className="g-prompt-card">

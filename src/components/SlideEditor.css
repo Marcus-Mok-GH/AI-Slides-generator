@@ -100,119 +100,12 @@
   line-height: 1.45;
 }
 
-.layout-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-}
-
-.layout-btn {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  padding: 8px 6px;
+.ed-code {
+  min-height: 220px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
-  font-weight: 500;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background-color var(--duration-fast) ease,
-    color var(--duration-fast) ease,
-    border-color var(--duration-fast) ease,
-    box-shadow var(--duration-fast) ease;
-}
-.layout-btn:hover {
-  color: var(--text);
-  box-shadow: var(--shadow-sm);
-}
-.layout-btn.is-on {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
-  font-weight: 600;
-  box-shadow: 0 0 0 2px var(--accent-soft);
-}
-
-.list-edit {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.list-row,
-.stat-row {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.stat-row .ed-input.value {
-  max-width: 92px;
-  font-weight: 600;
-}
-
-.cmp-edit {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.cmp-edit-col {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px;
-  transition: border-color var(--duration-fast) ease,
-    box-shadow var(--duration-base) ease;
-}
-.cmp-edit-col:focus-within {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-sm);
-}
-
-.row-x {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-soft);
-  font-size: 14px;
-  flex-shrink: 0;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  transition: background-color var(--duration-fast) ease,
-    color var(--duration-fast) ease,
-    border-color var(--duration-fast) ease;
-}
-.row-x:hover {
-  background: var(--error-bg);
-  color: var(--error-text);
-  border-color: var(--error-border);
-}
-
-.add-row {
-  background: transparent;
-  border: 1px dashed var(--border-strong);
-  color: var(--text-muted);
-  padding: 7px 12px;
-  border-radius: 8px;
-  font-size: 12.5px;
-  align-self: flex-start;
-  cursor: pointer;
-  font-weight: 500;
-  transition: border-color var(--duration-fast) ease,
-    border-style var(--duration-fast) ease,
-    color var(--duration-fast) ease,
-    background-color var(--duration-fast) ease;
-}
-.add-row:hover {
-  border-style: solid;
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  line-height: 1.55;
+  tab-size: 2;
 }
 
 .ed-divider {
@@ -433,18 +326,6 @@
   .ed-textarea {
     font-size: 16px;
     padding: 12px 14px;
-  }
-  .layout-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-  }
-  .layout-btn {
-    padding: 10px 8px;
-    font-size: 13px;
-  }
-  .row-x {
-    width: 36px;
-    height: 36px;
   }
   .regen-btn {
     padding: 12px 16px;
