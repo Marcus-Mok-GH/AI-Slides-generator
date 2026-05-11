@@ -5,7 +5,7 @@
  *   - default-export the app so Vercel's @vercel/node runtime can invoke
  *     it as a serverless function.
  */
-import app from '../server/app.js'
+import app from './app.js'
 
 const isVercel = process.env.VERCEL === '1'
 
