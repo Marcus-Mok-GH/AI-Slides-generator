@@ -4,12 +4,16 @@
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
+    { "source": "/api/health", "destination": "/api/health.js" },
     { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/((?!assets|favicon\\.ico|.*\\.[a-zA-Z0-9]+$).*)", "destination": "/index.html" }
   ],
   "functions": {
     "api/index.js": {
       "maxDuration": 300
+    },
+    "api/health.js": {
+      "maxDuration": 10
     }
   }
 }
