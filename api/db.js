@@ -114,8 +114,9 @@ export async function migrate() {
   )
 
   // Now set the default and NOT NULL constraint for future signups
+  // Note: ALTER TABLE does not support bind parameters in PostgreSQL.
   await pool.query(`ALTER TABLE users ALTER COLUMN credits_cents SET DEFAULT ${NEW_USER_CENTS};`)
-  await pool.query(`UPDATE users SET credits_cents = ${NEW_USER_CENTS} WHERE credits_cents IS NULL;`)
+  await pool.query(`UPDATE users SET credits_cents = $1 WHERE credits_cents IS NULL;`, [NEW_USER_CENTS])
   await pool.query(`ALTER TABLE users ALTER COLUMN credits_cents SET NOT NULL;`)
 
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';`)
@@ -152,7 +153,12 @@ export async function migrate() {
       ADD CONSTRAINT fk_decks_user
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
     `)
-  } catch (e) { /* ignore if constraint exists */ }
+  } catch (e) {
+    if (e.code !== '42710') {
+      console.error('[db] Error adding fk_decks_user constraint:', e.message)
+      throw e
+    }
+  }
 
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_decks_user_id_updated_at
@@ -374,7 +380,12 @@ export async function migratePromptHistory() {
       ADD CONSTRAINT fk_ph_user
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
     `)
-  } catch (e) {}
+  } catch (e) {
+    if (e.code !== '42710') {
+      console.error('[db] Error adding fk_ph_user constraint:', e.message)
+      throw e
+    }
+  }
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_ph_user_used ON prompt_history (user_id, used_at DESC);`,
   )
@@ -458,7 +469,12 @@ export async function migrateAgentChats() {
       ADD CONSTRAINT fk_chats_user
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
     `)
-  } catch (e) {}
+  } catch (e) {
+    if (e.code !== '42710') {
+      console.error('[db] Error adding fk_chats_user constraint:', e.message)
+      throw e
+    }
+  }
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_agent_chats_user_updated
      ON agent_chats (user_id, updated_at DESC);`,
@@ -565,14 +581,24 @@ export async function migrateAgentPlans() {
       ADD CONSTRAINT fk_plans_chat
       FOREIGN KEY (chat_id) REFERENCES agent_chats(id) ON DELETE CASCADE;
     `)
-  } catch (e) {}
+  } catch (e) {
+    if (e.code !== '42710') {
+      console.error('[db] Error adding fk_plans_chat constraint:', e.message)
+      throw e
+    }
+  }
   try {
     await pool.query(`
       ALTER TABLE agent_plans
       ADD CONSTRAINT fk_plans_user
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
     `)
-  } catch (e) {}
+  } catch (e) {
+    if (e.code !== '42710') {
+      console.error('[db] Error adding fk_plans_user constraint:', e.message)
+      throw e
+    }
+  }
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_agent_plans_user_updated
      ON agent_plans (user_id, updated_at DESC);`,
@@ -664,7 +690,12 @@ export async function migrateGenerationJobs() {
       ADD CONSTRAINT fk_jobs_user
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
     `)
-  } catch (e) {}
+  } catch (e) {
+    if (e.code !== '42710') {
+      console.error('[db] Error adding fk_jobs_user constraint:', e.message)
+      throw e
+    }
+  }
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_generation_jobs_user
     ON generation_jobs (user_id, created_at DESC);
