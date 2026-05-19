@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { DECK_GENERATION_CENTS, getCredits, findUserByEmail, createUser } from '../db.js'
+import { DECK_GENERATION_CENTS, getCredits, findUserByEmail, createUser, updateUserLastLogin } from '../db.js'
 import { hashPassword, comparePassword, signToken } from '../middleware/auth.js'
 
 const router = Router()
@@ -41,6 +41,7 @@ router.post('/register', async (req, res) => {
       passwordHash,
     })
 
+    // Tracking last login is handled by createUser (it sets last_login_at = NOW())
     const token = signToken(user)
 
     res.json({
@@ -81,6 +82,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' })
     }
 
+    await updateUserLastLogin(user.id)
     const token = signToken(user)
 
     res.json({

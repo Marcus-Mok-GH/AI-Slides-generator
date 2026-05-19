@@ -2,12 +2,15 @@ import pg from 'pg'
 
 const { Pool } = pg
 
-// Prefer Supabase when configured; fall back to the Replit DATABASE_URL.
+// Support Neon (Vercel Storage), Supabase, or Replit PostgreSQL.
 const connectionString =
-  process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL
+  process.env.POSTGRES_URL || // Vercel Storage / Neon
+  process.env.SUPABASE_DATABASE_URL ||
+  process.env.DATABASE_URL
 
 export const hasDb = Boolean(connectionString)
 const isSupabase = hasDb && /supabase\.(co|com)/i.test(connectionString)
+const isNeon = hasDb && /neon\.tech/i.test(connectionString)
 
 function createMockPool() {
   const noop = async () => ({ rows: [] })
@@ -22,10 +25,11 @@ function createMockPool() {
 export const pool = hasDb
   ? new Pool({
       connectionString,
-      ssl: isSupabase ? { rejectUnauthorized: false } : undefined,
-      max: 5,
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 10_000,
+      ssl: (isSupabase || isNeon) ? { rejectUnauthorized: false } : undefined,
+      max: 10, // Slightly higher for Neon/Vercel
+      idleTimeoutMillis: 20_000,
+      connectionTimeoutMillis: 5_000,
+      maxUses: 7500, // Helps with long-running serverless connections
     })
   : createMockPool()
 
@@ -72,14 +76,16 @@ export const LEGACY_USER_CENTS = 10000
 export const DECK_GENERATION_CENTS = 50
 
 /**
- * Idempotent schema setup. Creates a `users` profile table and the `decks`
- * table. No auth / sessions — the app is fully public.
+ * Idempotent schema setup. Creates and optimizes tables for Neon/Vercel Storage.
+ * Uses TIMESTAMPTZ for timezone safety and explicit foreign keys.
  */
 export async function migrate() {
   if (!hasDb) {
     console.warn('[db] migrate() skipped — no DATABASE_URL configured')
     return
   }
+
+  // 1. Create/Update Users table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id                 VARCHAR PRIMARY KEY,
@@ -88,48 +94,82 @@ export async function migrate() {
       last_name          VARCHAR,
       profile_image_url  VARCHAR,
       password_hash      VARCHAR,
-      created_at         TIMESTAMP DEFAULT NOW(),
-      updated_at         TIMESTAMP DEFAULT NOW()
+      credits_cents      INTEGER NOT NULL DEFAULT ${NEW_USER_CENTS},
+      metadata           JSONB DEFAULT '{}',
+      preferences        JSONB DEFAULT '{}',
+      last_login_at      TIMESTAMPTZ,
+      created_at         TIMESTAMPTZ DEFAULT NOW(),
+      updated_at         TIMESTAMPTZ DEFAULT NOW()
     );
   `)
 
-  // Add password_hash to existing tables
+  // Migrations for existing user table
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR;`)
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS credits_cents INTEGER;`)
 
-  // ---------- Credits column + one-time legacy backfill ----------
-  await pool.query(`
-    ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS credits_cents INTEGER;
-  `)
+  // Legacy credits backfill: users existing before this column get LEGACY_USER_CENTS
   await pool.query(
     `UPDATE users SET credits_cents = $1 WHERE credits_cents IS NULL`,
     [LEGACY_USER_CENTS],
   )
-  await pool.query(
-    `ALTER TABLE users ALTER COLUMN credits_cents SET DEFAULT ${NEW_USER_CENTS}`,
-  )
-  await pool.query(
-    `ALTER TABLE users ALTER COLUMN credits_cents SET NOT NULL`,
-  )
+
+  // Now set the default and NOT NULL constraint for future signups
+  // Note: ALTER TABLE does not support bind parameters in PostgreSQL.
+  await pool.query(`ALTER TABLE users ALTER COLUMN credits_cents SET DEFAULT ${NEW_USER_CENTS};`)
+  await pool.query(`UPDATE users SET credits_cents = $1 WHERE credits_cents IS NULL;`, [NEW_USER_CENTS])
+  await pool.query(`ALTER TABLE users ALTER COLUMN credits_cents SET NOT NULL;`)
+
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';`)
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT '{}';`)
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;`)
+
+  // Ensure TIMESTAMPTZ for existing columns
+  await pool.query(`ALTER TABLE users ALTER COLUMN created_at TYPE TIMESTAMPTZ;`)
+  await pool.query(`ALTER TABLE users ALTER COLUMN updated_at TYPE TIMESTAMPTZ;`)
+
+  // 2. Create/Update Decks table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS decks (
       id          VARCHAR PRIMARY KEY,
+      user_id     VARCHAR REFERENCES users(id) ON DELETE CASCADE,
       title       VARCHAR,
       subtitle    VARCHAR,
       slide_count INTEGER,
       theme       JSONB,
       data        JSONB,
-      created_at  TIMESTAMP DEFAULT NOW(),
-      updated_at  TIMESTAMP DEFAULT NOW()
+      created_at  TIMESTAMPTZ DEFAULT NOW(),
+      updated_at  TIMESTAMPTZ DEFAULT NOW()
     );
   `)
-  // Add user_id column to existing decks table (no-op on re-runs).
+
   await pool.query(`ALTER TABLE decks ADD COLUMN IF NOT EXISTS user_id VARCHAR;`)
+  await pool.query(`ALTER TABLE decks ALTER COLUMN created_at TYPE TIMESTAMPTZ;`)
+  await pool.query(`ALTER TABLE decks ALTER COLUMN updated_at TYPE TIMESTAMPTZ;`)
+
+  // Attempt to add foreign key if missing
+  try {
+    await pool.query(`
+      ALTER TABLE decks
+      ADD CONSTRAINT fk_decks_user
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+    `)
+  } catch (e) {
+    if (e.code !== '42710') {
+      console.error('[db] Error adding fk_decks_user constraint:', e.message)
+      throw e
+    }
+  }
+
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_decks_user_id_updated_at
      ON decks (user_id, updated_at DESC);`,
   )
+
+  // 3. Other tables
+  await migratePromptHistory()
+  await migrateAgentChats()
   await migrateAgentPlans()
+  await migrateGenerationJobs()
 }
 
 /* ---------------- users ---------------- */
@@ -157,16 +197,25 @@ export async function upsertUser(user) {
        last_name         = EXCLUDED.last_name,
        profile_image_url = EXCLUDED.profile_image_url,
        updated_at        = NOW()
-     RETURNING id, email, first_name, last_name, profile_image_url, credits_cents`,
+     RETURNING id, email, first_name, last_name, profile_image_url, credits_cents, metadata, preferences, last_login_at`,
     [id, email, firstName, lastName, profileImageUrl],
   )
   return rows[0]
 }
 
+export async function updateUserLastLogin(userId) {
+  if (!userId) return
+  dbRequired()
+  await pool.query(
+    `UPDATE users SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    [userId],
+  )
+}
+
 export async function findUserByEmail(email) {
   dbRequired()
   const { rows } = await pool.query(
-    `SELECT id, email, first_name, last_name, profile_image_url, credits_cents, password_hash
+    `SELECT id, email, first_name, last_name, profile_image_url, credits_cents, password_hash, metadata, preferences, last_login_at
      FROM users WHERE email = $1`,
     [email],
   )
@@ -176,14 +225,15 @@ export async function findUserByEmail(email) {
 export async function createUser({ id, email, firstName, lastName, passwordHash }) {
   dbRequired()
   const { rows } = await pool.query(
-    `INSERT INTO users (id, email, first_name, last_name, password_hash, credits_cents)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO users (id, email, first_name, last_name, password_hash, credits_cents, last_login_at)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW())
      ON CONFLICT (email) DO UPDATE SET
        first_name   = EXCLUDED.first_name,
        last_name    = EXCLUDED.last_name,
        password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
+       last_login_at = NOW(),
        updated_at   = NOW()
-     RETURNING id, email, first_name, last_name, profile_image_url, credits_cents`,
+     RETURNING id, email, first_name, last_name, profile_image_url, credits_cents, metadata, preferences, last_login_at`,
     [id, email, firstName, lastName, passwordHash, NEW_USER_CENTS],
   )
   return rows[0]
@@ -317,12 +367,25 @@ export async function migratePromptHistory() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS prompt_history (
       id        SERIAL PRIMARY KEY,
-      user_id   VARCHAR NOT NULL,
+      user_id   VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       prompt    TEXT    NOT NULL,
       format    VARCHAR,
-      used_at   TIMESTAMP DEFAULT NOW()
+      used_at   TIMESTAMPTZ DEFAULT NOW()
     );
   `)
+  await pool.query(`ALTER TABLE prompt_history ALTER COLUMN used_at TYPE TIMESTAMPTZ;`)
+  try {
+    await pool.query(`
+      ALTER TABLE prompt_history
+      ADD CONSTRAINT fk_ph_user
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+    `)
+  } catch (e) {
+    if (e.code !== '42710') {
+      console.error('[db] Error adding fk_ph_user constraint:', e.message)
+      throw e
+    }
+  }
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_ph_user_used ON prompt_history (user_id, used_at DESC);`,
   )
@@ -391,13 +454,27 @@ export async function migrateAgentChats() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS agent_chats (
       id         VARCHAR PRIMARY KEY,
-      user_id    VARCHAR NOT NULL,
+      user_id    VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       title      VARCHAR,
       messages   JSONB NOT NULL DEFAULT '[]',
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     );
   `)
+  await pool.query(`ALTER TABLE agent_chats ALTER COLUMN created_at TYPE TIMESTAMPTZ;`)
+  await pool.query(`ALTER TABLE agent_chats ALTER COLUMN updated_at TYPE TIMESTAMPTZ;`)
+  try {
+    await pool.query(`
+      ALTER TABLE agent_chats
+      ADD CONSTRAINT fk_chats_user
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+    `)
+  } catch (e) {
+    if (e.code !== '42710') {
+      console.error('[db] Error adding fk_chats_user constraint:', e.message)
+      throw e
+    }
+  }
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_agent_chats_user_updated
      ON agent_chats (user_id, updated_at DESC);`,
@@ -487,15 +564,41 @@ export async function migrateAgentPlans() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS agent_plans (
       id           VARCHAR PRIMARY KEY,
-      chat_id      VARCHAR NOT NULL,
-      user_id      VARCHAR NOT NULL,
+      chat_id      VARCHAR NOT NULL REFERENCES agent_chats(id) ON DELETE CASCADE,
+      user_id      VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       plan_data    JSONB NOT NULL DEFAULT '{}',
       current_step INTEGER NOT NULL DEFAULT 0,
       status       VARCHAR NOT NULL DEFAULT 'planning',
-      created_at   TIMESTAMP DEFAULT NOW(),
-      updated_at   TIMESTAMP DEFAULT NOW()
+      created_at   TIMESTAMPTZ DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ DEFAULT NOW()
     );
   `)
+  await pool.query(`ALTER TABLE agent_plans ALTER COLUMN created_at TYPE TIMESTAMPTZ;`)
+  await pool.query(`ALTER TABLE agent_plans ALTER COLUMN updated_at TYPE TIMESTAMPTZ;`)
+  try {
+    await pool.query(`
+      ALTER TABLE agent_plans
+      ADD CONSTRAINT fk_plans_chat
+      FOREIGN KEY (chat_id) REFERENCES agent_chats(id) ON DELETE CASCADE;
+    `)
+  } catch (e) {
+    if (e.code !== '42710') {
+      console.error('[db] Error adding fk_plans_chat constraint:', e.message)
+      throw e
+    }
+  }
+  try {
+    await pool.query(`
+      ALTER TABLE agent_plans
+      ADD CONSTRAINT fk_plans_user
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+    `)
+  } catch (e) {
+    if (e.code !== '42710') {
+      console.error('[db] Error adding fk_plans_user constraint:', e.message)
+      throw e
+    }
+  }
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_agent_plans_user_updated
      ON agent_plans (user_id, updated_at DESC);`,
@@ -572,13 +675,27 @@ export async function migrateGenerationJobs() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS generation_jobs (
       id         VARCHAR PRIMARY KEY,
-      user_id    VARCHAR NOT NULL,
+      user_id    VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       status     VARCHAR NOT NULL DEFAULT 'pending',
       events     JSONB    NOT NULL DEFAULT '[]',
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     );
   `)
+  await pool.query(`ALTER TABLE generation_jobs ALTER COLUMN created_at TYPE TIMESTAMPTZ;`)
+  await pool.query(`ALTER TABLE generation_jobs ALTER COLUMN updated_at TYPE TIMESTAMPTZ;`)
+  try {
+    await pool.query(`
+      ALTER TABLE generation_jobs
+      ADD CONSTRAINT fk_jobs_user
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+    `)
+  } catch (e) {
+    if (e.code !== '42710') {
+      console.error('[db] Error adding fk_jobs_user constraint:', e.message)
+      throw e
+    }
+  }
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_generation_jobs_user
     ON generation_jobs (user_id, created_at DESC);

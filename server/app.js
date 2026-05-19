@@ -31,9 +31,6 @@ async function safeMigrate(fn, name) {
 }
 
 await safeMigrate(migrate, 'migrate')
-await safeMigrate(migratePromptHistory, 'migratePromptHistory')
-await safeMigrate(migrateAgentChats, 'migrateAgentChats')
-await safeMigrate(migrateGenerationJobs, 'migrateGenerationJobs')
 
 function isDbError(err) {
   return err?.statusCode === 503 || /database unavailable/i.test(err?.message)
