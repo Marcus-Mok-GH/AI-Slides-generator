@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -k -n server,vite -c magenta,cyan \"npm:dev:server\" \"npm:dev:vite\"",
+    "db:init": "node scripts/db-init.js",
     "dev:vite": "vite --host 0.0.0.0 --port 5000",
     "dev:server": "node api/index.js",
     "build": "vite build",
