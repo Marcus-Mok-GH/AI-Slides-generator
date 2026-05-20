@@ -40,9 +40,10 @@
   margin-bottom: 32px;
 }
 .opts-title {
-  font-size: clamp(22px, 3.5vw, 30px);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-family: var(--font-serif);
+  font-size: clamp(24px, 3.5vw, 32px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
   margin: 0 0 8px;
 }
 .opts-sub {
@@ -105,8 +106,8 @@
   box-shadow: var(--shadow-sm);
 }
 .theme-card.is-active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: var(--text);
+  box-shadow: 0 0 0 1px var(--text);
 }
 
 .theme-preview {
@@ -135,7 +136,7 @@
   text-align: center;
 }
 .theme-card.is-active .theme-name {
-  color: var(--accent);
+  color: var(--text);
 }
 
 /* AI picks card */
@@ -216,10 +217,9 @@
   color: var(--text);
 }
 .opts-format-tab.is-active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: var(--text);
+  color: var(--text);
+  background: var(--surface-2);
   font-weight: 600;
 }
 .opts-format-icon {
@@ -311,22 +311,21 @@
 }
 
 .opts-generate-btn {
-  padding: 13px 32px;
-  border-radius: 999px;
+  padding: 12px 32px;
+  border-radius: var(--radius-md);
   border: none;
-  background: var(--accent);
-  color: white;
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.01em;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.01em;
   box-shadow: var(--shadow-sm);
   display: inline-flex;
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  transition: box-shadow var(--duration-base) ease,
-    opacity var(--duration-fast) ease,
-    transform 120ms ease;
+  transition: opacity var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
 }
 .opts-generate-btn:hover:not(:disabled) {
   box-shadow: var(--shadow-md);
