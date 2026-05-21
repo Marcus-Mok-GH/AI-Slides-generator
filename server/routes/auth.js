@@ -42,7 +42,7 @@ router.post('/register', async (req, res) => {
     })
 
     const token = signToken(user)
-    await updateUserLastLogin(user.id)
+    updateUserLastLogin(user.id).catch(err => console.error('[auth/register] updateUserLastLogin failed:', err))
 
     res.json({
       token,
@@ -83,7 +83,7 @@ router.post('/login', async (req, res) => {
     }
 
     const token = signToken(user)
-    await updateUserLastLogin(user.id)
+    updateUserLastLogin(user.id).catch(err => console.error('[auth/login] updateUserLastLogin failed:', err))
 
     res.json({
       token,

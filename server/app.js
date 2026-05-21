@@ -226,8 +226,9 @@ app.post('/api/generate-deck/background', async (req, res) => {
     return res.status(400).json({ error: 'Missing prompt' })
   }
 
-  const jobId = (typeof deckId === 'string' && deckId.trim()) ? deckId.trim() : (await generateId())
+  let jobId
   try {
+    jobId = (typeof deckId === 'string' && deckId.trim()) ? deckId.trim() : (await generateId())
     const balance = await getCredits(req.user.id)
     if (balance < DECK_GENERATION_CENTS) {
       return res.status(402).json({
