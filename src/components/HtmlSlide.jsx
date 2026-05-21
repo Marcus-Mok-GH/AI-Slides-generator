@@ -30,6 +30,24 @@ function escapeText(s) {
     .replace(/>/g, '&gt;')
 }
 
+
+function normalizeSlideHtml(html) {
+  const raw = String(html || '').trim()
+  if (!raw) return ''
+
+  // Accept accidental full-document responses from the model and keep only body content.
+  const bodyMatch = raw.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+  const core = (bodyMatch ? bodyMatch[1] : raw).trim()
+
+  // If the model already emitted a .slide root, preserve it unchanged.
+  if (/class\s*=\s*["'][^"']*\bslide\b/i.test(core)) {
+    return core
+  }
+
+  // Otherwise, wrap content so baseline layout rules still apply.
+  return `<div class="slide">${core}</div>`
+}
+
 function injectCharts(html, charts, theme) {
   if (!html) return ''
   if (!Array.isArray(charts) || charts.length === 0) return html
@@ -103,7 +121,7 @@ function buildDocument({
   const bg = theme?.background || '#0f0f1a'
   const primary = theme?.primary || '#7c5cff'
   const accent = theme?.accent || '#ff6ea0'
-  const safeHtml = injectCharts(html || '', charts, theme)
+  const safeHtml = injectCharts(normalizeSlideHtml(html), charts, theme)
   const userCss = String(css || '')
 
   const showFooter = typeof index === 'number' && typeof total === 'number'
