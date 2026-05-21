@@ -50,12 +50,14 @@
 }
 
 .vbar-deck {
-  font-weight: 700;
-  font-size: 14px;
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 16px;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: -0.02em;
 }
 
 .vbar-meta {
@@ -86,11 +88,10 @@
   transition: background-color var(--duration-fast) ease;
 }
 .vbar-status.is-streaming {
-  color: white;
-  background: linear-gradient(135deg, var(--accent), var(--pink));
+  color: var(--bg);
+  background: var(--text);
   border-color: transparent;
   font-weight: 600;
-  box-shadow: 0 4px 14px rgba(124, 92, 255, 0.3);
 }
 .dot-pulse {
   width: 8px;
@@ -113,9 +114,9 @@
   background: transparent;
 }
 .thumb.is-in-progress {
-  background: var(--accent-soft, rgba(124, 92, 255, 0.08));
-  border-radius: 10px;
-  outline: 1.5px solid var(--accent, #7c5cff);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  outline: 1.5px solid var(--text);
   outline-offset: -1.5px;
   animation: thumb-pulse 1.6s ease-in-out infinite;
 }
@@ -264,14 +265,7 @@
   font-weight: 700;
 }
 .thinking-eyebrow-text {
-  background: linear-gradient(
-    90deg,
-    var(--think-primary, #7c5cff),
-    var(--think-accent, #ff6ea0)
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--text);
 }
 
 .thinking-orb {
@@ -285,19 +279,15 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: linear-gradient(
-    135deg,
-    var(--think-primary, #7c5cff),
-    var(--think-accent, #ff6ea0)
-  );
-  box-shadow: 0 0 14px color-mix(in oklab, var(--think-primary, #7c5cff) 60%, transparent);
+  background: var(--text);
+  box-shadow: 0 0 14px var(--border);
   animation: think-core 1.6s ease-in-out infinite;
 }
 .thinking-orb-ring {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 1.5px solid color-mix(in oklab, var(--think-primary, #7c5cff) 50%, transparent);
+  border: 1px solid var(--border-strong);
   animation: think-ring 1.6s ease-out infinite;
 }
 @keyframes think-core {
@@ -310,11 +300,12 @@
 }
 
 .thinking-headline {
+  font-family: var(--font-serif);
   margin: 0;
-  font-size: 26px;
-  line-height: 1.18;
-  letter-spacing: -0.01em;
-  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-weight: 500;
   color: var(--text);
 }
 
@@ -364,12 +355,7 @@
 .thinking-progress-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    var(--think-primary, #7c5cff),
-    var(--think-accent, #ff6ea0)
-  );
-  box-shadow: 0 0 14px color-mix(in oklab, var(--think-primary, #7c5cff) 50%, transparent);
+  background: var(--text);
   transition: width 700ms var(--ease-out-expo);
   position: relative;
   overflow: hidden;
@@ -443,14 +429,10 @@
   color: var(--text);
 }
 .thinking-stage.is-active .thinking-stage-marker {
-  background: linear-gradient(
-    135deg,
-    var(--think-primary, #7c5cff),
-    var(--think-accent, #ff6ea0)
-  );
-  color: white;
+  background: var(--text);
+  color: var(--bg);
   border-color: transparent;
-  box-shadow: 0 0 0 4px color-mix(in oklab, var(--think-primary, #7c5cff) 20%, transparent);
+  box-shadow: 0 0 0 4px var(--surface-2);
   animation: think-marker-pulse 1.6s ease-in-out infinite;
 }
 @keyframes think-marker-pulse {
@@ -1085,9 +1067,9 @@
    Present button — responsive (full label wide, icon narrow)
    ============================================================ */
 .vbar-present-btn {
-  background: linear-gradient(135deg, var(--accent), var(--accent-light, #a78bfa));
-  color: #fff;
-  font-weight: 700;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 600;
   border: none;
 }
 .vbar-present-btn:hover:not(:disabled) {
@@ -1178,9 +1160,8 @@
   align-items: center;
   gap: 8px;
   padding: 0 20px;
-  background: rgba(10, 10, 20, 0.9);
-  border-top: 1px solid rgba(255,255,255,0.06);
-  backdrop-filter: blur(12px);
+  background: var(--bg);
+  border-top: 1px solid var(--border);
 }
 
 .present-hud-btn {
@@ -1236,7 +1217,7 @@
 }
 .present-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #7c5cff, #ff6ea0);
+  background: #fff;
   border-radius: 2px;
   transition: width 0.35s ease;
 }

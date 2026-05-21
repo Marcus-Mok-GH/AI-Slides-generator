@@ -9,11 +9,12 @@
 }
 
 .hero-title {
-  font-size: clamp(26px, 4vw, 38px);
-  letter-spacing: -0.02em;
-  margin: 0 0 10px;
-  font-weight: 700;
-  line-height: 1.15;
+  font-family: var(--font-serif);
+  font-size: clamp(32px, 5vw, 48px);
+  letter-spacing: -0.04em;
+  margin: 0 0 12px;
+  font-weight: 500;
+  line-height: 1;
 }
 
 .grad {
@@ -58,10 +59,9 @@
   color: var(--text);
 }
 .format-tab.is-active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface-2);
   font-weight: 600;
 }
 
@@ -74,12 +74,13 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 20px;
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow var(--duration-base) ease;
+  padding: 24px;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow var(--duration-base) ease, border-color var(--duration-fast) ease;
 }
 .prompt-card:focus-within {
-  box-shadow: var(--shadow-md), 0 0 0 1px var(--border-strong);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-strong);
 }
 
 .prompt-tools {
@@ -131,23 +132,22 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 16px 18px;
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: 16px;
+  line-height: 1.5;
   resize: vertical;
   outline: none;
-  background: var(--bg);
+  background: var(--surface-2);
   color: var(--text);
   transition: border-color var(--duration-fast) ease,
     box-shadow var(--duration-fast) ease,
     background-color var(--duration-fast) ease;
 }
 .prompt-input::placeholder {
-  color: var(--text-soft);
+  color: var(--text-muted);
 }
 .prompt-input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-  background: var(--on-surface);
+  border-color: var(--border-strong);
+  background: var(--surface);
 }
 
 /* ---- History dropdown ---- */
@@ -290,20 +290,23 @@
 
 .generate-btn {
   margin-left: auto;
-  padding: 10px 26px;
-  border-radius: 12px;
+  padding: 10px 24px;
+  border-radius: var(--radius-md);
   border: none;
-  background: var(--accent);
-  color: white;
+  background: var(--text);
+  color: var(--bg);
   font-weight: 600;
   font-size: 14px;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
   box-shadow: var(--shadow-sm);
-  transition: box-shadow var(--duration-base) ease,
-    opacity var(--duration-fast) ease;
+  transition: transform var(--duration-fast) ease, opacity var(--duration-fast) ease;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.generate-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 .generate-btn:hover:not(:disabled) {
   box-shadow: var(--shadow-md);
@@ -463,9 +466,9 @@
     background-color var(--duration-fast) ease;
 }
 .sugg-chip:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--text);
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 /* ---- Mobile ---- */

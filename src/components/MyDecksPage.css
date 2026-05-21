@@ -20,11 +20,12 @@
   gap: 10px;
 }
 .my-decks-title {
-  font-size: 26px;
-  font-weight: 700;
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 500;
   color: var(--text);
   margin: 0;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.03em;
 }
 .my-decks-count {
   font-size: 14px;
@@ -143,10 +144,10 @@
 .empty-cta {
   margin-top: 18px;
   padding: 10px 22px;
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   border: none;
-  background: var(--accent);
-  color: #fff;
+  background: var(--text);
+  color: var(--bg);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;

@@ -145,13 +145,15 @@
   border-radius: var(--radius-md);
   overflow: hidden;
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   transition: transform var(--duration-base) var(--ease-out-expo),
-    box-shadow var(--duration-base) ease;
+    box-shadow var(--duration-base) ease,
+    border-color var(--duration-fast) ease;
 }
 .deck-card:hover .deck-thumb {
   transform: none;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
+  border-color: var(--border-strong);
 }
 .deck-card:active .deck-thumb {
   transform: none;
@@ -181,17 +183,17 @@
 }
 .deck-headline {
   font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   line-height: 1.25;
-  color: white;
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  /* text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35); */
 }
 .deck-subline {
   font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--text-muted);
   line-height: 1.35;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  /* text-shadow: 0 1px 8px rgba(0, 0, 0, 0.3); */
 }
 .deck-sub {
   font-size: 11px;
@@ -269,14 +271,13 @@
   position: absolute;
   bottom: 12px;
   right: 12px;
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--surface-2);
   color: var(--text);
-  font-size: 11px;
-  padding: 4px 10px;
-  border-radius: 999px;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
   font-weight: 600;
-  backdrop-filter: blur(6px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border);
 }
 
 
