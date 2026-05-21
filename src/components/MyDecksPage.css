@@ -1,7 +1,7 @@
 .my-decks-page {
-  max-width: 1100px;
+  width: min(100%, 1100px);
   margin: 0 auto;
-  padding: 28px 28px 72px;
+  padding: 4px 0 72px;
 }
 
 /* ---- Header ---- */
@@ -160,7 +160,7 @@
 
 /* ---- Responsive ---- */
 @media (max-width: 720px) {
-  .my-decks-page { padding: 24px 16px 60px; }
+  .my-decks-page { padding: 0 0 60px; }
   .my-decks-title { font-size: 22px; }
   .my-decks-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
   .deck-card--list .deck-thumb { width: 92px; }

@@ -1,7 +1,7 @@
 .tpl-page {
-  max-width: 1100px;
+  width: min(100%, 1100px);
   margin: 0 auto;
-  padding: 40px 32px 80px;
+  padding: 16px 0 80px;
 }
 
 /* ---- Header ---- */
@@ -179,7 +179,7 @@
 
 /* ---- Responsive ---- */
 @media (max-width: 600px) {
-  .tpl-page { padding: 24px 16px 60px; }
+  .tpl-page { padding: 8px 0 60px; }
   .tpl-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
   .tpl-title { font-size: 22px; }
 }
