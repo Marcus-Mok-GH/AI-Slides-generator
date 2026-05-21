@@ -50,7 +50,7 @@ function dbRequired() {
 }
 
 // Async-safe id generator (handles environments without globalThis.crypto)
-async function generateId() {
+export async function generateId() {
   if (globalThis.crypto?.getRandomValues) {
     const bytes = new Uint8Array(9)
     globalThis.crypto.getRandomValues(bytes)
