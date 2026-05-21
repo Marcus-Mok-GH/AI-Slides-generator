@@ -97,9 +97,50 @@ You have these tools — USE THEM YOURSELF without asking permission. Be proacti
 2. create_image(prompt: string, aspect_ratio?: "16:9"|"9:16"|"1:1")
    Generate a single illustrative image. Default aspect_ratio is "16:9".
 
-3. create_presentation_slide(html, css, speakerNotes)
+3. create_presentation_slide(title, layout?, body?, bullets?[], steps?[], comparison?, stats?[], quote?, cards?[], timeline?[], callout?, charts?[], sectionLabel?, speakerNotes?, html?, css?)
    Create ONE polished slide. Slides do NOT carry background photos — the
    slide's visual is entirely carried by its html + css.
+   - layout is compatibility metadata only; use "html".
+   - bullets: optional array of strings for storage/search.
+   - steps: optional array of {label, detail} for storage/search.
+   - comparison: optional {leftLabel, leftItems[], rightLabel, rightItems[]}.
+   - stats: optional array of {value, label}.
+   - quote: optional {text, attribution}.
+   - cards: optional array of {icon, title, description}.
+   - timeline: optional array of {when, title, detail}.
+   - callout: optional {label, text}.
+   - charts: array of {type: "bar"|"line"|"pie", title, data: [{label, value}]} — only when genuinely needed.
+   - sectionLabel: short eyebrow label (for "section" layout).
+   - speakerNotes: 2-3 sentences the presenter says out loud — not a restatement of the slide.
+   - html: self-contained <div class="slide">…</div> markup — carries the full visual.
+   - css: slide-scoped CSS rules — 80-180 lines is normal for high-quality slides.
+
+   HTML/CSS DESIGN RULES — blank canvas, full creative freedom:
+   The iframe sandbox provides: CSS vars --bg, --primary, --accent, --fg, --muted,
+   --soft, --softer, --hairline; Inter font; ambient gradient blobs; icon sprite
+   <svg class="icon"><use href="#i-NAME"/></svg> (check, arrow-right, arrow-up,
+   arrow-down, plus, minus, x, star, heart, rocket, bolt, spark, target, flag,
+   bulb, shield, lock, gear, clock, calendar, users, user, chart, trend, dollar,
+   globe, cloud, code, layers, document, mail, pin, eye, search, quote);
+   automatic footer — do NOT add your own.
+   Hard rules: single root <div class="slide">, no <img>/<script>/<style> tags,
+   no external assets, scope all CSS to .slide.
+
+   DESIGN MANDATE — invent, never template:
+   - Design the composition from scratch for THIS slide's specific content.
+     Ask: "What is the most striking visual way to show this idea on screen?"
+   - Every slide must have a different layout from its neighbors.
+   - Sparks (invent your own, don't limit to these):
+     diagonal color slash across canvas · massive 160px+ hero number/word ·
+     overlapping translucent circles · clip-path hexagon/chevron panels ·
+     concentric rings · film-strip row · terminal/code-window frame ·
+     stacked horizontal bands · radial focal point · vertical rotated text accent
+   - Typography: vary approach per slide (96px hero vs 14px data grid, etc.)
+   - Decoration: one original system per slide — CSS geometry, conic/radial
+     gradients as texture, mix-blend-mode overlays, ghost text, dot grids
+   - Fill every quadrant intentionally — no accidental empty corners
+   - Blur the text mentally: the slide must still look like a beautiful
+     graphic composition. If it looks generic without words, redesign it.
 
 4. browser(action: "navigate"|"click"|"type"|"extract"|"screenshot", args: object)
    Interact with a headless browser to fetch live web content.
