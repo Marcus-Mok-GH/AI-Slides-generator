@@ -18,49 +18,64 @@
  * prefix that comes BEFORE the "slides" key as a self-contained JSON object.
  */
 
-const PARTIAL_STRING_FIELDS = [
-  'title',
-  'layout',
-  'body',
-  'sectionLabel',
-  'html',
-  'css',
-]
+const PARTIAL_STRING_FIELDS = ['title', 'speakerNotes', 'html', 'css']
 
-function extractCompletedStringField(snippet, key) {
-  // Match: "key" : "value-without-unescaped-quote"
+function extractCompletedStringField(text, key) {
   const re = new RegExp(
-    `"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`,
+    '"' + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"\\s*:\\s*"',
+    'g'
   )
-  const m = re.exec(snippet)
-  if (!m) return null
-  try {
-    return JSON.parse(`"${m[1]}"`)
-  } catch {
-    return null
+  let last = null
+  let m
+  while ((m = re.exec(text)) !== null) {
+    const start = m.index + m[0].length
+    let i = start
+    let escaped = false
+    while (i < text.length) {
+      const ch = text[i]
+      if (escaped) {
+        escaped = false
+      } else if (ch === '\\') {
+        escaped = true
+      } else if (ch === '"') {
+        last = text.slice(start, i)
+        break
+      }
+      i++
+    }
   }
+  return last
 }
 
 /**
- * Match an in-flight (still-being-written) string value. The pattern is
- * anchored to the END of the snippet, so it only matches when the buffer
- * currently ends inside the string (no closing quote yet) — perfect for
- * showing text growing word-by-word in the UI.
+ * Match an in-flight (still-being-written) string value.
  */
-function extractInProgressStringField(snippet, key) {
+function extractInProgressStringField(text, key) {
   const re = new RegExp(
-    `"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)$`,
+    '"' + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"\\s*:\\s*"',
+    'g'
   )
-  const m = re.exec(snippet)
-  if (!m) return null
-  // Drop a trailing lone backslash so JSON.parse doesn't choke mid-escape.
-  let raw = m[1]
-  if (raw.endsWith('\\')) raw = raw.slice(0, -1)
-  try {
-    return JSON.parse(`"${raw}"`)
-  } catch {
-    return null
+  let lastMatch = null
+  let m
+  while ((m = re.exec(text)) !== null) {
+    lastMatch = m
   }
+  if (!lastMatch) return null
+  const start = lastMatch.index + lastMatch[0].length
+  let i = start
+  let escaped = false
+  while (i < text.length) {
+    const ch = text[i]
+    if (escaped) {
+      escaped = false
+    } else if (ch === '\\') {
+      escaped = true
+    } else if (ch === '"') {
+      return text.slice(start, i)
+    }
+    i++
+  }
+  return text.slice(start)
 }
 
 function extractCompletedBulletsArray(snippet) {
@@ -124,28 +139,26 @@ function extractInProgressBulletsArray(snippet) {
 export class DeckStreamParser {
   constructor() {
     this.buf = ''
+    this.state = 'preSlides'
     this.cursor = 0
-    this.state = 'preSlides' // preSlides | inArray | done
+    this.metaSent = false
+    this.slidesEmitted = 0
     this.elementStart = -1
     this.depth = 0
     this.inString = false
     this.escape = false
-    this.metaSent = false
-    this.slidesEmitted = 0
-    this.partialState = {} // index -> last emitted partial obj
+    this.partialState = {}
   }
 
   feed(chunk) {
     this.buf += chunk
     const events = []
 
-    // 1) Try to emit top-level meta (title/subtitle/theme) once we have
-    //    enough buffer to see "slides":.
+    // 1) Try to extract meta (title/subtitle/theme) once
     if (!this.metaSent) {
       const slidesKeyIdx = this.buf.indexOf('"slides"')
       if (slidesKeyIdx > 0) {
         let prefix = this.buf.slice(0, slidesKeyIdx).trim()
-        // strip any trailing comma so we can close the object
         while (prefix.endsWith(',')) prefix = prefix.slice(0, -1).trimEnd()
         const candidate = prefix + '}'
         try {
@@ -159,9 +172,7 @@ export class DeckStreamParser {
             },
           })
           this.metaSent = true
-        } catch {
-          // not enough yet (e.g. theme object still streaming) — try again later
-        }
+        } catch {}
       }
     }
 
@@ -204,12 +215,9 @@ export class DeckStreamParser {
                 const slide = JSON.parse(json)
                 const index = this.slidesEmitted
                 this.slidesEmitted++
-                // Clear any partial state for this slide — full slide will replace it
                 delete this.partialState[index]
                 events.push({ type: 'slide', slide, index })
-              } catch {
-                // shouldn't happen for well-balanced object; ignore
-              }
+              } catch {}
               this.elementStart = -1
             }
           } else if (ch === ']' && this.depth === 0) {
@@ -222,10 +230,7 @@ export class DeckStreamParser {
       }
     }
 
-    // 4) If we're mid-slide, emit a partial with everything written so far —
-    //    completed fields AND any in-flight string the model is currently
-    //    typing. The in-progress extractor wins when it matches (the field
-    //    is mid-stream); otherwise we fall back to the completed value.
+    // 4) Partial extraction for in-flight slides
     if (
       this.state === 'inArray' &&
       this.elementStart >= 0 &&
@@ -243,20 +248,13 @@ export class DeckStreamParser {
         const done = extractCompletedStringField(snippet, key)
         if (done !== null) partial[key] = done
       }
-      const inFlightBullets = extractInProgressBulletsArray(snippet)
-      const completedBullets =
-        inFlightBullets || extractCompletedBulletsArray(snippet)
-      if (completedBullets) partial.bullets = completedBullets
 
       if (Object.keys(partial).length > 0) {
         const prev = this.partialState[slideIdx] || {}
-        const stringChanged = Object.keys(partial).some(
-          (k) => k !== 'bullets' && partial[k] !== prev[k],
+        const changed = Object.keys(partial).some(
+          (k) => partial[k] !== prev[k]
         )
-        const bulletsChanged =
-          partial.bullets &&
-          JSON.stringify(partial.bullets) !== JSON.stringify(prev.bullets)
-        if (stringChanged || bulletsChanged) {
+        if (changed) {
           this.partialState[slideIdx] = { ...prev, ...partial }
           events.push({
             type: 'partial',

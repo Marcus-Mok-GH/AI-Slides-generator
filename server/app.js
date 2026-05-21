@@ -7,7 +7,7 @@ import {
   getCredits, deductCredits, DECK_GENERATION_CENTS,
   migrateGenerationJobs, createGenerationJob, getGenerationJob,
   getPublicStats,
-  hasDb,
+  hasDb, generateId,
 } from './db.js'
 import { agentFiveTurn, agentFiveStream } from './agentFive.js'
 import { buildPptxBuffer } from './exportPptx.js'
@@ -31,6 +31,9 @@ async function safeMigrate(fn, name) {
 }
 
 await safeMigrate(migrate, 'migrate')
+await safeMigrate(migratePromptHistory, 'migratePromptHistory')
+await safeMigrate(migrateAgentChats, 'migrateAgentChats')
+await safeMigrate(migrateGenerationJobs, 'migrateGenerationJobs')
 
 function isDbError(err) {
   return err?.statusCode === 503 || /database unavailable/i.test(err?.message)
@@ -223,7 +226,7 @@ app.post('/api/generate-deck/background', async (req, res) => {
     return res.status(400).json({ error: 'Missing prompt' })
   }
 
-  const jobId = (typeof deckId === 'string' && deckId.trim()) ? deckId.trim() : crypto.randomUUID()
+  const jobId = (typeof deckId === 'string' && deckId.trim()) ? deckId.trim() : (await generateId())
   try {
     const balance = await getCredits(req.user.id)
     if (balance < DECK_GENERATION_CENTS) {

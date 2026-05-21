@@ -82,8 +82,17 @@ creative freedom.
 Return ONLY valid JSON (no prose, no code fences). Output this shape:
 
 {
+  "title": "Deck title — punchy and specific",
+  "subtitle": "One sentence that frames the deck",
+  "theme": {
+    "name": "Short theme name",
+    "primary": "#hex",
+    "accent": "#hex",
+    "background": "#hex"
+  },
   "slides": [
     {
+      "title": "Slide title — punchy and specific",
       "speakerNotes": "What the presenter says out loud — the full spoken script for this slide",
       "html": "REQUIRED. Self-contained HTML for the slide body. Must start with <div class='slide'>.",
       "css": "REQUIRED. Slide-scoped CSS targeting .slide and descendants."
@@ -223,6 +232,7 @@ function extractJson(text) {
 
 function normalizeSlide(s, fallbackIndex = 0) {
   return {
+    title: String(s?.title || `Slide ${fallbackIndex + 1}`),
     speakerNotes: s?.speakerNotes ? String(s.speakerNotes) : '',
     html: s?.html ? String(s.html) : '',
     css: s?.css ? String(s.css) : '',
@@ -235,6 +245,21 @@ function normalizeDeck(raw, ctx) {
   if (slides.length === 0) throw new Error('Deck has no slides')
 
   return {
+    title: String(raw.title || 'Untitled Deck'),
+    subtitle: String(raw.subtitle || ''),
+    theme: raw.theme && typeof raw.theme === 'object'
+      ? {
+          name: String(raw.theme.name || 'Custom'),
+          primary: String(raw.theme.primary || '#7c5cff'),
+          accent: String(raw.theme.accent || '#ff6ea0'),
+          background: String(raw.theme.background || '#0f0f1a'),
+        }
+      : {
+          name: 'Custom',
+          primary: '#7c5cff',
+          accent: '#ff6ea0',
+          background: '#0f0f1a',
+        },
     slides: slides.map((s, i) => normalizeSlide(s, i)),
     meta: {
       model: DECK_MODEL,
@@ -386,6 +411,14 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
     // double-processing. Build the final deck object directly, using
     // whatever meta the stream parser already captured.
     return {
+      title: String(streamedMeta?.title || 'Untitled Deck'),
+      subtitle: String(streamedMeta?.subtitle || ''),
+      theme: streamedMeta?.theme || {
+        name: 'Custom',
+        primary: '#7c5cff',
+        accent: '#ff6ea0',
+        background: '#0f0f1a',
+      },
       slides: streamedSlides,
       meta: {
         model: DECK_MODEL,

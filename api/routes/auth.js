@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { DECK_GENERATION_CENTS, getCredits, findUserByEmail, createUser } from '../db.js'
+import { DECK_GENERATION_CENTS, getCredits, findUserByEmail, createUser, updateUserLastLogin } from '../db.js'
 import { hashPassword, comparePassword, signToken } from '../middleware/auth.js'
 
 const router = Router()
@@ -42,6 +42,7 @@ router.post('/register', async (req, res) => {
     })
 
     const token = signToken(user)
+    await updateUserLastLogin(user.id)
 
     res.json({
       token,
@@ -82,6 +83,7 @@ router.post('/login', async (req, res) => {
     }
 
     const token = signToken(user)
+    await updateUserLastLogin(user.id)
 
     res.json({
       token,

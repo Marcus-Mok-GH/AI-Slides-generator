@@ -1,6 +1,21 @@
 /**
- * DeckStreamParser — streaming JSON parser for blank-canvas HTML/CSS slides.
- * Extracts only: title, speakerNotes, html, css.
+ * Incremental JSON deck parser.
+ *
+ * Feeds streaming text from the model and emits events:
+ *   { type: 'meta',    meta: { title, subtitle, theme } }   (once)
+ *   { type: 'partial', index, partial: { title?, body?, bullets?, sectionLabel?, html?, css? } }
+ *                                                            (during in-progress slide)
+ *   { type: 'slide',   slide: {...}, index: n }              (per completed slide)
+ *
+ * Strategy: scan character-by-character (string-aware) to find the
+ *   "slides": [ ... ]
+ * array opener, then track {} depth to know when each top-level slide object
+ * closes. Each closed object is JSON.parse'd in isolation. While a slide is
+ * still open, we regex-extract any newly-completed string fields and emit
+ * partial events so the UI can show the slide title as it's being written.
+ *
+ * Top-level meta (title/subtitle/theme) is extracted by trying to parse the
+ * prefix that comes BEFORE the "slides" key as a self-contained JSON object.
  */
 
 const PARTIAL_STRING_FIELDS = ['title', 'speakerNotes', 'html', 'css']
@@ -32,6 +47,9 @@ function extractCompletedStringField(text, key) {
   return last
 }
 
+/**
+ * Match an in-flight (still-being-written) string value.
+ */
 function extractInProgressStringField(text, key) {
   const re = new RegExp(
     '"' + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"\\s*:\\s*"',
@@ -60,6 +78,64 @@ function extractInProgressStringField(text, key) {
   return text.slice(start)
 }
 
+function extractCompletedBulletsArray(snippet) {
+  // Find "bullets": [ ... ] where the array is fully closed (no nested arrays).
+  const re = /"bullets"\s*:\s*(\[[^\[\]]*\])/
+  const m = re.exec(snippet)
+  if (!m) return null
+  try {
+    const arr = JSON.parse(m[1])
+    if (Array.isArray(arr)) return arr.map(String)
+  } catch {}
+  return null
+}
+
+/**
+ * Match an in-flight bullets array — the opener `[` has appeared but the
+ * closing `]` has not. Returns whatever bullets are completed so far PLUS
+ * the in-progress trailing bullet if the model is mid-string.
+ */
+function extractInProgressBulletsArray(snippet) {
+  const re = /"bullets"\s*:\s*\[([^\[\]]*)$/
+  const m = re.exec(snippet)
+  if (!m) return null
+  const inner = m[1]
+  const items = []
+
+  // Pull all fully-quoted (closed) items.
+  const itemRe = /"((?:[^"\\]|\\.)*)"/g
+  let mm
+  while ((mm = itemRe.exec(inner))) {
+    try {
+      items.push(JSON.parse(`"${mm[1]}"`))
+    } catch {}
+  }
+
+  // Walk once to count unescaped quotes and remember the last one. An odd
+  // count means the model has just opened an in-flight bullet that has no
+  // closing quote yet — that's the one we want to surface as it grows.
+  let quoteCount = 0
+  let lastUnescapedQuote = -1
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i]
+    if (c === '\\') { i++; continue }
+    if (c === '"') {
+      quoteCount++
+      lastUnescapedQuote = i
+    }
+  }
+  if (quoteCount % 2 === 1 && lastUnescapedQuote >= 0) {
+    let raw = inner.slice(lastUnescapedQuote + 1)
+    if (raw.endsWith('\\')) raw = raw.slice(0, -1)
+    try {
+      const item = JSON.parse(`"${raw}"`)
+      if (item.length > 0) items.push(item)
+    } catch {}
+  }
+
+  return items.length ? items : null
+}
+
 export class DeckStreamParser {
   constructor() {
     this.buf = ''
@@ -74,7 +150,7 @@ export class DeckStreamParser {
     this.partialState = {}
   }
 
-  push(chunk) {
+  feed(chunk) {
     this.buf += chunk
     const events = []
 

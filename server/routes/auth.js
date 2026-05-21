@@ -41,8 +41,8 @@ router.post('/register', async (req, res) => {
       passwordHash,
     })
 
-    // Tracking last login is handled by createUser (it sets last_login_at = NOW())
     const token = signToken(user)
+    await updateUserLastLogin(user.id)
 
     res.json({
       token,
@@ -82,8 +82,8 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' })
     }
 
-    await updateUserLastLogin(user.id)
     const token = signToken(user)
+    await updateUserLastLogin(user.id)
 
     res.json({
       token,
