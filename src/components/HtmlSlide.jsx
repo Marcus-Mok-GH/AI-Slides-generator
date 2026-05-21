@@ -40,7 +40,7 @@ function normalizeSlideHtml(html) {
   const core = (bodyMatch ? bodyMatch[1] : raw).trim()
 
   // If the model already emitted a .slide root, preserve it unchanged.
-  if (/class\s*=\s*["'][^"']*\bslide\b/i.test(core)) {
+  if (/^\s*<\w+[^>]*\bclass\s*=\s*["'][^"']*\bslide\b[^"']*["'][^>]*>/i.test(core)) {
     return core
   }
 
