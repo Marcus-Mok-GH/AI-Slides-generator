@@ -1,5 +1,5 @@
 .opts-page {
-  max-width: 680px;
+  width: min(100%, 680px);
   margin: 0 auto;
   padding: 0 0 72px;
   animation: fadeUp 260ms var(--ease-out-expo, cubic-bezier(0.16,1,0.3,1)) both;
