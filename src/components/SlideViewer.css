@@ -1160,8 +1160,8 @@
   align-items: center;
   gap: 8px;
   padding: 0 20px;
-  background: #000;
-  border-top: 1px solid #222;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
 }
 
 .present-hud-btn {

@@ -176,7 +176,7 @@ select {
   to { clip-path: inset(0 0 0 0); }
 }
 
-@keyframes slideUpReveal {
+@keyframes slide-up-reveal {
   from {
     opacity: 0;
     transform: translateY(20px);

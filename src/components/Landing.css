@@ -15,10 +15,10 @@
   --brand: var(--accent);
   --brand-strong: var(--accent-hover);
   --brand-ink: var(--on-surface);
-  --pink: #d4d4d4;
-  --mint: #d4d4d4;
-  --sun: #d4d4d4;
-  --sky: #d4d4d4;
+  --pink: var(--pink);
+  --mint: var(--border-strong);
+  --sun: var(--orange);
+  --sky: var(--border-strong);
 
   min-height: 100vh;
   background: var(--bg);
@@ -267,7 +267,7 @@
   line-height: 1;
   margin-bottom: 24px;
   letter-spacing: -0.04em;
-  animation: slideUpReveal 0.8s var(--ease-out-expo) both;
+  animation: slide-up-reveal 0.8s var(--ease-out-expo) both;
 }
 
 .g-hero-lede {
