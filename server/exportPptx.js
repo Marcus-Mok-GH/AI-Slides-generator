@@ -209,7 +209,9 @@ export async function buildPptxBuffer(deck) {
   const { createRequire } = await import('module')
   const require = createRequire(import.meta.url)
   const PptxGenJS = require('pptxgenjs')
-  const pptx = new PptxGenJS()
+  // If require returns the ESM wrapper (common in some bundlers), get the default export
+  const PptxGen = PptxGenJS.default || PptxGenJS
+  const pptx = new PptxGen()
   pptx.layout = 'LAYOUT_WIDE'
   pptx.author = 'AI Slides Generator'
   pptx.subject = deck?.subtitle || ''
