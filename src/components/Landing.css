@@ -42,14 +42,14 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--bg); opacity: 0.85;
   backdrop-filter: saturate(160%) blur(10px);
   -webkit-backdrop-filter: saturate(160%) blur(10px);
   transition: box-shadow 200ms ease, background 200ms ease;
 }
 .g-nav.is-scrolled {
   box-shadow: 0 1px 0 var(--line);
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--bg); opacity: 0.95;
 }
 .g-nav-inner {
   max-width: 1240px;
@@ -147,7 +147,7 @@
 }
 .g-cta-primary:hover { background: var(--brand-strong); }
 .g-cta-ghost {
-  background: white;
+  background: var(--bg);
   color: var(--ink);
   border: 1px solid var(--line);
 }
@@ -224,7 +224,7 @@
   gap: 6px;
   padding: 10px 20px 18px;
   border-top: 1px solid var(--line);
-  background: white;
+  background: var(--bg);
 }
 .g-nav-mobile button:not(.g-cta) {
   background: none;
@@ -261,7 +261,7 @@
   box-shadow: 0 10px 24px rgba(29, 77, 255, 0.25);
 }
 .g-hero-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-mono);
   font-size: clamp(40px, 6vw, 80px);
   font-weight: 500;
   line-height: 1;
@@ -361,7 +361,7 @@
 }
 .g-art-card {
   position: absolute;
-  background: white;
+  background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 16px;
   box-shadow: 0 24px 60px -20px rgba(10, 29, 58, 0.25),
@@ -435,7 +435,7 @@
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  background: white;
+  background: var(--bg);
   border: 1px solid var(--line);
   display: grid;
   place-items: center;
@@ -472,7 +472,7 @@
   font-size: 28px;
   font-weight: 500;
   color: var(--text);
-  font-family: var(--font-serif);
+  font-family: var(--font-mono);
   letter-spacing: -0.03em;
   margin-bottom: 12px;
   position: relative;
@@ -602,7 +602,7 @@
 }
 .prod-browser {
   width: 100%;
-  background: white;
+  background: var(--bg);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(10, 29, 58, 0.1);
   overflow: hidden;
@@ -639,7 +639,7 @@
 .g-section-head p { font-size: 17px; margin-top: 12px; color: var(--ink-mute); }
 
 .g-prompt-card {
-  background: white;
+  background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 22px;
   padding: 22px;
@@ -712,7 +712,7 @@
   border-radius: 999px;
   color: var(--ink-soft);
 }
-.g-seg-btn.is-on { background: white; color: var(--ink); box-shadow: 0 1px 3px rgba(10, 29, 58, 0.08); }
+.g-seg-btn.is-on { background: var(--bg); color: var(--ink); box-shadow: 0 1px 3px rgba(10, 29, 58, 0.08); }
 .g-prompt-go { margin-left: auto; }
 
 .g-prompt-ideas {
@@ -776,7 +776,7 @@
 .g-faq { max-width: 880px; margin: 0 auto; padding: 32px 28px 96px; }
 .g-faq-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
 .g-faq-item {
-  background: white;
+  background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 14px;
   overflow: hidden;
@@ -1017,7 +1017,7 @@
   color: var(--bg);
   box-shadow: var(--shadow-xl);
 }
-.g-end-card h2 { color: var(--bg); font-family: var(--font-serif); font-size: clamp(28px, 4vw, 44px); margin-bottom: 12px; letter-spacing: -0.03em; }
+.g-end-card h2 { color: var(--bg); font-family: var(--font-mono); font-size: clamp(28px, 4vw, 44px); margin-bottom: 12px; letter-spacing: -0.03em; }
 .g-end-card p { color: var(--text-muted); margin-bottom: 26px; font-size: 17px; }
 .g-end-card .g-cta-primary {
   background: var(--bg);
@@ -1028,7 +1028,7 @@
 
 .g-foot {
   border-top: 1px solid var(--line);
-  background: white;
+  background: var(--bg);
 }
 .g-foot-inner {
   max-width: 1240px;

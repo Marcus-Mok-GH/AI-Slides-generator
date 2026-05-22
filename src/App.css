@@ -14,15 +14,22 @@
 
 .content {
   flex: 1;
-  padding: 24px 36px 64px;
-  max-width: 1120px;
+  padding: 28px 40px 72px;
+  max-width: 1200px;
   width: 100%;
   margin: 0 auto;
 }
 
 .content :where(.af-btn-primary, .cta-button, .primary-button, button[data-variant='primary']) {
-  background: linear-gradient(120deg, var(--accent), var(--accent-hover));
-  box-shadow: 0 10px 24px rgba(47, 91, 234, 0.16);
+  background: var(--accent);
+  color: var(--on-surface);
+  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+}
+
+.content :where(.af-btn-primary, .cta-button, .primary-button, button[data-variant='primary']):hover {
+  background: var(--accent-hover);
+  color: var(--on-surface);
 }
 
 @media (max-width: 1024px) {
@@ -51,8 +58,8 @@
   align-items: center;
   justify-content: center;
   gap: 18px;
-  color: var(--text-muted, #888);
-  background: var(--bg, #0b0d10);
+  color: var(--text-muted);
+  background: var(--bg);
   animation: fadeIn 400ms ease;
 }
 
@@ -61,13 +68,13 @@
   height: 32px;
   border-radius: 50%;
   border: 2.5px solid var(--border-strong);
-  border-top-color: var(--accent);
+  border-top-color: var(--text);
   animation: route-loading-spin 0.9s linear infinite;
 }
 
 .route-loading-text {
   font-size: 14px;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.01em;
   color: var(--text-soft);
 }
 

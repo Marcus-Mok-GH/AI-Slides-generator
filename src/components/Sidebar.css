@@ -1,10 +1,10 @@
 .sidebar {
   background: var(--surface);
   border-right: 1px solid var(--border);
-  padding: 24px 16px;
+  padding: 20px 12px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -15,11 +15,11 @@
 .brand {
   display: flex;
   align-items: center;
-  padding: 2px 6px 4px;
+  padding: 4px 8px;
 }
 
 .brand-logo {
-  height: 32px;
+  height: 28px;
   width: auto;
   display: block;
 }
@@ -27,50 +27,57 @@
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 12px;
+  padding: 10px 12px;
   border-radius: var(--radius-md);
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
   text-align: left;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
+  letter-spacing: -0.01em;
   position: relative;
-  transition: color var(--duration-fast) ease,
-    background-color var(--duration-fast) ease;
+  transition: all var(--duration-fast) ease;
 }
+
 .nav-item:hover {
-  background: var(--surface-2);
+  background: var(--hover-overlay);
   color: var(--text);
 }
+
 .nav-item.is-active {
-  background: var(--accent-soft);
-  color: var(--text);
+  background: var(--accent);
+  color: var(--on-surface);
   font-weight: 600;
 }
+
 .nav-item.is-active::before {
   display: none;
 }
+
 .nav-item.is-primary {
-  background: var(--text);
-  color: var(--bg);
+  background: var(--accent);
+  color: var(--on-surface);
   font-weight: 600;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   border: none;
+  box-shadow: var(--shadow-sm);
 }
+
 .nav-item.is-primary:hover {
   background: var(--accent-hover);
+  color: var(--accent-foreground);
 }
 
 .nav-icon {
-  width: 22px;
+  width: 20px;
   display: inline-grid;
   place-items: center;
   font-size: 14px;
@@ -84,19 +91,20 @@
 .theme-switch {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 2px;
-  padding: 4px;
-  border-radius: var(--radius-sm);
+  gap: 4px;
+  padding: 6px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface-2);
 }
+
 .theme-switch-option {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
   padding: 8px 4px;
-  border-radius: calc(var(--radius-sm) - 3px);
+  border-radius: calc(var(--radius-md) - 2px);
   border: none;
   background: transparent;
   color: var(--text-muted);
@@ -104,27 +112,30 @@
   font-weight: 500;
   cursor: pointer;
   min-width: 0;
-  transition: background-color var(--duration-fast) ease,
-    color var(--duration-fast) ease,
-    box-shadow var(--duration-base) ease;
+  transition: all var(--duration-fast) ease;
 }
+
 .theme-switch-option:hover:not(.is-active) {
   background: var(--hover-overlay);
   color: var(--text);
 }
+
 .theme-switch-option.is-active {
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--shadow-sm);
 }
+
 .theme-switch-option.is-active .theme-switch-icon {
   color: var(--accent);
 }
+
 .theme-switch-icon {
   display: inline-grid;
   place-items: center;
   font-size: 13px;
 }
+
 .theme-switch-label {
   font-weight: 500;
   white-space: nowrap;
@@ -134,8 +145,8 @@
 
 @media (max-width: 1024px) {
   .sidebar {
-    padding: 16px 8px;
-    gap: 16px;
+    padding: 12px 8px;
+    gap: 12px;
   }
   .nav-label,
   .theme-switch-label {
@@ -143,7 +154,7 @@
   }
   .theme-switch {
     grid-template-columns: 1fr;
-    gap: 2px;
+    gap: 4px;
   }
   .theme-switch-option {
     padding: 8px 4px;
@@ -158,9 +169,8 @@
     display: none;
   }
   .nav-item.is-primary .nav-icon {
-    font-size: 18px;
+    font-size: 16px;
   }
-
 }
 
 @media (max-width: 720px) {
