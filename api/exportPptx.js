@@ -1,4 +1,4 @@
-import PptxGenJS from 'pptxgenjs'
+// import PptxGenJS from 'pptxgenjs'
 import puppeteer from 'puppeteer'
 
 const PX_W = 1280
@@ -206,6 +206,7 @@ export async function buildPptxBuffer(deck) {
   const slides = Array.isArray(deck?.slides) ? deck.slides : []
   if (slides.length === 0) throw new Error('Deck has no slides')
 
+  const PptxGenJS = (await import('pptxgenjs')).default
   const pptx = new PptxGenJS()
   pptx.layout = 'LAYOUT_WIDE'
   pptx.author = 'AI Slides Generator'
