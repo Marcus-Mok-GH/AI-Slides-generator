@@ -206,7 +206,9 @@ export async function buildPptxBuffer(deck) {
   const slides = Array.isArray(deck?.slides) ? deck.slides : []
   if (slides.length === 0) throw new Error('Deck has no slides')
 
-  const PptxGenJS = (await import('pptxgenjs')).default
+  const { createRequire } = await import('module')
+  const require = createRequire(import.meta.url)
+  const PptxGenJS = require('pptxgenjs')
   const pptx = new PptxGenJS()
   pptx.layout = 'LAYOUT_WIDE'
   pptx.author = 'AI Slides Generator'
