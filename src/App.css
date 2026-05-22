@@ -68,7 +68,7 @@
   height: 32px;
   border-radius: 50%;
   border: 2.5px solid var(--border-strong);
-  border-top-color: var(--accent);
+  border-top-color: var(--text);
   animation: route-loading-spin 0.9s linear infinite;
 }
 

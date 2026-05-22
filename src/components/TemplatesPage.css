@@ -9,7 +9,7 @@
   margin-bottom: 28px;
 }
 .tpl-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-mono);
   font-size: 28px;
   font-weight: 500;
   color: var(--text);

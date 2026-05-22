@@ -261,7 +261,7 @@
   height: 36px;
   border-radius: 999px;
   background: linear-gradient(135deg, var(--blue), var(--pink));
-  color: white;
+  color: var(--on-surface);
   font-weight: 700;
   font-size: 13px;
   display: grid;
