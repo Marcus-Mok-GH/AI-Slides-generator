@@ -145,7 +145,7 @@
 
 .agent-five-spark {
   display: inline-block;
-  background: linear-gradient(120deg, #3b82f6, #10b981);
+  background: linear-gradient(120deg, var(--blue), var(--green));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -438,13 +438,13 @@
 }
 
 .credits-pill.is-low {
-  border-color: rgba(220, 80, 80, 0.4);
-  color: #c43d3d;
-  background: rgba(220, 80, 80, 0.05);
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+  background: var(--danger-bg);
 }
 
 .credits-pill.is-low .credits-pill-spark {
-  color: #c43d3d;
+  color: var(--danger-text);
 }
 
 .credits-pill.is-low .credits-pill-label {

@@ -29,7 +29,7 @@
 
 .content :where(.af-btn-primary, .cta-button, .primary-button, button[data-variant='primary']):hover {
   background: var(--accent-hover);
-  color: var(--accent);
+  color: var(--on-surface);
 }
 
 @media (max-width: 1024px) {

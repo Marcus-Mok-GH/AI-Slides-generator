@@ -73,7 +73,7 @@
 
 .nav-item.is-primary:hover {
   background: var(--accent-hover);
-  color: var(--accent);
+  color: var(--accent-foreground);
 }
 
 .nav-icon {
