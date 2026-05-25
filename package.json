@@ -13,6 +13,7 @@
     "preview": "vite preview --host 0.0.0.0 --port 5000"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "bcrypt": "^6.0.0",
     "concurrently": "^9.2.1",
     "express": "^5.2.1",
@@ -25,7 +26,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.7.0",

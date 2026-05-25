@@ -1,4 +1,6 @@
 import pg from 'pg'
+import { Pool as NeonPool, neonConfig } from '@neondatabase/serverless'
+import ws from 'ws'
 
 const { Pool } = pg
 
@@ -12,6 +14,11 @@ export const hasDb = Boolean(connectionString)
 const isSupabase = hasDb && /supabase\.(co|com)/i.test(connectionString)
 const isNeon = hasDb && /neon\.tech/i.test(connectionString)
 
+// Configure Neon for serverless environments
+if (isNeon) {
+  neonConfig.webSocketConstructor = ws
+}
+
 function createMockPool() {
   const noop = async () => ({ rows: [] })
   const mock = {
@@ -23,14 +30,21 @@ function createMockPool() {
 }
 
 export const pool = hasDb
-  ? new Pool({
-      connectionString,
-      ssl: (isSupabase || isNeon) ? { rejectUnauthorized: false } : undefined,
-      max: 10, // Slightly higher for Neon/Vercel
-      idleTimeoutMillis: 20_000,
-      connectionTimeoutMillis: 5_000,
-      maxUses: 7500, // Helps with long-running serverless connections
-    })
+  ? (isNeon
+    ? new NeonPool({
+        connectionString,
+        max: 10,
+        idleTimeoutMillis: 20_000,
+        connectionTimeoutMillis: 5_000,
+      })
+    : new Pool({
+        connectionString,
+        ssl: isSupabase ? { rejectUnauthorized: false } : undefined,
+        max: 10, // Slightly higher for Neon/Vercel
+        idleTimeoutMillis: 20_000,
+        connectionTimeoutMillis: 5_000,
+        maxUses: 7500, // Helps with long-running serverless connections
+      }))
   : createMockPool()
 
 if (hasDb) {
@@ -101,11 +115,15 @@ export async function migrate() {
       created_at         TIMESTAMPTZ DEFAULT NOW(),
       updated_at         TIMESTAMPTZ DEFAULT NOW()
     );
-  `)
 
-  // Migrations for existing user table
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR;`)
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS credits_cents INTEGER;`)
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS credits_cents INTEGER;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT '{}';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+    ALTER TABLE users ALTER COLUMN created_at TYPE TIMESTAMPTZ;
+    ALTER TABLE users ALTER COLUMN updated_at TYPE TIMESTAMPTZ;
+  `)
 
   // Legacy credits backfill: users existing before this column get LEGACY_USER_CENTS
   await pool.query(
@@ -114,18 +132,11 @@ export async function migrate() {
   )
 
   // Now set the default and NOT NULL constraint for future signups
-  // Note: ALTER TABLE does not support bind parameters in PostgreSQL.
-  await pool.query(`ALTER TABLE users ALTER COLUMN credits_cents SET DEFAULT ${NEW_USER_CENTS};`)
-  await pool.query(`UPDATE users SET credits_cents = $1 WHERE credits_cents IS NULL;`, [NEW_USER_CENTS])
-  await pool.query(`ALTER TABLE users ALTER COLUMN credits_cents SET NOT NULL;`)
-
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';`)
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT '{}';`)
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;`)
-
-  // Ensure TIMESTAMPTZ for existing columns
-  await pool.query(`ALTER TABLE users ALTER COLUMN created_at TYPE TIMESTAMPTZ;`)
-  await pool.query(`ALTER TABLE users ALTER COLUMN updated_at TYPE TIMESTAMPTZ;`)
+  await pool.query(`
+    ALTER TABLE users ALTER COLUMN credits_cents SET DEFAULT ${NEW_USER_CENTS};
+    UPDATE users SET credits_cents = ${NEW_USER_CENTS} WHERE credits_cents IS NULL;
+    ALTER TABLE users ALTER COLUMN credits_cents SET NOT NULL;
+  `)
 
   // 2. Create/Update Decks table
   await pool.query(`
@@ -140,11 +151,11 @@ export async function migrate() {
       created_at  TIMESTAMPTZ DEFAULT NOW(),
       updated_at  TIMESTAMPTZ DEFAULT NOW()
     );
-  `)
 
-  await pool.query(`ALTER TABLE decks ADD COLUMN IF NOT EXISTS user_id VARCHAR;`)
-  await pool.query(`ALTER TABLE decks ALTER COLUMN created_at TYPE TIMESTAMPTZ;`)
-  await pool.query(`ALTER TABLE decks ALTER COLUMN updated_at TYPE TIMESTAMPTZ;`)
+    ALTER TABLE decks ADD COLUMN IF NOT EXISTS user_id VARCHAR;
+    ALTER TABLE decks ALTER COLUMN created_at TYPE TIMESTAMPTZ;
+    ALTER TABLE decks ALTER COLUMN updated_at TYPE TIMESTAMPTZ;
+  `)
 
   // Attempt to add foreign key if missing
   try {
@@ -372,8 +383,8 @@ export async function migratePromptHistory() {
       format    VARCHAR,
       used_at   TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE prompt_history ALTER COLUMN used_at TYPE TIMESTAMPTZ;
   `)
-  await pool.query(`ALTER TABLE prompt_history ALTER COLUMN used_at TYPE TIMESTAMPTZ;`)
   try {
     await pool.query(`
       ALTER TABLE prompt_history
@@ -460,9 +471,9 @@ export async function migrateAgentChats() {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE agent_chats ALTER COLUMN created_at TYPE TIMESTAMPTZ;
+    ALTER TABLE agent_chats ALTER COLUMN updated_at TYPE TIMESTAMPTZ;
   `)
-  await pool.query(`ALTER TABLE agent_chats ALTER COLUMN created_at TYPE TIMESTAMPTZ;`)
-  await pool.query(`ALTER TABLE agent_chats ALTER COLUMN updated_at TYPE TIMESTAMPTZ;`)
   try {
     await pool.query(`
       ALTER TABLE agent_chats
@@ -572,9 +583,9 @@ export async function migrateAgentPlans() {
       created_at   TIMESTAMPTZ DEFAULT NOW(),
       updated_at   TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE agent_plans ALTER COLUMN created_at TYPE TIMESTAMPTZ;
+    ALTER TABLE agent_plans ALTER COLUMN updated_at TYPE TIMESTAMPTZ;
   `)
-  await pool.query(`ALTER TABLE agent_plans ALTER COLUMN created_at TYPE TIMESTAMPTZ;`)
-  await pool.query(`ALTER TABLE agent_plans ALTER COLUMN updated_at TYPE TIMESTAMPTZ;`)
   try {
     await pool.query(`
       ALTER TABLE agent_plans
@@ -681,9 +692,9 @@ export async function migrateGenerationJobs() {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE generation_jobs ALTER COLUMN created_at TYPE TIMESTAMPTZ;
+    ALTER TABLE generation_jobs ALTER COLUMN updated_at TYPE TIMESTAMPTZ;
   `)
-  await pool.query(`ALTER TABLE generation_jobs ALTER COLUMN created_at TYPE TIMESTAMPTZ;`)
-  await pool.query(`ALTER TABLE generation_jobs ALTER COLUMN updated_at TYPE TIMESTAMPTZ;`)
   try {
     await pool.query(`
       ALTER TABLE generation_jobs
