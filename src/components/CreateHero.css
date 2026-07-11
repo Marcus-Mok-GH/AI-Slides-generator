@@ -42,11 +42,11 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 8px 16px;
-  background: var(--surface);
+  padding: 10px 20px;
+  background: transparent;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  font-size: 13px;
+  border-radius: 999px;
+  font-size: 14px;
   font-weight: 500;
   letter-spacing: -0.01em;
   color: var(--text-muted);
@@ -55,16 +55,17 @@
 }
 
 .format-tab:hover {
-  border-color: var(--border-strong);
+  border-color: var(--text);
   color: var(--text);
-  background: var(--surface-2);
+  background: var(--surface);
 }
 
 .format-tab.is-active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--text);
+  color: var(--on-surface);
+  background: var(--text);
   font-weight: 600;
+  box-shadow: var(--shadow-sm);
 }
 
 .format-icon {
@@ -73,9 +74,9 @@
 
 /* ---- Prompt card ---- */
 .prompt-card {
-  background: var(--surface);
+  background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: 24px;
   box-shadow: var(--shadow-sm);
   transition: all var(--duration-base) ease;
@@ -84,8 +85,9 @@
 }
 
 .prompt-card:focus-within {
-  box-shadow: var(--shadow-md);
-  border-color: var(--border-strong);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--accent-light);
+  transform: translateY(-2px);
 }
 
 .prompt-tools {
@@ -96,12 +98,12 @@
 }
 
 .chip {
-  background: var(--surface-2);
+  background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 6px 12px;
-  border-radius: var(--radius-md);
-  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
   font-weight: 500;
   letter-spacing: -0.01em;
   cursor: pointer;
@@ -109,8 +111,9 @@
 }
 
 .chip:hover:not(:disabled) {
-  background: var(--hover-overlay);
+  background: var(--surface-2);
   border-color: var(--border-strong);
+  transform: translateY(-1px);
 }
 
 .chip:disabled {
@@ -134,8 +137,8 @@
 .prompt-input {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
   font-size: 16px;
   line-height: 1.5;
   letter-spacing: -0.01em;
@@ -304,15 +307,15 @@
 
 .generate-btn {
   margin-left: auto;
-  padding: 10px 24px;
-  border-radius: var(--radius-md);
+  padding: 12px 28px;
+  border-radius: 999px;
   border: none;
-  background: var(--accent);
+  background: var(--text);
   color: var(--on-surface);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   letter-spacing: -0.01em;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
   transition: all var(--duration-fast) ease;
   display: inline-flex;
   align-items: center;
@@ -320,10 +323,10 @@
 }
 
 .generate-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-  background: var(--accent-hover);
-  color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  background: var(--text);
+  opacity: 0.9;
 }
 
 .generate-btn:disabled {
@@ -391,17 +394,17 @@
   display: inline-flex;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 3px;
+  border-radius: 999px;
+  padding: 4px;
   gap: 2px;
 }
 
 .seg-btn {
   background: transparent;
   border: none;
-  padding: 6px 12px;
-  border-radius: calc(var(--radius-md) - 2px);
-  font-size: 12px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
   color: var(--text-muted);
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -472,9 +475,9 @@
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-muted);
-  padding: 6px 12px;
-  border-radius: var(--radius-md);
-  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
   font-weight: 500;
   letter-spacing: -0.01em;
   cursor: pointer;
@@ -482,9 +485,10 @@
 }
 
 .sugg-chip:hover {
-  border-color: var(--text);
+  border-color: var(--border-strong);
   color: var(--text);
-  background: var(--hover-overlay);
+  background: var(--surface);
+  transform: translateY(-1px);
 }
 
 /* ---- Mobile ---- */
@@ -499,14 +503,15 @@
   .prompt-input { font-size: 16px; padding: 12px 14px; }
   .prompt-tools { gap: 6px; }
   .prompt-bottom { flex-wrap: wrap; }
-  .generate-btn { margin-left: 0; flex: 1; padding: 12px 20px; justify-content: center; min-height: 44px; font-size: 14px; }
-  .options-toggle { min-height: 40px; }
-  .options-panel { gap: 12px; }
-  .option-row { flex-direction: column; align-items: flex-start; gap: 8px; }
-  .chip, .sugg-chip { padding: 8px 12px; font-size: 12px; min-height: 36px; }
-  .seg-btn { padding: 8px 11px; font-size: 12px; min-height: 36px; }
-  .suggestions { gap: 6px; }
-  .sugg-chip { flex-shrink: 0; }
+  .generate-btn { margin-left: 0; flex: 1; padding: 14px 20px; justify-content: center; min-height: 48px; font-size: 15px; border-radius: 999px; }
+  .options-toggle { min-height: 48px; border-radius: 999px; padding: 0 20px; }
+  .options-panel { gap: 16px; }
+  .option-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .chip, .sugg-chip { padding: 10px 16px; font-size: 13px; min-height: 40px; }
+  .seg-btn { padding: 10px 14px; font-size: 13px; min-height: 40px; }
+  .suggestions { gap: 8px; justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 8px; scrollbar-width: none; -ms-overflow-style: none; margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
+  .suggestions::-webkit-scrollbar { display: none; }
+  .sugg-title { flex-shrink: 0; }
   .select { font-size: 16px; padding: 10px 12px; }
 }
 

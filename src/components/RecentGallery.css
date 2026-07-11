@@ -2,18 +2,18 @@
   display: inline-flex;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 999px;
   padding: 3px;
   gap: 2px;
 }
 .vt-btn {
-  width: 32px;
-  height: 28px;
+  width: 36px;
+  height: 32px;
   border: none;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 999px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   transition: background-color var(--duration-fast) ease,
     color var(--duration-fast) ease,
@@ -142,7 +142,7 @@
 .deck-thumb {
   position: relative;
   aspect-ratio: 16 / 10;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   border: 1px solid var(--border);
   box-shadow: none;
