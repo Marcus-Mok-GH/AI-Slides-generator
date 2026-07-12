@@ -45,8 +45,24 @@
     margin-bottom: 36px;
   }
   .template-grid {
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    overflow-x: auto;
     gap: 12px;
+    padding-bottom: 12px;
+    margin-left: -16px;
+    margin-right: -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .template-grid::-webkit-scrollbar {
+    display: none;
+  }
+  .template-card {
+    flex: 0 0 70%;
+    scroll-snap-align: start;
   }
   .template-name {
     font-size: 13px;
@@ -73,7 +89,7 @@
 
 .template-thumb {
   aspect-ratio: 16 / 10;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   position: relative;
   overflow: hidden;
   border: 1px solid var(--border);

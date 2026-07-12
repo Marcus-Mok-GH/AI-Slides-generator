@@ -144,18 +144,20 @@
 .empty-cta {
   margin-top: 18px;
   padding: 10px 22px;
-  border-radius: var(--radius-md);
+  border-radius: 999px;
   border: none;
   background: var(--text);
   color: var(--bg);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 150ms ease, transform 150ms ease;
+  transition: all 150ms ease;
+  box-shadow: var(--shadow-md);
 }
 .empty-cta:hover {
   opacity: 0.9;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
 /* ---- Responsive ---- */
