@@ -1,5 +1,4 @@
 import PptxGenJS from 'pptxgenjs'
-import puppeteer from 'puppeteer'
 
 const PX_W = 1280
 const PX_H = 720
@@ -113,11 +112,36 @@ ${stripUnsafeTags(slide?.html) || textFallbackHtml(slide)}
 </html>`
 }
 
+async function getBrowser() {
+  let puppeteerCore
+  try {
+    puppeteerCore = (await import('puppeteer-core')).default || (await import('puppeteer-core'))
+  } catch {
+    throw new Error('puppeteer-core not installed')
+  }
+
+  let executablePath
+  let args = ['--no-sandbox', '--disable-setuid-sandbox']
+
+  try {
+    const chromium = await import('@sparticuz/chromium').then(m => m.default || m)
+    executablePath = await chromium.executablePath()
+    args = [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox']
+  } catch {
+    // no chromium package
+  }
+
+  const launchOpts = {
+    headless: true,
+    args,
+  }
+  if (executablePath) launchOpts.executablePath = executablePath
+
+  return puppeteerCore.launch(launchOpts)
+}
+
 async function renderSlideImages(deck) {
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  })
+  const browser = await getBrowser()
   try {
     const page = await browser.newPage()
     await page.setViewport({ width: PX_W, height: PX_H, deviceScaleFactor: 1 })
@@ -136,7 +160,7 @@ async function renderSlideImages(deck) {
     }
     return images
   } finally {
-    await browser.close()
+    await browser.close().catch(() => {})
   }
 }
 

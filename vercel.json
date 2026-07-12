@@ -3,14 +3,15 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": null,
+  "installCommand": "npm install",
   "rewrites": [
     { "source": "/api/health", "destination": "/api/health.js" },
-    { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/((?!assets|favicon\\.ico|.*\\.[a-zA-Z0-9]+$).*)", "destination": "/index.html" }
+    { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/((?!api|assets|favicon\\.ico|.*\\.[a-zA-Z0-9]+$).*)", "destination": "/index.html" }
   ],
   "functions": {
     "api/index.js": {
-      "maxDuration": 300
+      "maxDuration": 60
     },
     "api/health.js": {
       "maxDuration": 10

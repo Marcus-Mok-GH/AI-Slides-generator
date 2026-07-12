@@ -1,6 +1,6 @@
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import { upsertUser, findUserByEmail, createUser } from '../db.js'
+import { findUserByEmail } from '../db.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'slideai-dev-secret-change-me'
 const JWT_EXPIRES_IN = '7d'

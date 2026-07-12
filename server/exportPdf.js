@@ -1,5 +1,4 @@
 import { jsPDF } from 'jspdf'
-import puppeteer from 'puppeteer'
 
 const W = 1280
 const H = 720
@@ -148,11 +147,40 @@ function addTextFallbackPage(pdf, slide, theme, index, total, deckTitle) {
   pdf.text(`${index + 1} / ${total}`, W - M, H - 24, { align: 'right' })
 }
 
+async function getBrowser() {
+  // Try to launch with serverless-friendly chromium if available
+  let puppeteerCore
+  try {
+    puppeteerCore = (await import('puppeteer-core')).default || (await import('puppeteer-core'))
+  } catch {
+    throw new Error('puppeteer-core not installed')
+  }
+
+  let executablePath
+  let args = ['--no-sandbox', '--disable-setuid-sandbox']
+
+  // On Vercel, try @sparticuz/chromium
+  try {
+    const chromium = await import('@sparticuz/chromium').then(m => m.default || m)
+    // chromium package may be minified version
+    executablePath = await chromium.executablePath()
+    args = [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox']
+  } catch {
+    // chromium not available — will try local Chrome if puppeteer-core can find it,
+    // otherwise this will throw and caller falls back to text rendering
+  }
+
+  const launchOpts = {
+    headless: true,
+    args,
+  }
+  if (executablePath) launchOpts.executablePath = executablePath
+
+  return puppeteerCore.launch(launchOpts)
+}
+
 async function renderSlideImages(deck) {
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  })
+  const browser = await getBrowser()
   try {
     const page = await browser.newPage()
     await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 })
@@ -171,7 +199,7 @@ async function renderSlideImages(deck) {
     }
     return images
   } finally {
-    await browser.close()
+    await browser.close().catch(() => {})
   }
 }
 

@@ -1,5 +1,5 @@
 /**
- * Browser tool for Agent Five — interactive headless browser via Puppeteer.
+ * Browser tool for Agent Five — interactive headless browser via puppeteer-core.
  *
  * Safety guards:
  *   - URL whitelist / blocklist
@@ -13,9 +13,11 @@
  *   type       { selector: string, text: string }
  *   extract    { selector?: string }   — returns text content
  *   screenshot { selector?: string }    — returns base64 PNG
+ *
+ * On Vercel serverless, uses @sparticuz/chromium if available, otherwise
+ * falls back to local chrome via puppeteer-core. If neither is available,
+ * throws a helpful error so the agent can continue without browser.
  */
-
-// import puppeteer from 'puppeteer'  // dynamically imported below
 
 const MAX_NAV_TIMEOUT = 30_000
 const MAX_SCREENSHOT_W = 1920
@@ -51,31 +53,85 @@ function validateUrl(raw) {
 let browser = null
 let page = null
 
-async function ensureBrowser() {
-  if (!browser) {
-    const puppeteer = await import('puppeteer').then(m => m.default || m)
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    })
+async function getPuppeteerCore() {
+  try {
+    const mod = await import('puppeteer-core')
+    return mod.default || mod
+  } catch (e) {
+    throw new Error('Browser tool unavailable — puppeteer-core not installed. This feature is disabled on this environment.')
   }
+}
+
+async function getChromiumConfig() {
+  try {
+    const mod = await import('@sparticuz/chromium')
+    const chromium = mod.default || mod
+    const executablePath = await chromium.executablePath()
+    return {
+      executablePath,
+      args: chromium.args,
+    }
+  } catch {
+    return null
+  }
+}
+
+async function ensureBrowser() {
+  if (browser && page) return { browser, page }
+
+  const puppeteer = await getPuppeteerCore()
+  const chromiumConfig = await getChromiumConfig()
+
+  const launchArgs = chromiumConfig?.args
+    ? [...chromiumConfig.args, '--no-sandbox', '--disable-setuid-sandbox']
+    : ['--no-sandbox', '--disable-setuid-sandbox']
+
+  const launchOpts = {
+    headless: true,
+    args: launchArgs,
+  }
+  if (chromiumConfig?.executablePath) {
+    launchOpts.executablePath = chromiumConfig.executablePath
+  }
+
+  try {
+    browser = await puppeteer.launch(launchOpts)
+  } catch (e) {
+    // If launching with chromium executable fails, try without executablePath (local chrome)
+    if (chromiumConfig?.executablePath) {
+      try {
+        browser = await puppeteer.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        })
+      } catch {
+        throw e
+      }
+    } else {
+      throw e
+    }
+  }
+
   if (!page) {
     page = await browser.newPage()
     await page.setViewport({ width: 1280, height: 720 })
-    await page.setRequestInterception(true)
-    page.on('request', (req) => {
-      const resourceType = req.resourceType()
-      // Block document downloads and binary resources
-      if (resourceType === 'document' && req.url().match(/\.(pdf|zip|exe|dmg|pkg|deb|rpm|tar\.gz|tgz|bz2|7z|jar|war|apk|ipa)$/i)) {
-        req.abort('blockedbyclient')
-        return
-      }
-      if (['media', 'font'].includes(resourceType)) {
-        req.abort('blockedbyclient')
-        return
-      }
-      req.continue()
-    })
+    try {
+      await page.setRequestInterception(true)
+      page.on('request', (req) => {
+        const resourceType = req.resourceType()
+        if (resourceType === 'document' && req.url().match(/\.(pdf|zip|exe|dmg|pkg|deb|rpm|tar\.gz|tgz|bz2|7z|jar|war|apk|ipa)$/i)) {
+          req.abort('blockedbyclient')
+          return
+        }
+        if (['media', 'font'].includes(resourceType)) {
+          req.abort('blockedbyclient')
+          return
+        }
+        req.continue().catch(() => {})
+      })
+    } catch {
+      // request interception may not be available in some puppeteer-core versions — ignore
+    }
   }
   return { browser, page }
 }
@@ -143,7 +199,7 @@ async function actionScreenshot({ selector }) {
       height: Math.min(Math.round(box.height), MAX_SCREENSHOT_H),
     }
   } else {
-    const viewport = await page.viewport()
+    const viewport = page.viewport() || { width: 1280, height: 720 }
     clip = { x: 0, y: 0, width: Math.min(viewport.width, MAX_SCREENSHOT_W), height: Math.min(viewport.height, MAX_SCREENSHOT_H) }
   }
   const buf = await page.screenshot({ clip, encoding: 'base64', type: 'png' })
