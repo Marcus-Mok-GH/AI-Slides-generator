@@ -79,6 +79,9 @@ export default function App() {
   const [currentPath, setCurrentPath] = useState(() =>
     typeof window === 'undefined' ? '/' : window.location.pathname,
   )
+  // Mobile navigation drawer (off-canvas sidebar). Owned here so both
+  // Sidebar and TopBar can read/toggle it; ESC and route changes close it.
+  const [navDrawerOpen, setNavDrawerOpen] = useState(false)
   const { user, credits: authCredits, isAuthenticated, setCredits: setAuthCredits } = useAuth()
   const credits = useCredits(isAuthenticated)
   const { mode: themeMode, setMode: setThemeMode, cycle: cycleTheme } = useTheme()
@@ -140,6 +143,40 @@ export default function App() {
     window.addEventListener('popstate', sync)
     return () => window.removeEventListener('popstate', sync)
   }, [])
+
+  // Drawer UX: ESC closes; route changes (back/forward, pushState) close too.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!navDrawerOpen) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setNavDrawerOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [navDrawerOpen])
+
+  // Lock body scroll while the off-canvas drawer is open so the page
+  // behind the dim backdrop doesn't drift.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    if (navDrawerOpen) {
+      document.documentElement.classList.add('nav-drawer-open')
+      return () => document.documentElement.classList.remove('nav-drawer-open')
+    }
+  }, [navDrawerOpen])
+
+  // Wrap the navigation handler so the drawer auto-closes when the user
+  // picks a destination from inside it.
+  const handleDrawerNavigate = useCallback(
+    (id) => {
+      handleNavigate(id)
+      setNavDrawerOpen(false)
+    },
+    [handleNavigate],
+  )
 
   // ---------- URL routing ----------
   // Each deck lives at /app/slide/{id}. Loading that URL directly opens the
@@ -487,9 +524,11 @@ export default function App() {
     <div className="layout">
       <Sidebar
         activeNav={activeNav}
-        onNavigate={handleNavigate}
+        onNavigate={handleDrawerNavigate}
         themeMode={themeMode}
         onSetThemeMode={setThemeMode}
+        drawerOpen={navDrawerOpen}
+        onCloseDrawer={() => setNavDrawerOpen(false)}
       />
       <div className="main">
         <TopBar
@@ -500,6 +539,8 @@ export default function App() {
           user={user}
           creditsCents={credits.balanceCents ?? authCredits?.balanceCents ?? null}
           deckCostCents={credits.deckCostCents ?? authCredits?.deckCostCents ?? 50}
+          drawerOpen={navDrawerOpen}
+          onToggleDrawer={() => setNavDrawerOpen((v) => !v)}
         />
         {activeNav === 'templates' ? (
           <div className="content">

@@ -44,6 +44,8 @@ export default function TopBar({
   onSignOut,
   creditsCents = null,
   deckCostCents = 50,
+  drawerOpen = false,
+  onToggleDrawer,
 }) {
   const [openMenu, setOpenMenu] = useState(null)
   const [scrolled, setScrolled] = useState(false)
@@ -80,6 +82,22 @@ export default function TopBar({
 
   return (
     <header className={`topbar ${scrolled ? 'scrolled' : ''}`} ref={wrapRef}>
+      {onToggleDrawer ? (
+        <button
+          type="button"
+          className={`hamburger ${drawerOpen ? 'is-open' : ''}`}
+          aria-label={drawerOpen ? 'Close navigation' : 'Open navigation'}
+          aria-expanded={drawerOpen}
+          aria-controls="primary-nav"
+          onClick={onToggleDrawer}
+        >
+          <span className="hamburger-bars" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+        </button>
+      ) : null}
       <div className="topbar-brand" aria-hidden>
         <img src={logo} alt="" className="topbar-brand-logo" />
       </div>

@@ -3,7 +3,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 32px;
+  padding: max(14px, calc(env(safe-area-inset-top, 0px) + 14px)) 32px 14px;
   border-bottom: 1px solid transparent;
   background: color-mix(in srgb, var(--bg) 95%, transparent);
   backdrop-filter: blur(12px);
@@ -356,8 +356,16 @@
 
 @media (max-width: 720px) {
   .topbar {
-    padding: 10px 12px;
+    padding: max(10px, calc(env(safe-area-inset-top, 0px) + 10px)) 12px 10px;
     gap: 8px;
+  }
+  /* Popovers: clamp to viewport so they never bleed off small screens */
+  .tb-pop, .tb-pop-wide, .tb-pop-right {
+    min-width: 0;
+    width: calc(100vw - 24px);
+    max-width: 320px;
+    right: 12px;
+    left: auto;
   }
   .topbar-brand {
     display: flex;
@@ -465,5 +473,65 @@
   .credits-pill {
     padding: 0 10px;
     font-size: 11px;
+  }
+}
+
+/* ── Hamburger (mobile drawer trigger) ──────────────────────── */
+.hamburger {
+  display: none;
+}
+.hamburger-bars {
+  display: inline-block;
+  width: 18px;
+  height: 14px;
+  position: relative;
+}
+.hamburger-bars span {
+  display: block;
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transition: transform 220ms var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)),
+    opacity 180ms ease,
+    top 220ms var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1));
+}
+.hamburger-bars span:nth-child(1) { top: 0; }
+.hamburger-bars span:nth-child(2) { top: 6px; }
+.hamburger-bars span:nth-child(3) { top: 12px; }
+.hamburger.is-open .hamburger-bars span:nth-child(1) { top: 6px; transform: rotate(45deg); }
+.hamburger.is-open .hamburger-bars span:nth-child(2) { opacity: 0; }
+.hamburger.is-open .hamburger-bars span:nth-child(3) { top: 6px; transform: rotate(-45deg); }
+
+@media (max-width: 720px) {
+  .hamburger {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+    background: transparent;
+    border-radius: var(--radius-md);
+    color: var(--text);
+    cursor: pointer;
+    transition: background-color var(--duration-fast) ease,
+      border-color var(--duration-fast) ease,
+      transform var(--duration-fast) var(--ease-out-back, cubic-bezier(0.34, 1.56, 0.64, 1));
+    -webkit-tap-highlight-color: transparent;
+  }
+  .hamburger:hover {
+    background: var(--hover-overlay);
+    border-color: var(--border-strong);
+  }
+  .hamburger:active {
+    transform: scale(0.94);
+  }
+  .hamburger.is-open {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: transparent;
   }
 }
