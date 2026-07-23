@@ -3,7 +3,7 @@
   position: fixed;
   left: 16px;
   right: 16px;
-  bottom: 24px;
+  bottom: max(20px, calc(20px + env(safe-area-inset-bottom)));
   z-index: 60;
   height: 64px;
   background: color-mix(in srgb, var(--surface) 90%, transparent);
@@ -11,10 +11,11 @@
   -webkit-backdrop-filter: saturate(180%) blur(24px);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  padding: 0 8px;
+  padding: 0 8px calc(env(safe-area-inset-bottom, 0px) + 4px);
   align-items: stretch;
   justify-content: space-around;
   box-shadow: var(--shadow-xl);
+  animation: fadeInUp 320ms var(--ease-out-expo) both;
 }
 
 @media (max-width: 720px) {

@@ -5,16 +5,39 @@
   justify-content: center;
   background: var(--bg);
   padding: 24px;
+  padding-top: max(24px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.login-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(60% 45% at 50% 20%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
+    radial-gradient(45% 35% at 80% 80%, color-mix(in srgb, var(--pink, #ec4899) 10%, transparent), transparent 70%);
+  pointer-events: none;
+  animation: lp-aura-drift 18s ease-in-out infinite alternate;
+}
+@keyframes lp-aura-drift {
+  from { transform: translate3d(0,0,0) scale(1); }
+  to   { transform: translate3d(-3%, 4%, 0) scale(1.08); }
 }
 
 .login-card {
   width: 100%;
   max-width: 400px;
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl, 24px);
   padding: 36px 32px;
   box-shadow: var(--shadow-xl);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: fadeInUp 380ms var(--ease-out-expo, ease) both;
 }
 
 .login-brand {

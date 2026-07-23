@@ -54,7 +54,7 @@
 .g-nav-inner {
   max-width: 1240px;
   margin: 0 auto;
-  padding: 14px 28px;
+  padding: max(14px, calc(env(safe-area-inset-top, 0px) + 14px)) 28px 14px;
   display: flex;
   align-items: center;
   gap: 32px;
@@ -1219,7 +1219,10 @@
   .g-prod { grid-template-columns: 100px 1fr; }
 }
 @media (max-width: 600px) {
-  .g-nav-inner { padding: 12px 18px; gap: 10px; }
+  .g-nav-inner {
+    padding: max(12px, calc(env(safe-area-inset-top, 0px) + 12px)) 18px 12px;
+    gap: 10px;
+  }
   .g-nav-cta .g-cta { padding: 9px 16px; font-size: 14px; min-height: 44px; }
 
   .g-hero { padding: 28px 18px 40px; gap: 26px; }
