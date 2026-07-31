@@ -1,4 +1,6 @@
-import PptxGenJS from 'pptxgenjs'
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+const PptxGenJS = require('pptxgenjs')
 import puppeteer from 'puppeteer'
 
 const PX_W = 1280
