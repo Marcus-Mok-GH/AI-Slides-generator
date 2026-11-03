@@ -19,9 +19,21 @@ import authRouter from './routes/auth.js'
 const app = express()
 app.use(express.json({ limit: '50mb' }))
 
-// Run schema migrations BEFORE any route registration. On
-// Vercel this runs once per cold-start; locally it runs once at boot.
-// Wrap each in try/catch so missing DB doesn't crash the function.
+// Every request waits for schema setup to settle (cached after the first run).
+app.use((_req, _res, next) => {
+  ensureSchema().then(() => next(), () => next())
+})
+
+// Schema setup happens lazily on the first request, NOT at module load.
+//
+// Top-level `await` in a serverless entrypoint is its own failure mode: if the
+// first migration hangs or throws while the module is still evaluating, the
+// function never becomes invocable and every route returns a bare 500. Running
+// it lazily keeps module evaluation synchronous, and each step is wrapped so a
+// missing or broken database degrades to 503s on DB routes.
+const SCHEMA_TIMEOUT_MS = 8_000
+let _schemaPromise = null
+
 async function safeMigrate(fn, name) {
   try {
     await fn()
@@ -30,10 +42,33 @@ async function safeMigrate(fn, name) {
   }
 }
 
-await safeMigrate(migrate, 'migrate')
-await safeMigrate(migratePromptHistory, 'migratePromptHistory')
-await safeMigrate(migrateAgentChats, 'migrateAgentChats')
-await safeMigrate(migrateGenerationJobs, 'migrateGenerationJobs')
+async function runMigrations() {
+  await safeMigrate(migrate, 'migrate')
+  await safeMigrate(migratePromptHistory, 'migratePromptHistory')
+  await safeMigrate(migrateAgentChats, 'migrateAgentChats')
+  await safeMigrate(migrateGenerationJobs, 'migrateGenerationJobs')
+}
+
+export function ensureSchema() {
+  if (_schemaPromise) return _schemaPromise
+
+  let timer
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => {
+      console.warn(`[app] schema init exceeded ${SCHEMA_TIMEOUT_MS}ms — continuing without it`)
+      resolve()
+    }, SCHEMA_TIMEOUT_MS)
+  })
+
+  _schemaPromise = Promise.race([runMigrations(), timeout]).finally(() => clearTimeout(timer))
+  return _schemaPromise
+}
+
+// Warm the schema in the background when a database is configured. This is a
+// floating promise — module evaluation never waits on it.
+if (hasDb) {
+  ensureSchema().catch(() => {})
+}
 
 function isDbError(err) {
   return err?.statusCode === 503 || /database unavailable/i.test(err?.message)
@@ -124,6 +159,9 @@ app.post('/api/export/pptx', async (req, res) => {
     res.send(buf)
   } catch (err) {
     console.error('[export/pptx] error:', err)
+    if (err?.code === 'NO_BROWSER') {
+      return res.status(503).json({ error: err.message, code: 'NO_BROWSER' })
+    }
     res.status(500).json({ error: err?.message || 'PPTX export failed' })
   }
 })
@@ -148,6 +186,9 @@ app.post('/api/export/pdf', async (req, res) => {
     res.send(buf)
   } catch (err) {
     console.error('[export/pdf] error:', err)
+    if (err?.code === 'NO_BROWSER') {
+      return res.status(503).json({ error: err.message, code: 'NO_BROWSER' })
+    }
     res.status(500).json({ error: err?.message || 'PDF export failed' })
   }
 })
@@ -788,6 +829,20 @@ app.post('/api/redesign-slide', async (req, res) => {
       error: err?.message || 'Failed to redesign slide',
     })
   }
+})
+
+// Unmatched /api paths get JSON, not the SPA fallback.
+app.use('/api', (_req, res) => {
+  res.status(404).json({ error: 'Not found' })
+})
+
+// Last-resort handler. Without this, an error thrown outside a route's own
+// try/catch produces Vercel's opaque "A server error has occurred", which is
+// impossible to debug from the outside.
+app.use((err, _req, res, next) => {
+  console.error('[app] unhandled error:', err)
+  if (res.headersSent) return next(err)
+  res.status(500).json({ error: err?.message || 'Internal server error' })
 })
 
 export default app

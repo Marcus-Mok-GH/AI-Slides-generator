@@ -10,7 +10,7 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 ## STRUCTURE
 ```
 .
-├── api/                # Serverless-compatible API wrapper (Vercel entry)
+├── api/                # Vercel functions: index.js, health.js, diag.js + _lib/ (shared code)
 ├── server/             # Core Express backend (routes, auth, DB, AI integration)
 ├── src/               # Frontend (React + Vite)
 │   ├── components/    # UI components (SlideViewer, SlideEditor, etc.)
@@ -27,7 +27,7 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 | Task | Location | Notes |
 |------|----------|-------|
 | Frontend entry | `src/App.jsx`, `src/main.jsx` | React root + bootstrap |
-| Backend entry | `api/index.js` → `server/app.js` | Vercel wrapper → Express app |
+| Backend entry | `api/index.js` → `api/_lib/app.js` | Vercel wrapper → Express app |
 | Slide generation | `server/generateDeck.js` | Orbitron API calls, prompt engineering |
 | Real-time updates | `server/streamParser.js` | SSE event parsing |
 | Authentication | `server/auth.js` | Replit OIDC, session management |
@@ -65,7 +65,7 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 
 ### Project-Specific (deviations from standard)
 
-- **Dual backend entry**: `api/index.js` (Vercel wrapper) imports and starts `server/app.js` (Express core). This enables both serverless deployment and local development.
+- **Dual backend entry**: `api/index.js` (Vercel wrapper) imports `api/_lib/app.js` (Express core, shared code in `api/_lib/`). This enables both serverless deployment and local development.
 - **Top-level await in server**: `server/app.js` uses `await migrate()` before route registration - valid in ESM but non-traditional for Express apps.
 - **No Redux/Zustand**: Uses React `useState` + callbacks with explicit prop drilling. State flows down, callbacks up.
 - **Debounced auto-save**: 700ms delay after last edit, skips if `deck.streaming === true`.

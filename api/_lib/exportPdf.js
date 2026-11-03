@@ -1,5 +1,4 @@
 import { jsPDF } from 'jspdf'
-import puppeteer from 'puppeteer'
 
 const W = 1280
 const H = 720
@@ -148,11 +147,37 @@ function addTextFallbackPage(pdf, slide, theme, index, total, deckTitle) {
   pdf.text(`${index + 1} / ${total}`, W - M, H - 24, { align: 'right' })
 }
 
+/**
+ * Puppeteer is loaded on demand. Importing it at module scope means a missing
+ * or unlaunchable browser binary takes down the whole serverless function on
+ * cold start; here a failure is scoped to the export request that needs it.
+ */
+async function launchBrowser() {
+  let puppeteer
+  try {
+    const mod = await import('puppeteer')
+    puppeteer = mod.default || mod
+  } catch (err) {
+    const e = new Error('Headless browser unavailable on this host (Puppeteer could not be loaded)')
+    e.code = 'NO_BROWSER'
+    e.cause = err
+    throw e
+  }
+  try {
+    return await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    })
+  } catch (err) {
+    const e = new Error('Headless browser unavailable on this host: ' + (err?.message || 'launch failed'))
+    e.code = 'NO_BROWSER'
+    e.cause = err
+    throw e
+  }
+}
+
 async function renderSlideImages(deck) {
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  })
+  const browser = await launchBrowser()
   try {
     const page = await browser.newPage()
     await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 })
