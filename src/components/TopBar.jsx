@@ -82,6 +82,7 @@ export default function TopBar({
     <header className={`topbar ${scrolled ? 'scrolled' : ''}`} ref={wrapRef}>
       <div className="topbar-brand" aria-hidden>
         <img src={logo} alt="" className="topbar-brand-logo" />
+        <span className="topbar-brand-name">SlideAI</span>
       </div>
 
       <div className="search">

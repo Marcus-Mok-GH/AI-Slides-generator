@@ -20,7 +20,7 @@
   gap: 10px;
 }
 .my-decks-title {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-size: 28px;
   font-weight: 500;
   color: var(--text);
@@ -114,6 +114,7 @@
   gap: 2px;
 }
 .deck-card--list .deck-headline {
+  color: var(--cover-fg, #ffffff);
   font-size: 13px;
 }
 .deck-card--list .deck-meta {

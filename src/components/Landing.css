@@ -261,7 +261,7 @@
   box-shadow: 0 10px 24px rgba(29, 77, 255, 0.25);
 }
 .g-hero-title {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-size: clamp(40px, 6vw, 80px);
   font-weight: 500;
   line-height: 1;
@@ -472,7 +472,7 @@
   font-size: 28px;
   font-weight: 500;
   color: var(--text);
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   letter-spacing: -0.03em;
   margin-bottom: 12px;
   position: relative;
@@ -1017,7 +1017,7 @@
   color: var(--bg);
   box-shadow: var(--shadow-xl);
 }
-.g-end-card h2 { color: var(--bg); font-family: var(--font-mono); font-size: clamp(28px, 4vw, 44px); margin-bottom: 12px; letter-spacing: -0.03em; }
+.g-end-card h2 { color: var(--bg); font-family: var(--font-display); font-size: clamp(28px, 4vw, 44px); margin-bottom: 12px; letter-spacing: -0.03em; }
 .g-end-card p { color: var(--text-muted); margin-bottom: 26px; font-size: 17px; }
 .g-end-card .g-cta-primary {
   background: var(--bg);

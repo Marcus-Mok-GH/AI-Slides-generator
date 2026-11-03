@@ -33,7 +33,7 @@
   justify-content: space-between;
   padding: 12px 24px;
   border-bottom: 1px solid var(--border);
-  background: rgba(var(--surface), 0.8);
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
   backdrop-filter: saturate(180%) blur(12px);
   -webkit-backdrop-filter: saturate(180%) blur(12px);
   gap: 16px;
@@ -50,7 +50,7 @@
 }
 
 .vbar-deck {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-weight: 500;
   font-size: 16px;
   color: var(--text);
@@ -182,7 +182,301 @@
   transition: width 500ms var(--ease-out-expo);
   box-shadow: 0 0 14px rgba(124, 92, 255, 0.4);
 }
+/* ============================================================
+   Desktop viewer layout — body grid, slide rail, stage, notes.
+   ============================================================ */
+
+.viewer-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+.viewer-body.with-editor {
+  grid-template-columns: 280px minmax(0, 1fr) 360px;
+}
+
+/* ── Left slide rail ── */
+.viewer-side {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 14px 24px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.side-title {
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+.thumb-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.viewer-side li {
+  display: flex;
+}
+.thumb {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-out-back),
+    background-color var(--duration-fast) ease;
+}
+.thumb:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.thumb.is-active {
+  border-color: var(--text);
+  box-shadow: 0 0 0 1px var(--text);
+  background: var(--surface);
+}
+.thumb-num {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.thumb.is-active .thumb-num {
+  background: var(--text);
+  color: var(--bg);
+}
+.thumb-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.thumb-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.thumb-layout {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+/* ── Stage ── */
+.stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+.stage-slide-area {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  margin: 28px 76px 64px;
+}
+.stage-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(10, 12, 20, 0.16), 0 6px 20px rgba(10, 12, 20, 0.10);
+}
+.stage-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow-md);
+  z-index: 5;
+}
+.stage-nav:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.stage-nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.stage-nav.prev { left: 16px; }
+.stage-nav.next { right: 16px; }
+.stage-counter-pill {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-md);
+  z-index: 5;
+}
+
+/* ── Speaker notes sheet ── */
+.notes-panel {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  width: min(760px, calc(100% - 160px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  padding: 14px 18px 16px;
+  z-index: 20;
+  animation: fade-in 200ms ease both;
+}
+.notes-panel:not(.is-open) {
+  display: none;
+}
+.notes-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.notes-panel-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+.notes-panel-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  display: grid;
+  place-items: center;
+}
+.notes-panel-close:hover {
+  background: var(--hover-overlay);
+  color: var(--text);
+}
+.notes-panel-body p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+/* ── Viewer top bar chrome ── */
+.vbar-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.vbar-back:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.vbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 14px;
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.vbar-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.vbar-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.vbar-btn.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+.vbar-btn.ghost:hover {
+  background: var(--hover-overlay);
+  color: var(--text);
+}
+.vbar-btn.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-surface);
+}
+.vbar-present-btn {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-surface);
+}
+.vbar-present-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
 /* ================================================================
+   Thinking panel — shown in the stage area while the deck streams./* ================================================================
    Thinking panel — shown in the stage area while the deck streams.
    Designed to feel calm and breathable, not an overlay that fights
    the slide canvas.
@@ -300,7 +594,7 @@
 }
 
 .thinking-headline {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   margin: 0;
   font-size: 28px;
   line-height: 1.1;

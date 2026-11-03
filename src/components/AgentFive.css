@@ -53,7 +53,7 @@
 }
 .af-topbar-titles { line-height: 1.15; }
 .af-topbar-title {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-weight: 500;
   font-size: 18px;
   color: var(--af-text);
@@ -330,7 +330,7 @@
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--af-border);
-  background: rgba(10, 10, 20, 0.4);
+  background: transparent;
   min-height: 0;
   overflow: hidden;
 }
@@ -344,9 +344,9 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  background: rgba(47, 91, 234, 0.1);
-  border: 1px solid rgba(47, 91, 234, 0.22);
-  color: var(--af-text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
   border-radius: 999px;
   padding: 8px 12px;
   font-size: 13px;
@@ -356,8 +356,8 @@
   font-family: inherit;
 }
 .af-sidebar-new:hover {
-  background: rgba(47, 91, 234, 0.16);
-  border-color: rgba(47, 91, 234, 0.34);
+  background: var(--hover-overlay);
+  border-color: var(--border-strong);
 }
 .af-sidebar-new-icon {
   font-size: 16px;
@@ -482,13 +482,14 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--text);
+  background: linear-gradient(135deg, var(--brand), var(--brand-strong));
   display: grid;
   place-items: center;
   font-weight: 700;
   font-size: 12px;
-  color: var(--bg);
+  color: #fff;
   flex-shrink: 0;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--brand) 35%, transparent);
 }
 .af-msg-user .af-msg-avatar { display: none; }
 
@@ -735,21 +736,21 @@
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background: var(--text);
+  background: linear-gradient(135deg, var(--brand), #8b5cf6 60%, #d946ef);
   display: grid;
   place-items: center;
-  font-weight: 700;
-  font-size: 24px;
-  color: var(--bg);
+  font-weight: 800;
+  font-size: 22px;
+  color: #fff;
   animation: af-orb-pulse 3s ease-in-out infinite;
   flex-shrink: 0;
 }
 @keyframes af-orb-pulse {
-  0%, 100% { box-shadow: 0 8px 36px rgba(47, 91, 234, 0.28); }
-  50%       { box-shadow: 0 8px 52px rgba(47, 91, 234, 0.42); }
+  0%, 100% { box-shadow: 0 8px 36px color-mix(in srgb, var(--brand) 30%, transparent); }
+  50%       { box-shadow: 0 8px 52px color-mix(in srgb, var(--brand) 46%, transparent); }
 }
 .af-welcome-heading {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-size: clamp(24px, 3.5vw, 40px);
   font-weight: 500;
   letter-spacing: -0.03em;

@@ -22,6 +22,7 @@ function DeckCard({ deck, onOpen, onDelete, onRename }) {
     theme.background ||
     `linear-gradient(135deg, ${theme.primary || '#7c5cff'}, ${theme.accent || '#ff6ea0'})`
   const accent = theme.accent || theme.primary || '#7c5cff'
+  const fgColor = theme.fg || '#f5f0e6'
 
   useEffect(() => {
     if (isRenaming) renameRef.current?.select()
@@ -51,7 +52,7 @@ function DeckCard({ deck, onOpen, onDelete, onRename }) {
         onClick={() => onOpen(deck.id)}
         aria-label={`Open ${deck.title}`}
       >
-        <div className="deck-thumb-inner">
+        <div className="deck-thumb-inner" style={{ color: theme.fg || '#ffffff' }}>
           <div className="deck-eyebrow" style={{ color: accent }}>
             {theme.name || 'Deck'}
           </div>

@@ -50,7 +50,7 @@ function DeckCard({ deck, view, onOpen, onDelete, onRename }) {
         onClick={() => onOpen(deck.id)}
         aria-label={`Open ${deck.title}`}
       >
-        <div className="deck-thumb-inner">
+        <div className="deck-thumb-inner" style={{ color: theme.fg || '#ffffff' }}>
           <div className="deck-eyebrow" style={{ color: accent }}>
             {theme.name || 'Deck'}
           </div>

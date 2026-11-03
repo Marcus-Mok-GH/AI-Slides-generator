@@ -1,12 +1,24 @@
 import './TemplateRow.css'
 
+// Muted duotone covers, keyed by category — one consistent system instead
+// of a rainbow of one-off gradients. Works on light and dark chrome.
+const TINTS = {
+  Sales: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+  Startup: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+  Business: 'linear-gradient(135deg, #4f46e5, #4338ca)',
+  Marketing: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+  Internal: 'linear-gradient(135deg, #64748b, #475569)',
+  Education: 'linear-gradient(135deg, #14b8a6, #0f766e)',
+  Strategy: 'linear-gradient(135deg, #f59e0b, #d97706)',
+}
+
 const templates = [
-  { name: 'Pitch deck', tag: 'Startup', grad: 'linear-gradient(135deg,#7c5cff,#ff6ea0)' },
-  { name: 'Sales proposal', tag: 'Business', grad: 'linear-gradient(135deg,#ff9a55,#ff6ea0)' },
-  { name: 'Product launch', tag: 'Marketing', grad: 'linear-gradient(135deg,#2ecc71,#7c5cff)' },
-  { name: 'Quarterly review', tag: 'Internal', grad: 'linear-gradient(135deg,#1a1a1a,#6b6b6b)' },
-  { name: 'Workshop', tag: 'Education', grad: 'linear-gradient(135deg,#f0c419,#ff9a55)' },
-  { name: 'Case study', tag: 'Marketing', grad: 'linear-gradient(135deg,#3b82f6,#7c5cff)' },
+  { name: 'Pitch deck', tag: 'Startup', },
+  { name: 'Sales proposal', tag: 'Business', },
+  { name: 'Product launch', tag: 'Marketing', },
+  { name: 'Quarterly review', tag: 'Internal', },
+  { name: 'Workshop', tag: 'Education', },
+  { name: 'Case study', tag: 'Marketing', },
 ]
 
 export default function TemplateRow({ onSelect, onBrowseAll }) {
@@ -34,7 +46,7 @@ export default function TemplateRow({ onSelect, onBrowseAll }) {
             onClick={() => pick(t.name)}
             aria-label={`Use ${t.name} template`}
           >
-            <div className="template-thumb" style={{ background: t.grad }}>
+            <div className="template-thumb" style={{ background: TINTS[t.tag] || TINTS.Internal }}>
               <div className="template-mock">
                 <span className="m-line w70" />
                 <span className="m-line w40" />

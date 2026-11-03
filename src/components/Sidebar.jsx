@@ -23,7 +23,8 @@ export default function Sidebar({
   return (
     <aside className="sidebar">
       <div className="brand">
-        <img src={logo} alt="SlideAI" className="brand-logo" />
+        <img src={logo} alt="" className="brand-logo" />
+        <span className="brand-name">SlideAI</span>
       </div>
 
       <nav className="nav">
