@@ -1,8 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-04-30
-**Commit:** (unknown - not in git repo)
-**Branch:** (unknown - not in git repo)
+**Updated:** 2026-11-03
+**Repo:** `Marcus-Mok-GH/AI-Slides-generator`, branch `main`
 
 ## OVERVIEW
 AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backend. Uses email/password auth (bcryptjs + JWT), PostgreSQL for persistence, and integrates with Pollinations AI (openai/gpt-6-luna) for deck generation via server/llm.js.
@@ -34,8 +33,8 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 | Database | `server/db.js` | Postgres schema, CRUD operations |
 | API client | `src/lib/api.js` | Fetch wrappers, SSE handlers |
 | Styling | `src/index.css`, `src/*.css` | Standard CSS (no Tailwind) |
-| Routing | `src/App.jsx` (lines 152-226) | URL routing, deck loading |
-| Auto-save | `src/App.jsx` (lines 228-250) | Debounced deck persistence |
+| Routing | `src/App.jsx` (lines 210-219) | URL sync + `deckIdFromLocation()` |
+| Auto-save | `src/App.jsx` (lines 222-242) | Debounced deck persistence |
 
 ## CODE MAP
 
@@ -74,7 +73,16 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 - **URL routing**: Supports both `/slide/{id}` (canonical) and `?deck={id}` (legacy).
 - **Auth lifecycle**: Single `fetchCurrentUser()` on mount, global `slideai:unauthorized` event listener.
 - **SSE streaming**: Custom `streamParser.js` for incremental JSON parsing (no off-the-shelf library).
-- **Image generation**: Parallel Flux calls, base64 embedded in deck JSON, shimmer placeholders.
+- **Image generation**: deck generation no longer produces images. Only
+  Agent Five's image tool calls a legacy Fireworks proxy
+  (`server/agentFive.js`); that proxy is offline, so the tool fails on its own
+  without affecting deck generation.
+- **Design tokens**: light and dark palettes both live in `src/index.css`
+  (`:root` and `[data-theme="dark"]`). Component CSS must reference tokens, not
+  raw hex. Headings use `var(--font-display)`; `var(--font-mono)` is reserved
+  for the ⌘K hint.
+- **Viewer layout**: `SlideViewer.css` puts the desktop grid in its base rules
+  and keeps the trailing media queries for mobile/touch overrides only.
 - **Slide charts**: Hand-rolled SVG in `lib/charts.js` (no Chart.js/Recharts dependency).
 
 ### Anti-Patterns (THIS PROJECT)
@@ -95,7 +103,7 @@ From code comments and architecture:
 ## UNIQUE STYLES
 
 - **Telegraphic documentation**: Short, imperative phrases. No fluff.
-- **Absolute paths in docs**: All file references use `/home/runner/workspace/...` format.
+- **Repo-relative paths in docs**: file references are relative to the repo root.
 - **Code blocks with line numbers**: References like `(line 152–226)` for precise navigation.
 - **Anti-pattern callouts**: Explicit "NEVER"/"DO NOT" in comments and docs.
 - **Gotcha sections**: "Non-Obvious Gotchas" with numbered warnings.
@@ -110,8 +118,17 @@ npm install
 # Start dev servers (frontend + backend in parallel)
 npm run dev
 
-# Build for production (Vite + React SWC)
+# Run the test suite
+npm test
+
+# Build for production (Vite + esbuild API bundle)
 npm run build
+
+# Rebuild the Vercel function bundle only
+npm run api:build
+
+# Create schema in a fresh database
+npm run db:init
 
 # Start production server
 npm start
@@ -128,7 +145,7 @@ curl -X POST http://localhost:3001/api/generate-deck/stream \
 
 # Database inspection (Postgres)
 SELECT * FROM decks WHERE user_id = '<id>' ORDER BY updated_at DESC;
-SELECT COUNT(*) FROM sessions WHERE expire > NOW();
+SELECT id, email, created_at FROM users ORDER BY created_at DESC;
 ```
 
 ## NOTES (Gotchas & Warnings)
@@ -174,13 +191,15 @@ SELECT COUNT(*) FROM sessions WHERE expire > NOW();
 - No version history (auto-save overwrites)
 - PDF/PPTX export depends on Puppeteer + headless Chrome, so it needs the Chrome binary at runtime
 - Mobile editing narrow (viewing optimized)
+- No live image provider: Agent Five's image tool points at an offline proxy
+- No error boundary: a render-time throw blanks the app instead of showing a fallback
 
 ## EXTERNAL DEPENDENCIES
 
 | Service | Endpoint | Purpose | Fallback |
 |---------|----------|---------|----------|
 | Pollinations | `gen.pollinations.ai/v1` (`POLLINATIONS_API_KEY`) | GPT-6 Luna deck/agent calls | **None** (generation breaks) |
-| Fireworks (legacy proxy) | dead Replit app | Flux images | Images fail, slides complete |
+| Fireworks (legacy proxy) | `fireworks-endpoint--57crestcrepe.replit.app` (offline) | Agent Five image + web-search tools only | Agent tools fail; deck generation unaffected |
 | Postgres | `POSTGRES_URL` → `SUPABASE_DATABASE_URL` → `DATABASE_URL` | Users + decks | No-op mock pool (DB routes 503, data loss) |
 
 ---

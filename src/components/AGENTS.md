@@ -1,7 +1,7 @@
 # COMPONENTS KNOWLEDGE BASE
 
 **Generated:** 2026-04-30
-**Directory:** /home/runner/workspace/src/components
+**Directory:** `src/components/` (repo root)
 
 ## OVERVIEW
 UI components for the AI Slides Generator frontend. Contains 26 React components that handle slide viewing, editing, navigation, and user interaction.

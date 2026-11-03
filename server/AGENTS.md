@@ -1,7 +1,7 @@
 # SERVER KNOWLEDGE BASE
 
 **Generated:** 2026-04-30
-**Directory:** /home/runner/workspace/server
+**Directory:** `server/` (repo root)
 
 ## OVERVIEW
 Core Express backend for AI Slides Generator. Handles authentication, deck generation, database operations, and real-time streaming via SSE.
@@ -12,7 +12,8 @@ server/
 ├── app.js              # Express app (routes, middleware)
 ├── auth.js             # Replit OIDC authentication
 ├── db.js               # PostgreSQL connection + migrations
-├── generateDeck.js     # Orbitron API orchestration
+├── llm.js              # Pollinations client (URL, headers, error shaping)
+├── generateDeck.js     # Deck generation + prompt engineering
 ├── streamParser.js     # Incremental JSON parser (SSE)
 └── index.js            # (Note: Not present - see api/index.js)
 ```
@@ -24,7 +25,7 @@ server/
 | Express app | `app.js` | Route definitions, middleware stack |
 | Authentication | `auth.js` | Passport OIDC, session management |
 | Database | `db.js` | Pool, schema, CRUD operations |
-| Deck generation | `generateDeck.js` | Orbitron API calls, prompt engineering |
+| Deck generation | `generateDeck.js` | Pollinations calls via `llm.js`, prompt engineering |
 | SSE streaming | `streamParser.js` | Real-time event parsing |
 | Server entry | `api/index.js` | Vercel wrapper → imports `server/app.js` |
 
@@ -45,15 +46,16 @@ server/
 ## ANTI-PATTERNS (SERVER)
 
 - **NEVER save mid-stream decks** → wait for `streaming: false`
-- **NEVER hardcode API endpoints** → Orbitron/Fireworks URLs configurable
-- **DO NOT create sessions table** → Supabase Auth handles it
+- **NEVER hardcode LLM endpoints or models** → override via `POLLINATIONS_BASE_URL` / `POLLINATIONS_*_MODEL`
+- **DO NOT create a sessions table** → identity is a stateless JWT; nothing is looked up per request
 - **Avoid blocking on images** → parallel generation, shimmer placeholders
 
 ## KEY FUNCTIONS
 
 | Function | File | Purpose |
 |----------|------|---------|
-| `generateDeck()` | `generateDeck.js` | Orbitron API orchestration |
+| `generateDeck()` | `generateDeck.js` | Deck generation orchestration (Pollinations) |
+| `llmUrl()` / `llmHeaders()` / `llmError()` | `llm.js` | Single place where LLM endpoint, auth and errors are decided |
 | `streamParser()` | `streamParser.js` | SSE event parsing |
 | `isAuthenticated()` | `auth.js` | Auth middleware |
 | `generateId()` | `db.js` | Base64url deck ID |
@@ -63,8 +65,8 @@ server/
 
 | Service | Endpoint | Purpose | Fallback |
 |---------|----------|---------|----------|
-| Orbitron | `orbitron--pastelsjuice8t.replit.app/api` | Claude/GPT-5 calls | None (app breaks) |
-| Fireworks | `fireworks-endpoint--57crestcrepe.replit.app/api/v1/images` | Flux images | Images fail, slides complete |
+| Pollinations | `gen.pollinations.ai/v1` (`POLLINATIONS_API_KEY`) | All text generation (`openai/gpt-6-luna`) | None (generation breaks) |
+| Fireworks (legacy) | `fireworks-endpoint--57crestcrepe.replit.app` (offline) | Agent Five image/search tools | Those tools fail; deck generation unaffected |
 | Replit Auth | `replit.com/oidc` | OIDC auth | Users can't sign in |
 | Postgres | `DATABASE_URL` | Sessions + decks | In-memory (data loss) |
 

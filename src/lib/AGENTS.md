@@ -1,7 +1,7 @@
 # LIB KNOWLEDGE BASE
 
 **Generated:** 2026-04-30
-**Directory:** /home/runner/workspace/src/lib
+**Directory:** `src/lib/` (repo root)
 
 ## OVERVIEW
 Shared utilities and API clients for the AI Slides Generator frontend. Contains 5 key modules for API communication, chart rendering, and theme management.

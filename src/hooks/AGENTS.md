@@ -1,7 +1,7 @@
 # HOOKS KNOWLEDGE BASE
 
 **Generated:** 2026-04-30
-**Directory:** /home/runner/workspace/src/hooks
+**Directory:** `src/hooks/` (repo root)
 
 ## OVERVIEW
 React hooks for AI Slides Generator. Contains critical authentication and state management logic.
@@ -33,9 +33,9 @@ src/hooks/
 
 ## ANTI-PATTERNS (HOOKS)
 
-- **NEVER call Supabase directly** → use `useAuth.js` wrappers
+- **NEVER call the auth endpoints directly** → go through `useAuth.js` wrappers
 - **DO NOT bypass auth checks** → always use `isAuthenticated`
-- **Avoid manual session storage** → use `connect-pg-simple`
+- **NEVER hand-roll token storage** → `src/lib/api.js` owns the `slideai:token` key
 
 ## KEY HOOKS
 

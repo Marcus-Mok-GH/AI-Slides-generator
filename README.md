@@ -6,7 +6,6 @@ You type a topic, choose how short or detailed you want the result, and the app 
 - clear structure
 - visual layouts
 - key talking points
-- optional images
 - speaker notes to guide delivery
 
 It is designed for people who want to move from “blank page” to a strong first draft quickly.
@@ -53,7 +52,6 @@ Instead of manually formatting every slide, you can focus on your message and th
 - **Live slide streaming** so you don’t wait for everything to finish.
 - **Built-in layout variety** to avoid repetitive decks.
 - **Speaker notes** for presentation support.
-- **Optional AI images** to make slides more visual.
 - **Auto-save behavior** to reduce lost work.
 - **Simple browser-based editing experience**.
 
@@ -74,24 +72,27 @@ Instead of manually formatting every slide, you can focus on your message and th
 This app has:
 - a **frontend** (what users see in the browser)
 - a **backend** (handles generation, auth checks, and saving)
-- a **database** (stores decks and session data)
-- external **AI services** (text + image generation)
+- a **database** (stores accounts and decks)
+- an external **AI service** for text generation (Pollinations AI)
 
-If you want deeper implementation details, see `AGENTS.md` and `replit.md`.
+If you want deeper implementation details, see `AGENTS.md`.
 
 ---
 
 ## Authentication and data notes
 
-This project currently uses **Supabase Auth** for sign-in and identity verification.
+Accounts are self-hosted: email + password, hashed with **bcryptjs**, with a
+**JWT** kept in `localStorage` under `slideai:token`. `src/lib/api.js` attaches
+it to every request and clears it on a 401. There is no Supabase Auth and no
+session table — the JWT carries identity, so no session store is read per request.
 
-Please keep this auth setup intact unless you are intentionally planning a full auth migration.
+Environment variables used by this project:
 
-Environment variables used by this project include:
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `DATABASE_URL`
-- `SUPABASE_DATABASE_URL` (optional alternative)
+- `POSTGRES_URL` (or `SUPABASE_DATABASE_URL` / `DATABASE_URL`) — Postgres connection string
+- `JWT_SECRET` — signing key for auth tokens; use a long random value in production
+- `POLLINATIONS_API_KEY` — required for deck generation and Agent Five
+
+Rotating `JWT_SECRET` logs every existing user out, so change it deliberately.
 
 ---
 
@@ -103,7 +104,23 @@ Environment variables used by this project include:
 npm install
 ```
 
-### 2) Start in development mode
+### 2) Configure the environment
+
+Create a `.env` file (it is git-ignored) with at least:
+
+```bash
+DATABASE_URL="postgres://user:pass@localhost:5432/slides"
+JWT_SECRET="any-long-random-string"
+POLLINATIONS_API_KEY="pollinations-key"
+```
+
+On a fresh database, create the schema once:
+
+```bash
+npm run db:init
+```
+
+### 3) Start in development mode
 
 ```bash
 npm run dev
@@ -111,13 +128,22 @@ npm run dev
 
 This starts the app for local development with frontend + backend running together.
 
-### 3) Build for production
+### 4) Run the tests
+
+```bash
+npm test
+```
+
+### 5) Build for production
 
 ```bash
 npm run build
 ```
 
-### 4) Start production server
+This builds the frontend and regenerates `api/index.js` (the Vercel bundle) with
+`npm run api:build`.
+
+### 6) Start production server
 
 ```bash
 npm start
@@ -177,6 +203,7 @@ Current limitations include:
 - No built-in version history for deck revisions
 - PDF/PPTX export needs a headless Chrome; on plain serverless hosts it returns a clear "browser unavailable" error
 - Mobile editing is more limited than desktop
+- Slides are generated without images: the third-party image provider used previously is offline, so Agent Five's image tool fails while deck generation is unaffected
 
 ---
 
