@@ -14,6 +14,7 @@
  * Set DIAG_KEY in the environment to require ?key=<value>.
  */
 
+import fs from 'node:fs'
 const PACKAGES = [
   'express',
   'pg',
@@ -109,6 +110,29 @@ export default async function handler(req, res) {
       const { rows } = await pool.query('SELECT NOW() AS now')
       report.dbNow = rows?.[0]?.now ?? null
     })
+  }
+
+
+  report.runtime = {
+    extensions: Object.keys(require.extensions || {}),
+    entryFiles: (() => {
+      try {
+        return fs.readdirSync('/var/task/api')
+      } catch (e) { return String(e.message) }
+    })(),
+    libFiles: (() => {
+      try {
+        return fs.readdirSync('/var/task/api/_lib')
+      } catch (e) { return String(e.message) }
+    })(),
+    rootPkg: (() => {
+      try { return fs.readFileSync('/var/task/package.json', 'utf8').slice(0, 400) }
+      catch (e) { return String(e.message) }
+    })(),
+    apiPkg: (() => {
+      try { return fs.readFileSync('/var/task/api/package.json', 'utf8').slice(0, 200) }
+      catch (e) { return String(e.message) }
+    })(),
   }
 
   res.status(200).json(report)
