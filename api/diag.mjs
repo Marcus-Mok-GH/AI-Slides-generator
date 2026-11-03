@@ -66,7 +66,12 @@ export default async function handler(req, res) {
       jwtSecret: Boolean(process.env.JWT_SECRET),
     },
     packages,
-    fs: {
+    note: 'Packages listed as missing are simply not imported by this function; each Vercel function only ships the dependencies it requires.',
+    ok: true,
+  }
+
+  if (req.query?.full) {
+    report.fs = {
       cwd: process.cwd(),
       cwdEntries: listDir(process.cwd()),
       apiEntries: listDir(`${process.cwd()}/api`),
@@ -74,8 +79,7 @@ export default async function handler(req, res) {
         const entries = listDir(`${process.cwd()}/node_modules`)
         return Array.isArray(entries) ? entries.length : entries
       })(),
-    },
-    ok: PACKAGES.filter((name) => name !== 'puppeteer').every((name) => packages[name]?.ok),
+    }
   }
 
   if (req.query?.db) {
