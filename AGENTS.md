@@ -89,8 +89,13 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
   Landscape switches to `height: 100%` with side gutters because height, not
   width, is the binding constraint. `.viewer` uses `100dvh` so browser chrome
   never pushes the controls below the fold. The stage supports swipe nav.
+- **Mobile editing**: the editor is a bottom sheet, not a full-height drawer.
+  Its height lives in `--editor-sheet-h` (`SlideViewer.css`, used by
+  `SlideEditor.css`); the stage reserves the same height via
+  `padding-bottom` so the slide stays visible *and live* above the sheet while
+  you type. Landscape docks the sheet to the right instead (`padding-right`).
 - **Touch + notch**: `index.html` sets `viewport-fit=cover`; anything pinned to
-  an edge (mobile nav, present HUD, editor drawer, viewer bar) must pad with
+  an edge (mobile nav, present HUD, editor sheet, viewer bar) must pad with
   `env(safe-area-inset-*)`.
 - **Slide charts**: Hand-rolled SVG in `lib/charts.js` (no Chart.js/Recharts dependency).
 
@@ -199,7 +204,9 @@ SELECT id, email, created_at FROM users ORDER BY created_at DESC;
 - No batch operations (one deck at a time)
 - No version history (auto-save overwrites)
 - PDF/PPTX export depends on Puppeteer + headless Chrome, so it needs the Chrome binary at runtime
-- Mobile editing is a slide-up drawer over the slide, so you edit HTML/CSS without a live preview
+- Mobile editing is a bottom sheet that stops part-way up the screen; the live
+  slide preview above it is small on short phones (~300px wide) and the space
+  left for the HTML/CSS fields is correspondingly short
 - No live image provider: Agent Five's image tool points at an offline proxy
 - No error boundary: a render-time throw blanks the app instead of showing a fallback
 

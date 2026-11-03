@@ -975,9 +975,31 @@
 }
 
 @media (max-width: 900px) {
+  .viewer {
+    /* Height of the editing bottom sheet, shared with SlideEditor.css. dvh so
+       it tracks the real viewport, and the third term stops short phones from
+       squeezing the live preview above it down to a stamp. */
+    --editor-sheet-h: min(58dvh, 460px, calc(100dvh - 320px));
+  }
   .viewer-body {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
+  }
+  /* Editing keeps the slide on screen: reserve the sheet's height at the
+     bottom of the stage so the 16:9 preview fits in the space that is left. */
+  .viewer-body.with-editor .stage {
+    padding-bottom: calc(var(--editor-sheet-h) + env(safe-area-inset-bottom, 0px));
+  }
+  /* A little breathing room so the preview reads as a preview, not as a
+     full-bleed background behind the sheet. */
+  .viewer-body.with-editor .stage-slide-area:not(.is-generating) {
+    padding: 10px 12px;
+  }
+  /* The prev/next arrows and counter live just below the slide — the sheet
+     covers that band, so drop them while editing (swipe still works). */
+  .viewer-body.with-editor .stage-nav,
+  .viewer-body.with-editor .stage-counter-pill {
+    display: none;
   }
   .viewer-body.with-editor {
     grid-template-columns: 1fr;
@@ -1212,6 +1234,19 @@
 
 /* Landscape phone — maximize slide viewing area */
 @media (max-width: 900px) and (orientation: landscape) {
+  /* With the editor open it docks to the right here, so reserve width instead
+     of height and drop the dimming backdrop — the slide beside it is a live
+     preview. */
+  .viewer-body.with-editor .stage {
+    padding-bottom: 0;
+    padding-right: min(46%, 420px);
+  }
+  .viewer-body.with-editor .thumb-strip {
+    padding-right: min(46%, 420px);
+  }
+  .editor-backdrop {
+    display: none;
+  }
   .viewer-bar {
     padding: 6px 14px;
   }
@@ -1266,7 +1301,9 @@
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(15, 15, 26, 0.45);
+    /* Only a whisper of dimming: the slide above the editor is a live
+       preview, so it has to stay readable while you type. */
+    background: rgba(15, 15, 26, 0.12);
     border: none;
     padding: 0;
     z-index: 40;
