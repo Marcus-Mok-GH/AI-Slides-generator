@@ -14,6 +14,40 @@
  *
  * Locally (no VERCEL env var) it also starts a listening server for `npm run dev`.
  */
+import { readdirSync, existsSync } from 'node:fs'
+
+/** What the deployed bundle actually looks like — only used to explain a failed init. */
+function runtimeContext() {
+  try {
+    const cwd = process.cwd()
+    const list = (dir) => {
+      try {
+        return readdirSync(dir).slice(0, 25)
+      } catch (err) {
+        return err.code
+      }
+    }
+    const exists = (p) => {
+      try {
+        return existsSync(p)
+      } catch {
+        return false
+      }
+    }
+    return {
+      cwd,
+      node: process.version,
+      cwdEntries: list(cwd),
+      apiEntries: list(`${cwd}/api`),
+      libEntries: list(`${cwd}/api/_lib`),
+      rootPkg: exists(`${cwd}/package.json`),
+      apiPkg: exists(`${cwd}/api/package.json`),
+    }
+  } catch (err) {
+    return { error: err?.message || String(err) }
+  }
+}
+
 let appPromise = null
 
 function loadApp() {
@@ -38,6 +72,7 @@ export default async function handler(req, res) {
         code: err?.code || null,
         message: err?.message || String(err),
         missing: /Cannot find (package|module) '([^']+)'/.exec(err?.message || '')?.[2] || null,
+        runtime: runtimeContext(),
       }),
     )
   }
