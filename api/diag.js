@@ -114,7 +114,6 @@ export default async function handler(req, res) {
 
 
   report.runtime = {
-    extensions: Object.keys(require.extensions || {}),
     entryFiles: (() => {
       try {
         return fs.readdirSync('/var/task/api')
