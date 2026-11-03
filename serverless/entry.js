@@ -11,7 +11,7 @@
  *
  * Locally this file also starts a listening server for `npm run dev`.
  */
-import app from '../api/_lib/app.js'
+import app from '../server/app.js'
 
 const isVercel = Boolean(process.env.VERCEL)
 

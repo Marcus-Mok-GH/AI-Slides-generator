@@ -10,7 +10,7 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 ## STRUCTURE
 ```
 .
-├── api/                # Vercel functions: index.js, health.js, diag.js + _lib/ (shared code)
+├── api/                # Vercel functions: built index.js + health.mjs, diag.mjs
 ├── server/             # Core Express backend (routes, auth, DB, AI integration)
 ├── src/               # Frontend (React + Vite)
 │   ├── components/    # UI components (SlideViewer, SlideEditor, etc.)
@@ -27,7 +27,7 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 | Task | Location | Notes |
 |------|----------|-------|
 | Frontend entry | `src/App.jsx`, `src/main.jsx` | React root + bootstrap |
-| Backend entry | `api/index.js` → `api/_lib/app.js` | Vercel wrapper → Express app |
+| Backend entry | `api/index.js` (built) ← `serverless/entry.js` → `server/app.js` | Vercel function bundle ← entrypoint → Express app |
 | Slide generation | `server/generateDeck.js` | Orbitron API calls, prompt engineering |
 | Real-time updates | `server/streamParser.js` | SSE event parsing |
 | Authentication | `server/auth.js` | Replit OIDC, session management |
@@ -65,7 +65,7 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 
 ### Project-Specific (deviations from standard)
 
-- **Dual backend entry**: `api/index.js` (Vercel wrapper) imports `api/_lib/app.js` (Express core, shared code in `api/_lib/`). This enables both serverless deployment and local development.
+- **Single backend source + build step**: all Express code lives in `server/`. `serverless/entry.js` imports it for local dev, and `npm run api:build` bundles that entrypoint into the committed `api/index.js` (CommonJS) for Vercel. Re-run the build after touching `server/`.
 - **Top-level await in server**: `server/app.js` uses `await migrate()` before route registration - valid in ESM but non-traditional for Express apps.
 - **No Redux/Zustand**: Uses React `useState` + callbacks with explicit prop drilling. State flows down, callbacks up.
 - **Debounced auto-save**: 700ms delay after last edit, skips if `deck.streaming === true`.

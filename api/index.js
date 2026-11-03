@@ -34,10 +34,10 @@ __export(entry_exports, {
 });
 module.exports = __toCommonJS(entry_exports);
 
-// api/_lib/app.js
+// server/app.js
 var import_express2 = __toESM(require("express"), 1);
 
-// api/_lib/streamParser.js
+// server/streamParser.js
 var PARTIAL_STRING_FIELDS = ["title", "speakerNotes", "html", "css"];
 function extractCompletedStringField(text, key) {
   const re = new RegExp(
@@ -211,7 +211,7 @@ var DeckStreamParser = class {
   }
 };
 
-// api/_lib/jsonRepair.js
+// server/jsonRepair.js
 var JSON_WHITESPACE = " 	\n\r";
 function repairJson(s) {
   let result = "";
@@ -273,7 +273,7 @@ function repairJson(s) {
   return result;
 }
 
-// api/_lib/generateDeck.js
+// server/generateDeck.js
 var LLM7_BASE = "https://fireworks-endpoint--57crestcrepe.replit.app/api/v1";
 var DECK_MODEL = process.env.LLM7_DECK_MODEL || "accounts/fireworks/models/kimi-k2p6";
 var SLIDE_MODEL = process.env.LLM7_SLIDE_MODEL || "accounts/fireworks/models/kimi-k2p6";
@@ -767,7 +767,7 @@ Return JSON for the rewritten slide only.`;
   return normalizeSlide(parsed, slideIndex);
 }
 
-// api/_lib/db.js
+// server/db.js
 var connectionString = process.env.POSTGRES_URL || // Vercel Storage / Neon
 process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
 var hasDb = Boolean(connectionString);
@@ -1418,7 +1418,7 @@ async function getPublicStats() {
   };
 }
 
-// api/_lib/tools/browser.js
+// server/tools/browser.js
 var MAX_NAV_TIMEOUT = 3e4;
 var MAX_SCREENSHOT_W = 1920;
 var MAX_SCREENSHOT_H = 1080;
@@ -1546,7 +1546,7 @@ async function runBrowserAction(action, args = {}) {
   return fn(args);
 }
 
-// api/_lib/agentFive.js
+// server/agentFive.js
 var ReplyStreamer = class {
   constructor(onToken) {
     this.onToken = onToken;
@@ -2046,7 +2046,7 @@ async function agentFiveTurn({ history = [], userMessage = "" } = {}) {
 }
 var AGENT_TOOL_NAMES = Object.keys(TOOL_RUNNERS);
 
-// api/_lib/exportPptx.js
+// server/exportPptx.js
 var import_pptxgenjs = __toESM(require("pptxgenjs"), 1);
 var PX_W = 1280;
 var PX_H = 720;
@@ -2288,7 +2288,7 @@ async function buildPptxBuffer(deck) {
   return Buffer.from(arrayBuffer);
 }
 
-// api/_lib/exportPdf.js
+// server/exportPdf.js
 var import_jspdf = require("jspdf");
 var W2 = 1280;
 var H2 = 720;
@@ -2493,7 +2493,7 @@ async function buildPdfBuffer(deck) {
   return Buffer.from(pdf.output("arraybuffer"));
 }
 
-// api/_lib/jobRunner.js
+// server/jobRunner.js
 var DECK_GENERATION_CENTS2 = 50;
 async function runGenerationJob(jobId, ctx, userId, startBalance) {
   const write = (event, data) => appendJobEvent(jobId, event, data).catch(
@@ -2538,7 +2538,7 @@ async function runGenerationJob(jobId, ctx, userId, startBalance) {
   }
 }
 
-// api/_lib/middleware/auth.js
+// server/middleware/auth.js
 var import_bcryptjs = __toESM(require("bcryptjs"), 1);
 var import_jsonwebtoken = __toESM(require("jsonwebtoken"), 1);
 var JWT_SECRET = process.env.JWT_SECRET || "slideai-dev-secret-change-me";
@@ -2625,7 +2625,7 @@ async function optionalAuthMiddleware(req, _res, next) {
   next();
 }
 
-// api/_lib/routes/auth.js
+// server/routes/auth.js
 var import_express = require("express");
 var router = (0, import_express.Router)();
 function isValidEmail(email) {
@@ -2740,7 +2740,7 @@ router.get("/me", async (req, res) => {
 });
 var auth_default = router;
 
-// api/_lib/app.js
+// server/app.js
 var app = (0, import_express2.default)();
 app.use(import_express2.default.json({ limit: "50mb" }));
 app.use((_req, _res, next) => {

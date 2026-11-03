@@ -4,15 +4,19 @@
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
-    { "source": "/api/health", "destination": "/api/health.js" },
-    { "source": "/api/(.*)", "destination": "/api/index.cjs" },
+    { "source": "/api/health", "destination": "/api/health.mjs" },
+    { "source": "/api/diag", "destination": "/api/diag.mjs" },
+    { "source": "/api/(.*)", "destination": "/api/index.js" },
     { "source": "/((?!assets|favicon\\.ico|.*\\.[a-zA-Z0-9]+$).*)", "destination": "/index.html" }
   ],
   "functions": {
-    "api/index.cjs": {
+    "api/index.js": {
       "maxDuration": 300
     },
-    "api/health.js": {
+    "api/health.mjs": {
+      "maxDuration": 10
+    },
+    "api/diag.mjs": {
       "maxDuration": 10
     }
   }

@@ -10,7 +10,7 @@ import { build } from 'esbuild'
 
 await build({
   entryPoints: ['serverless/entry.js'],
-  outfile: 'api/index.cjs',
+  outfile: 'api/index.js',
   bundle: true,
   platform: 'node',
   format: 'cjs',

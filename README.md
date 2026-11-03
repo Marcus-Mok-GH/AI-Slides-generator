@@ -127,10 +127,21 @@ npm start
 
 ## Deploying to Vercel
 
-Only `api/index.js`, `api/health.js` and `api/diag.js` are functions. Every
-other backend module lives in `api/_lib/` — Vercel turns each supported file in
-`api/` into its own function, and the Hobby plan allows 12 functions per
-deployment, so putting shared code in `api/` breaks deploys.
+Only three functions are deployed: `api/index.js`, `api/health.mjs` and
+`api/diag.mjs`. Vercel turns every supported file directly inside `api/` into
+its own function, and the Hobby plan allows 12 functions per deployment, so all
+backend code lives in `server/` and is never placed under `api/`.
+
+`api/index.js` is a build artifact, not hand-written source. `npm run build`
+(or `npm run api:build`) bundles `serverless/entry.js` into a single
+self-contained CommonJS file with esbuild. Vercel decides ESM vs CommonJS per
+file at load time, and the app's ESM source kept being parsed as CommonJS there
+(`Cannot use import statement outside a module`); one bundled CJS file removes
+that ambiguity. Never edit `api/index.js` by hand, and re-run the build after
+changing anything in `server/`.
+
+Note `api/package.json` sets `"type": "commonjs"` so the bundle is read as CJS,
+which is why the health and diag functions use the `.mjs` extension.
 
 Check a deployment with:
 
@@ -145,8 +156,9 @@ Vercel, or `DATABASE_URL`) and `JWT_SECRET`.
 ## Project layout (quick guide)
 
 - `src/` → frontend interface and slide editing experience
-- `api/` → Vercel functions (`index.js`, `health.js`, `diag.js`) plus `api/_lib/` shared backend code
-- `server/` → legacy mirror of `api/_lib/` (not deployed; keep in sync)
+- `api/` → Vercel functions only (`index.js` built bundle, `health.mjs`, `diag.mjs`)
+- `server/` → the backend source of truth (Express app, routes, db, exporters)
+- `serverless/entry.js` → entrypoint bundled into `api/index.js`; also runs `npm run dev`
 - `README.md` → project overview (this file)
 - `AGENTS.md` → deep technical and architecture reference
 
