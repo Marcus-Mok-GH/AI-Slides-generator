@@ -70,8 +70,7 @@ import { repairJson } from './jsonRepair.js'
 import { runBrowserAction } from './tools/browser.js'
 import { createPlan, getPlanByChatId, updatePlanStatus, getRecentPlans } from './db.js'
 
-const LLM7_BASE = (process.env.LLM7_BASE_URL || 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1').replace(/\/$/, '')
-const AGENT_MODEL = process.env.LLM7_AGENT_MODEL || 'accounts/fireworks/models/kimi-k2p6'
+import { AGENT_MODEL, llmHeaders, llmUrl, llmError } from './llm.js'
 const MAX_ITERATIONS = 6
 
 const FIREWORKS_PROXY_URL =
@@ -80,9 +79,6 @@ const FIREWORKS_WEB_SEARCH_URL =
   'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/web/search'
 const FIREWORKS_IMAGE_MODEL = 'accounts/fireworks/models/flux-1-schnell-fp8'
 
-function llm7Headers() {
-  return { 'Content-Type': 'application/json' }
-}
 
 function buildSystemPrompt() {
   return `You are "Agent Five", an autonomous assistant that helps users build presentation content.
@@ -253,15 +249,15 @@ function extractJson(text) {
  * callers can do something with partial output if desired.
  */
 async function callAgentLlm(messages, { onDelta } = {}) {
-  const url = `${LLM7_BASE}/chat/completions`
+  const url = llmUrl('/chat/completions')
   const res = await fetch(url, {
     method: 'POST',
-    headers: llm7Headers(),
+    headers: llmHeaders(),
     body: JSON.stringify({ model: AGENT_MODEL, messages, stream: true, max_tokens: 16000 }),
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`llm7 ${res.status}: ${text.slice(0, 300)}`)
+    throw llmError(res.status, text)
   }
 
   const reader = res.body.getReader()

@@ -273,10 +273,40 @@ function repairJson(s) {
   return result;
 }
 
+// server/llm.js
+var DEFAULT_BASE = "https://gen.pollinations.ai/v1";
+var DEFAULT_MODEL = "openai/gpt-6-luna";
+var LLM_BASE = (process.env.POLLINATIONS_BASE_URL || DEFAULT_BASE).replace(/\/+$/, "");
+var DECK_MODEL = process.env.POLLINATIONS_DECK_MODEL || DEFAULT_MODEL;
+var SLIDE_MODEL = process.env.POLLINATIONS_SLIDE_MODEL || DEFAULT_MODEL;
+var AGENT_MODEL = process.env.POLLINATIONS_AGENT_MODEL || DEFAULT_MODEL;
+function llmKey() {
+  return (process.env.POLLINATIONS_API_KEY || "").replace(/\s+/g, "");
+}
+function llmHeaders(extra = {}) {
+  const headers = { "Content-Type": "application/json", ...extra };
+  const key = llmKey();
+  if (!key) {
+    throw new Error("POLLINATIONS_API_KEY is not configured \u2014 add it to the environment to enable generation");
+  }
+  headers.Authorization = `Bearer ${key}`;
+  return headers;
+}
+function llmUrl(path) {
+  return `${LLM_BASE}${path}`;
+}
+function llmError(status, body) {
+  let detail = body || "";
+  try {
+    const parsed = JSON.parse(body);
+    detail = parsed?.error?.message || parsed?.error || parsed?.message || body;
+  } catch {
+  }
+  const message = typeof detail === "string" ? detail : JSON.stringify(detail);
+  return new Error(`pollinations ${status}: ${message.slice(0, 300)}`);
+}
+
 // server/generateDeck.js
-var LLM7_BASE = (process.env.LLM7_BASE_URL || "https://fireworks-endpoint--57crestcrepe.replit.app/api/v1").replace(/\/$/, "");
-var DECK_MODEL = process.env.LLM7_DECK_MODEL || "accounts/fireworks/models/kimi-k2p6";
-var SLIDE_MODEL = process.env.LLM7_SLIDE_MODEL || "accounts/fireworks/models/kimi-k2p6";
 var FORMAT_DESCRIPTIONS = {
   presentation: "a slide-based presentation deck",
   document: "a long-form document broken into sections",
@@ -432,14 +462,11 @@ Design this slide from scratch. Invent the most striking visual way to communica
 this one idea using typography, geometry, color, gradients, spacing, and CSS-drawn
 visual systems. Return strictly valid JSON. No markdown.`;
 }
-function llm7Headers() {
-  return { "Content-Type": "application/json" };
-}
 async function callLlm7({ model, system, user }) {
-  const url = `${LLM7_BASE}/chat/completions`;
+  const url = llmUrl("/chat/completions");
   const res = await fetch(url, {
     method: "POST",
-    headers: llm7Headers(),
+    headers: llmHeaders(),
     body: JSON.stringify({
       model,
       max_tokens: 16e3,
@@ -451,7 +478,7 @@ async function callLlm7({ model, system, user }) {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`llm7 ${res.status}: ${text.slice(0, 300)}`);
+    throw llmError(res.status, text);
   }
   const data = await res.json().catch(() => null);
   const content = data?.choices?.[0]?.message?.content;
@@ -542,9 +569,9 @@ async function generateDeck(ctx) {
 async function streamGenerateDeck(ctx, handlers = {}) {
   const system = buildDeckSystemPrompt(ctx);
   const user = buildUserMessage(ctx.prompt);
-  const upstream = await fetch(`${LLM7_BASE}/chat/completions`, {
+  const upstream = await fetch(llmUrl("/chat/completions"), {
     method: "POST",
-    headers: llm7Headers(),
+    headers: llmHeaders(),
     body: JSON.stringify({
       model: DECK_MODEL,
       stream: true,
@@ -557,7 +584,7 @@ async function streamGenerateDeck(ctx, handlers = {}) {
   });
   if (!upstream.ok) {
     const text = await upstream.text().catch(() => "");
-    throw new Error(`llm7 ${upstream.status}: ${text.slice(0, 300)}`);
+    throw llmError(upstream.status, text);
   }
   const parser = new DeckStreamParser();
   let raw = "";
@@ -1588,15 +1615,10 @@ var ReplyStreamer = class {
     }
   }
 };
-var LLM7_BASE2 = (process.env.LLM7_BASE_URL || "https://fireworks-endpoint--57crestcrepe.replit.app/api/v1").replace(/\/$/, "");
-var AGENT_MODEL = process.env.LLM7_AGENT_MODEL || "accounts/fireworks/models/kimi-k2p6";
 var MAX_ITERATIONS = 6;
 var FIREWORKS_PROXY_URL = "https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/images/generations";
 var FIREWORKS_WEB_SEARCH_URL = "https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/web/search";
 var FIREWORKS_IMAGE_MODEL = "accounts/fireworks/models/flux-1-schnell-fp8";
-function llm7Headers2() {
-  return { "Content-Type": "application/json" };
-}
 function buildSystemPrompt() {
   return `You are "Agent Five", an autonomous assistant that helps users build presentation content.
 
@@ -1769,15 +1791,15 @@ function extractJson2(text) {
   return { reply: text.trim(), needs_clarification: false, tool_calls: [] };
 }
 async function callAgentLlm(messages, { onDelta } = {}) {
-  const url = `${LLM7_BASE2}/chat/completions`;
+  const url = llmUrl("/chat/completions");
   const res = await fetch(url, {
     method: "POST",
-    headers: llm7Headers2(),
+    headers: llmHeaders(),
     body: JSON.stringify({ model: AGENT_MODEL, messages, stream: true, max_tokens: 16e3 })
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`llm7 ${res.status}: ${text.slice(0, 300)}`);
+    throw llmError(res.status, text);
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();

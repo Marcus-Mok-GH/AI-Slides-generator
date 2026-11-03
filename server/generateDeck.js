@@ -1,10 +1,7 @@
 import { DeckStreamParser } from './streamParser.js'
 import { repairJson } from './jsonRepair.js'
 
-const LLM7_BASE = (process.env.LLM7_BASE_URL || 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1').replace(/\/$/, '')
-
-const DECK_MODEL = process.env.LLM7_DECK_MODEL || 'accounts/fireworks/models/kimi-k2p6'
-const SLIDE_MODEL = process.env.LLM7_SLIDE_MODEL || 'accounts/fireworks/models/kimi-k2p6'
+import { DECK_MODEL, SLIDE_MODEL, llmHeaders, llmUrl, llmError } from './llm.js'
 
 const FORMAT_DESCRIPTIONS = {
   presentation: 'a slide-based presentation deck',
@@ -177,15 +174,11 @@ this one idea using typography, geometry, color, gradients, spacing, and CSS-dra
 visual systems. Return strictly valid JSON. No markdown.`
 }
 
-function llm7Headers() {
-  return { 'Content-Type': 'application/json' }
-}
-
 async function callLlm7({ model, system, user }) {
-  const url = `${LLM7_BASE}/chat/completions`
+  const url = llmUrl('/chat/completions')
   const res = await fetch(url, {
     method: 'POST',
-    headers: llm7Headers(),
+    headers: llmHeaders(),
     body: JSON.stringify({
       model,
       max_tokens: 16000,
@@ -198,7 +191,7 @@ async function callLlm7({ model, system, user }) {
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`llm7 ${res.status}: ${text.slice(0, 300)}`)
+    throw llmError(res.status, text)
   }
 
   const data = await res.json().catch(() => null)
@@ -297,16 +290,16 @@ export async function generateDeck(ctx) {
 }
 
 /**
- * Streaming variant. Calls llm7 with the same prompt as generateDeck but
+ * Streaming variant. Calls the provider with the same prompt as generateDeck but
  * forwards meta + each completed slide as it parses out of the model's stream.
  */
 export async function streamGenerateDeck(ctx, handlers = {}) {
   const system = buildDeckSystemPrompt(ctx)
   const user = buildUserMessage(ctx.prompt)
 
-  const upstream = await fetch(`${LLM7_BASE}/chat/completions`, {
+  const upstream = await fetch(llmUrl('/chat/completions'), {
     method: 'POST',
-    headers: llm7Headers(),
+    headers: llmHeaders(),
     body: JSON.stringify({
       model: DECK_MODEL,
       stream: true,
@@ -320,7 +313,7 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
 
   if (!upstream.ok) {
     const text = await upstream.text().catch(() => '')
-    throw new Error(`llm7 ${upstream.status}: ${text.slice(0, 300)}`)
+    throw llmError(upstream.status, text)
   }
 
   const parser = new DeckStreamParser()

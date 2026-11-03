@@ -149,7 +149,13 @@ Check a deployment with:
 - `GET /api/diag` — imports each package/module in isolation and reports the one that fails (`?db=1` also exercises the database pool)
 
 Required environment variables: a Postgres connection string (`POSTGRES_URL` on
-Vercel, or `DATABASE_URL`) and `JWT_SECRET`.
+Vercel, or `DATABASE_URL`), `JWT_SECRET`, and `POLLINATIONS_API_KEY`.
+
+Text generation goes through Pollinations AI (`https://gen.pollinations.ai/v1`,
+OpenAI-compatible) using `openai/gpt-6-luna`. Override with
+`POLLINATIONS_BASE_URL`, `POLLINATIONS_DECK_MODEL`, `POLLINATIONS_SLIDE_MODEL`
+and `POLLINATIONS_AGENT_MODEL` if you want a different model per workload.
+Get a key at https://enter.pollinations.ai/keys.
 
 ---
 
