@@ -19,7 +19,7 @@ const PACKAGES = [
   'pg',
   '@neondatabase/serverless',
   'ws',
-  'bcrypt',
+  'bcryptjs',
   'jsonwebtoken',
   'pptxgenjs',
   'jspdf',
@@ -65,6 +65,30 @@ export default async function handler(req, res) {
     },
     packages: {},
     modules: {},
+  }
+
+  // Where is the code actually running, and what got deployed next to it?
+  // Vercel traces node_modules per function; if a dependency is missing from
+  // the bundle, every route that imports it dies at module evaluation.
+  try {
+    const fs = await import('node:fs')
+    report.fs = { cwd: process.cwd() }
+    for (const dir of ['/var/task', '/var/task/node_modules', '/var/task/api']) {
+      try {
+        const entries = fs.readdirSync(dir)
+        report.fs[dir] = { count: entries.length, sample: entries.slice(0, 15) }
+      } catch (err) {
+        report.fs[dir] = { error: err?.code || String(err) }
+      }
+    }
+    report.fs.packages = {}
+    for (const name of PACKAGES) {
+      report.fs.packages[name] = ['/var/task', '/var/task/api'].map((base) =>
+        fs.existsSync(`${base}/node_modules/${name}/package.json`) ? base : null,
+      ).filter(Boolean)
+    }
+  } catch (err) {
+    report.fs = { error: err?.message || String(err) }
   }
 
   for (const name of PACKAGES) {
