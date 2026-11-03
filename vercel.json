@@ -5,11 +5,11 @@
   "framework": null,
   "rewrites": [
     { "source": "/api/health", "destination": "/api/health.js" },
-    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/api/(.*)", "destination": "/api/index.cjs" },
     { "source": "/((?!assets|favicon\\.ico|.*\\.[a-zA-Z0-9]+$).*)", "destination": "/index.html" }
   ],
   "functions": {
-    "api/index.js": {
+    "api/index.cjs": {
       "maxDuration": 300
     },
     "api/health.js": {

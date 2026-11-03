@@ -7,11 +7,12 @@
     "dev": "concurrently -k -n server,vite -c magenta,cyan \"npm:dev:server\" \"npm:dev:vite\"",
     "db:init": "node scripts/db-init.js",
     "dev:vite": "vite --host 0.0.0.0 --port 5000",
-    "dev:server": "node api/index.js",
-    "build": "vite build",
-    "start": "node api/index.js",
+    "dev:server": "node serverless/entry.js",
+    "build": "vite build && node scripts/build-api.mjs",
+    "start": "node serverless/entry.js",
     "preview": "vite preview --host 0.0.0.0 --port 5000",
-    "test": "vitest run"
+    "test": "vitest run",
+    "api:build": "node scripts/build-api.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -33,7 +34,8 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.7.0",
     "vite": "^5.4.21",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.7",
+    "esbuild": "^0.21.5"
   },
   "engines": {
     "node": ">=20.x"
