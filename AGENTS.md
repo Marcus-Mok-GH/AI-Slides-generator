@@ -5,7 +5,7 @@
 **Branch:** (unknown - not in git repo)
 
 ## OVERVIEW
-AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backend. Uses Replit OIDC auth, PostgreSQL for persistence, and integrates with Orbitron API (Claude Sonnet 4.6) and Fireworks Flux for image generation.
+AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backend. Uses Replit OIDC auth, PostgreSQL for persistence, and integrates with Pollinations AI (openai/gpt-6-luna) for deck generation via server/llm.js.
 
 ## STRUCTURE
 ```
@@ -28,7 +28,7 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 |------|----------|-------|
 | Frontend entry | `src/App.jsx`, `src/main.jsx` | React root + bootstrap |
 | Backend entry | `api/index.js` (built) ← `serverless/entry.js` → `server/app.js` | Vercel function bundle ← entrypoint → Express app |
-| Slide generation | `server/generateDeck.js` | Orbitron API calls, prompt engineering |
+| Slide generation | `server/generateDeck.js` | Pollinations calls (via `server/llm.js`), prompt engineering |
 | Real-time updates | `server/streamParser.js` | SSE event parsing |
 | Authentication | `server/auth.js` | Replit OIDC, session management |
 | Database | `server/db.js` | Postgres schema, CRUD operations |
@@ -45,7 +45,7 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 |--------|------|----------|------|
 | `App` | Component | `src/App.jsx` | Root React component |
 | `streamGenerateDeck` | Function | `src/lib/api.js` | SSE deck generation client |
-| `generateDeck` | Function | `server/generateDeck.js` | Orbitron API orchestration |
+| `generateDeck` | Function | `server/generateDeck.js` | LLM orchestration (Pollinations) |
 | `streamParser` | Function | `server/streamParser.js` | Incremental JSON parser |
 | `isAuthenticated` | Middleware | `server/auth.js` | Auth guard for protected routes |
 | `generateId` | Function | `server/db.js` | Base64url deck ID generator |
@@ -142,7 +142,7 @@ SELECT COUNT(*) FROM sessions WHERE expire > NOW();
 9. **Mode budgets**: "concise" vs "detailed" changes layouts, bullets, speaker notes
 10. **HTML parser**: `decodeEntities()` is regex-based → handles well-formed HTML only
 11. **Vite proxy**: `/api` → `localhost:3001` with `changeOrigin: true` (CORS-safe)
-12. **External APIs**: Orbitron/Fireworks hardcoded → no fallback, coordinate with Conductor
+12. **External APIs**: Pollinations key comes from `POLLINATIONS_API_KEY`; base URL and models are overridable, but there is no fallback provider
 13. **Charts**: Dependency-free SVG in `lib/charts.js` (bar/line/pie only)
 
 ## ARCHITECTURE DECISIONS
@@ -178,8 +178,8 @@ SELECT COUNT(*) FROM sessions WHERE expire > NOW();
 
 | Service | Endpoint | Purpose | Fallback |
 |---------|----------|---------|----------|
-| Orbitron | `orbitron--pastelsjuice8t.replit.app/api` | Claude/GPT-5 calls | **None** (app breaks) |
-| Fireworks | `fireworks-endpoint--57crestcrepe.replit.app/api/v1/images` | Flux images | Images fail, slides complete |
+| Pollinations | `gen.pollinations.ai/v1` (`POLLINATIONS_API_KEY`) | GPT-6 Luna deck/agent calls | **None** (generation breaks) |
+| Fireworks (legacy proxy) | dead Replit app | Flux images | Images fail, slides complete |
 | Replit Auth | `replit.com/oidc` | OIDC auth | Users can’t sign in |
 | Postgres | `DATABASE_URL` | Sessions + decks | In-memory (data loss) |
 
