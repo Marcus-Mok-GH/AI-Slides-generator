@@ -83,7 +83,18 @@ async function loadDbModule(envVars = {}) {
 
   vi.doMock('ws', () => ({ default: wsMock }))
 
-  const mod = await import('../api/db.js')
+  const mod = await import('../api/_lib/db.js')
+
+  // Pool construction is lazy by design (see api/_lib/db.js) so a broken
+  // driver can never crash module load. Trigger it here so the assertions
+  // below can observe the constructor call.
+  if (mod.hasDb) {
+    try {
+      await mod.getPool()
+    } catch {
+      // A failing driver is asserted on separately; construction is what matters here.
+    }
+  }
 
   // Restore env
   process.env = savedEnv
@@ -376,7 +387,7 @@ async function loadDbModuleWithCapture(envVars = {}) {
   }))
   vi.doMock('ws', () => ({ default: {} }))
 
-  const mod = await import('../api/db.js')
+  const mod = await import('../api/_lib/db.js')
 
   process.env = savedEnv
 

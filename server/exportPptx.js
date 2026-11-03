@@ -1,5 +1,4 @@
 import PptxGenJS from 'pptxgenjs'
-import puppeteer from 'puppeteer'
 
 const PX_W = 1280
 const PX_H = 720
@@ -113,11 +112,37 @@ ${stripUnsafeTags(slide?.html) || textFallbackHtml(slide)}
 </html>`
 }
 
+/**
+ * Puppeteer is loaded on demand. Importing it at module scope means a missing
+ * or unlaunchable browser binary takes down the whole serverless function on
+ * cold start; here a failure is scoped to the export request that needs it.
+ */
+async function launchBrowser() {
+  let puppeteer
+  try {
+    const mod = await import('puppeteer')
+    puppeteer = mod.default || mod
+  } catch (err) {
+    const e = new Error('Headless browser unavailable on this host (Puppeteer could not be loaded)')
+    e.code = 'NO_BROWSER'
+    e.cause = err
+    throw e
+  }
+  try {
+    return await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    })
+  } catch (err) {
+    const e = new Error('Headless browser unavailable on this host: ' + (err?.message || 'launch failed'))
+    e.code = 'NO_BROWSER'
+    e.cause = err
+    throw e
+  }
+}
+
 async function renderSlideImages(deck) {
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  })
+  const browser = await launchBrowser()
   try {
     const page = await browser.newPage()
     await page.setViewport({ width: PX_W, height: PX_H, deviceScaleFactor: 1 })

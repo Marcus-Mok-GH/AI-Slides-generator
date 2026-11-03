@@ -125,11 +125,28 @@ npm start
 
 ---
 
+## Deploying to Vercel
+
+Only `api/index.js`, `api/health.js` and `api/diag.js` are functions. Every
+other backend module lives in `api/_lib/` — Vercel turns each supported file in
+`api/` into its own function, and the Hobby plan allows 12 functions per
+deployment, so putting shared code in `api/` breaks deploys.
+
+Check a deployment with:
+
+- `GET /api/health` — runtime, region, commit, whether a database is configured
+- `GET /api/diag` — imports each package/module in isolation and reports the one that fails (`?db=1` also exercises the database pool)
+
+Required environment variables: a Postgres connection string (`POSTGRES_URL` on
+Vercel, or `DATABASE_URL`) and `JWT_SECRET`.
+
+---
+
 ## Project layout (quick guide)
 
 - `src/` → frontend interface and slide editing experience
-- `server/` → core backend logic
-- `api/` → deployment wrapper for serverless-style entry
+- `api/` → Vercel functions (`index.js`, `health.js`, `diag.js`) plus `api/_lib/` shared backend code
+- `server/` → legacy mirror of `api/_lib/` (not deployed; keep in sync)
 - `README.md` → project overview (this file)
 - `AGENTS.md` → deep technical and architecture reference
 
@@ -140,7 +157,7 @@ npm start
 Current limitations include:
 - No real-time multi-user collaboration
 - No built-in version history for deck revisions
-- No offline export to PDF/PPTX yet
+- PDF/PPTX export needs a headless Chrome; on plain serverless hosts it returns a clear "browser unavailable" error
 - Mobile editing is more limited than desktop
 
 ---

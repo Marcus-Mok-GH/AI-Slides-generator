@@ -1,8 +1,13 @@
-import pg from 'pg'
-import { Pool as NeonPool, neonConfig } from '@neondatabase/serverless'
-import ws from 'ws'
-
-const { Pool } = pg
+/**
+ * Database driver loading is deliberately LAZY.
+ *
+ * `pg`, `@neondatabase/serverless` and `ws` are imported on first use instead
+ * of at module load. On Vercel, anything that throws while the function module
+ * is being evaluated — a missing native binding, a missing WebSocket
+ * implementation, a malformed connection string — kills the function before a
+ * single route can run, which reaches the user as a bare 500. Deferring the
+ * driver means a broken database degrades to 503s on DB routes only.
+ */
 
 // Support Neon (Vercel Storage), Supabase, or Replit PostgreSQL.
 const connectionString =
@@ -14,11 +19,6 @@ export const hasDb = Boolean(connectionString)
 const isSupabase = hasDb && /supabase\.(co|com)/i.test(connectionString)
 const isNeon = hasDb && /neon\.tech/i.test(connectionString)
 
-// Configure Neon for serverless environments
-if (isNeon) {
-  neonConfig.webSocketConstructor = ws
-}
-
 function createMockPool() {
   const noop = async () => ({ rows: [] })
   const mock = {
@@ -29,30 +29,77 @@ function createMockPool() {
   return mock
 }
 
-export const pool = hasDb
-  ? (isNeon
-    ? new NeonPool({
-        connectionString,
-        max: 10,
-        idleTimeoutMillis: 20_000,
-        connectionTimeoutMillis: 5_000,
-      })
-    : new Pool({
-        connectionString,
-        ssl: isSupabase ? { rejectUnauthorized: false } : undefined,
-        max: 10, // Slightly higher for Neon/Vercel
-        idleTimeoutMillis: 20_000,
-        connectionTimeoutMillis: 5_000,
-        maxUses: 7500, // Helps with long-running serverless connections
-      }))
-  : createMockPool()
+const mockPool = hasDb ? null : createMockPool()
 
-if (hasDb) {
-  pool.on('error', (err) => {
-    console.error('[db] unexpected pool error:', err)
-  })
-} else {
+if (!hasDb) {
   console.warn('[db] WARNING: DATABASE_URL is not set. Using no-op mock pool. DB-dependent routes will return 503.')
+}
+
+let _pool = null
+let _poolPromise = null
+
+async function initPool() {
+  if (isNeon) {
+    const [{ Pool: NeonPool, neonConfig }, wsModule] = await Promise.all([
+      import('@neondatabase/serverless'),
+      import('ws'),
+    ])
+    neonConfig.webSocketConstructor = wsModule.default || wsModule
+    return new NeonPool({
+      connectionString,
+      max: 10,
+      idleTimeoutMillis: 20_000,
+      connectionTimeoutMillis: 5_000,
+    })
+  }
+
+  const pgModule = await import('pg')
+  const Pool = (pgModule.default || pgModule).Pool
+  return new Pool({
+    connectionString,
+    ssl: isSupabase ? { rejectUnauthorized: false } : undefined,
+    max: 10, // Slightly higher for Neon/Vercel
+    idleTimeoutMillis: 20_000,
+    connectionTimeoutMillis: 5_000,
+    maxUses: 7500, // Helps with long-running serverless connections
+  })
+}
+
+async function getPool() {
+  if (!hasDb) return mockPool
+  if (_pool) return _pool
+  if (!_poolPromise) {
+    _poolPromise = initPool()
+      .then((created) => {
+        created.on?.('error', (err) => {
+          console.error('[db] unexpected pool error:', err)
+        })
+        _pool = created
+        return created
+      })
+      .catch((err) => {
+        _poolPromise = null
+        console.error('[db] pool initialization failed:', err?.message || err)
+        const wrapped = new Error(`Database unavailable: ${err?.message || 'pool init failed'}`)
+        wrapped.statusCode = 503
+        throw wrapped
+      })
+  }
+  return _poolPromise
+}
+
+/** Thin proxy so every existing call site keeps working unchanged. */
+export const pool = {
+  query: async (...args) => (await getPool()).query(...args),
+  connect: async () => (await getPool()).connect(),
+  on: () => {},
+  end: async () => {
+    if (!_pool) return
+    const current = _pool
+    _pool = null
+    _poolPromise = null
+    await current.end?.().catch(() => {})
+  },
 }
 
 function dbRequired() {
@@ -62,6 +109,8 @@ function dbRequired() {
     throw err
   }
 }
+
+export { getPool }
 
 // Async-safe id generator (handles environments without globalThis.crypto)
 export async function generateId() {
