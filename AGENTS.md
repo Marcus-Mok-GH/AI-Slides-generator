@@ -5,7 +5,7 @@
 **Branch:** (unknown - not in git repo)
 
 ## OVERVIEW
-AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backend. Uses Replit OIDC auth, PostgreSQL for persistence, and integrates with Pollinations AI (openai/gpt-6-luna) for deck generation via server/llm.js.
+AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backend. Uses email/password auth (bcryptjs + JWT), PostgreSQL for persistence, and integrates with Pollinations AI (openai/gpt-6-luna) for deck generation via server/llm.js.
 
 ## STRUCTURE
 ```
@@ -30,7 +30,7 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 | Backend entry | `api/index.js` (built) ← `serverless/entry.js` → `server/app.js` | Vercel function bundle ← entrypoint → Express app |
 | Slide generation | `server/generateDeck.js` | Pollinations calls (via `server/llm.js`), prompt engineering |
 | Real-time updates | `server/streamParser.js` | SSE event parsing |
-| Authentication | `server/auth.js` | Replit OIDC, session management |
+| Authentication | `server/middleware/auth.js`, `server/routes/auth.js` | Email/password, bcryptjs + JWT stored in localStorage |
 | Database | `server/db.js` | Postgres schema, CRUD operations |
 | API client | `src/lib/api.js` | Fetch wrappers, SSE handlers |
 | Styling | `src/index.css`, `src/*.css` | Standard CSS (no Tailwind) |
@@ -47,7 +47,7 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 | `streamGenerateDeck` | Function | `src/lib/api.js` | SSE deck generation client |
 | `generateDeck` | Function | `server/generateDeck.js` | LLM orchestration (Pollinations) |
 | `streamParser` | Function | `server/streamParser.js` | Incremental JSON parser |
-| `isAuthenticated` | Middleware | `server/auth.js` | Auth guard for protected routes |
+| `authMiddleware` | Middleware | `server/middleware/auth.js` | JWT guard for protected routes |
 | `generateId` | Function | `server/db.js` | Base64url deck ID generator |
 | `HtmlSlide` | Component | `src/components/HtmlSlide.jsx` | Sandboxed slide renderer |
 | `SlideViewer` | Component | `src/components/SlideViewer.jsx` | Deck editor UI |
@@ -58,7 +58,9 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 - **`src/lib/api.js`**: `streamGenerateDeck()`, `saveDeckApi()`, `fetchCurrentUser()`, `UnauthorizedError`
 - **`server/generateDeck.js`**: `generateDeck()`, `LAYOUTS`, `MODE_RULES`, `parseLength()`
 - **`server/db.js`**: `getPool()`, `migrate()`, `saveDeck()`, `listDecks()`, `deleteDeck()`, `generateId()`
-- **`server/auth.js`**: `isAuthenticated()`, `ensureAuthenticated()`, `getOidcConfig()`
+- **`server/middleware/auth.js`**: `signToken()`, `verifyToken()`, `hashPassword()`, `comparePassword()`, `authMiddleware()`, `optionalAuthMiddleware()`
+- **`server/routes/auth.js`**: default-exported Express router (register / login / me)
+- **`server/llm.js`**: `llmUrl()`, `llmHeaders()`, `llmError()`, `DECK_MODEL` / `SLIDE_MODEL` / `AGENT_MODEL` (all default `openai/gpt-6-luna`)
 - **`server/streamParser.js`**: `streamParser()` (SSE event parser)
 
 ## CONVENTIONS
@@ -66,7 +68,7 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 ### Project-Specific (deviations from standard)
 
 - **Single backend source + build step**: all Express code lives in `server/`. `serverless/entry.js` imports it for local dev, and `npm run api:build` bundles that entrypoint into the committed `api/index.js` (CommonJS) for Vercel. Re-run the build after touching `server/`.
-- **Top-level await in server**: `server/app.js` uses `await migrate()` before route registration - valid in ESM but non-traditional for Express apps.
+- **Lazy schema setup**: `server/app.js` never awaits `migrate()` at module scope. `ensureSchema()` runs on the first request, so a slow or broken database degrades DB routes instead of killing the function at import time. Do not reintroduce top-level await.
 - **No Redux/Zustand**: Uses React `useState` + callbacks with explicit prop drilling. State flows down, callbacks up.
 - **Debounced auto-save**: 700ms delay after last edit, skips if `deck.streaming === true`.
 - **URL routing**: Supports both `/slide/{id}` (canonical) and `?deck={id}` (legacy).
@@ -135,8 +137,8 @@ SELECT COUNT(*) FROM sessions WHERE expire > NOW();
 2. **Regeneration context**: Single-slide regen sends full deck to backend for narrative consistency
 3. **Image decoupling**: Image failures don’t block slide completion (shimmer → optional image)
 4. **Partial events**: Outdated partials are ignored if full slide arrives first
-5. **Replit Auth**: Sign-in redirects to `/api/login` (top-level nav), uses localStorage `returnTo`
-6. **Session refresh**: Auto-refreshes expired access tokens once via refresh token
+5. **Auth token**: JWT in `localStorage` under `slideai:token`; `src/lib/api.js` attaches it to every request and clears it on a 401
+6. **Schema bootstrap**: migrations run lazily on first request — the first request after a cold start may be slower
 7. **Deck IDs**: Base64url (9 bytes crypto) → `encodeURIComponent()` for URLs
 8. **Layout images**: "steps" and "comparison" excluded from auto-imagery (no space)
 9. **Mode budgets**: "concise" vs "detailed" changes layouts, bullets, speaker notes
@@ -147,31 +149,30 @@ SELECT COUNT(*) FROM sessions WHERE expire > NOW();
 
 ## ARCHITECTURE DECISIONS
 
-- **Dual entry (api + server)**: Supports Vercel serverless + local dev. Tradeoff: slight complexity for deployment flexibility.
+- **Single backend source + build step**: all Express code lives in `server/`; `serverless/entry.js` serves local dev and `npm run api:build` bundles it into `api/index.js` (CommonJS) for Vercel. Tradeoff: a build step to remember after backend edits.
 - **No TypeScript**: JavaScript/JSX only. Simplifies build, but loses type safety.
 - **No Redux**: Local state + callbacks. Easier to reason about, but prop drilling at scale.
 - **SSE over WebSockets**: Simpler for unidirectional streaming, but no bidirectional comms.
 - **Base64 images**: Embedded in JSON. Larger payloads, but simpler rendering.
 - **Hand-rolled charts**: No dependency, but limited features.
-- **Replit Auth**: Tight OIDC integration. Vendor lock-in risk.
+- **Self-hosted auth**: bcryptjs + JWT. No vendor lock-in, but no SSO / OAuth providers.
 
 ## PERFORMANCE OPTIMIZATIONS
 
 - Streaming SSE: Partial slides render immediately (better perceived speed)
 - Parallel image generation: Non-blocking, shimmer → swap (no UI hang)
 - Debounced auto-save: 700ms delay reduces DB writes
-- Cached OIDC config: 1-hour TTL reduces OpenID discovery calls
-- 7-day sessions: Postgres TTL with `connect-pg-simple` cleanup
+- Stateless JWT auth: no session lookup or session table on the request path
 - Incremental parsing: `streamParser.js` processes chunks (no full-buffer wait)
 
 ## KNOWN LIMITATIONS
 
 - No real-time collaboration (single-user decks)
-- No slide templates (always generated from scratch)
+- Templates are preset prompts, not true slide templates (decks are still generated from scratch)
 - No custom fonts (system fonts + CSS only)
 - No batch operations (one deck at a time)
 - No version history (auto-save overwrites)
-- No offline export (PDF/PPTX not implemented)
+- PDF/PPTX export depends on Puppeteer + headless Chrome, so it needs the Chrome binary at runtime
 - Mobile editing narrow (viewing optimized)
 
 ## EXTERNAL DEPENDENCIES
@@ -180,8 +181,7 @@ SELECT COUNT(*) FROM sessions WHERE expire > NOW();
 |---------|----------|---------|----------|
 | Pollinations | `gen.pollinations.ai/v1` (`POLLINATIONS_API_KEY`) | GPT-6 Luna deck/agent calls | **None** (generation breaks) |
 | Fireworks (legacy proxy) | dead Replit app | Flux images | Images fail, slides complete |
-| Replit Auth | `replit.com/oidc` | OIDC auth | Users can’t sign in |
-| Postgres | `DATABASE_URL` | Sessions + decks | In-memory (data loss) |
+| Postgres | `POSTGRES_URL` → `SUPABASE_DATABASE_URL` → `DATABASE_URL` | Users + decks | No-op mock pool (DB routes 503, data loss) |
 
 ---
 

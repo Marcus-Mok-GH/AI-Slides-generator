@@ -67,22 +67,22 @@ api/
    functions per deployment**; exceeding it fails the whole deploy with
    `exceeded_serverless_functions_per_deployment`. Shared code lives in
    `server/` (outside `api/`) and is bundled into `api/index.js` at build time.
-4. **Vercel's runtime may load an ESM `.js` file as CommonJS.** That produces
+2. **Vercel's runtime may load an ESM `.js` file as CommonJS.** That produces
    `Cannot use import statement outside a module` with no stack trace. Bundling
    the whole app into one CJS file is the reliable fix; don't reintroduce a
    multi-file import graph under `api/`.
-2. **No top-level `await` and no module-scope side effects that can throw.**
+3. **No top-level `await` and no module-scope side effects that can throw.**
    Module evaluation happens before any request; if it throws or hangs, every
    route returns a bare `FUNCTION_INVOCATION_FAILED` 500 with no stack trace.
    Schema setup therefore runs lazily via `ensureSchema()` on first request.
-3. **Load heavy/optional dependencies lazily.** `pg`,
+4. **Load heavy/optional dependencies lazily.** `pg`,
    `@neondatabase/serverless`, `ws` and `puppeteer` are all dynamic imports
    triggered on first use. A missing native binding or browser binary must
    degrade one route, never the whole function.
-4. **Always answer with JSON from `/api`.** `app.js` ends with a catch-all 404
+5. **Always answer with JSON from `/api`.** `app.js` ends with a catch-all 404
    and an error middleware, so failures surface as `{ error }` instead of
    Vercel's opaque HTML/plain-text error.
-5. **Debug with `/api/diag`.** It imports every package and module in the graph
+6. **Debug with `/api/diag`.** It imports every package and module in the graph
    individually and reports which one fails. Use `?db=1` to exercise the pool.
 
 ## Conventions
