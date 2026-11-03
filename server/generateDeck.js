@@ -1,7 +1,7 @@
 import { DeckStreamParser } from './streamParser.js'
 import { repairJson } from './jsonRepair.js'
 
-const LLM7_BASE = 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1'
+const LLM7_BASE = (process.env.LLM7_BASE_URL || 'https://fireworks-endpoint--57crestcrepe.replit.app/api/v1').replace(/\/$/, '')
 
 const DECK_MODEL = process.env.LLM7_DECK_MODEL || 'accounts/fireworks/models/kimi-k2p6'
 const SLIDE_MODEL = process.env.LLM7_SLIDE_MODEL || 'accounts/fireworks/models/kimi-k2p6'

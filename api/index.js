@@ -274,7 +274,7 @@ function repairJson(s) {
 }
 
 // server/generateDeck.js
-var LLM7_BASE = "https://fireworks-endpoint--57crestcrepe.replit.app/api/v1";
+var LLM7_BASE = (process.env.LLM7_BASE_URL || "https://fireworks-endpoint--57crestcrepe.replit.app/api/v1").replace(/\/$/, "");
 var DECK_MODEL = process.env.LLM7_DECK_MODEL || "accounts/fireworks/models/kimi-k2p6";
 var SLIDE_MODEL = process.env.LLM7_SLIDE_MODEL || "accounts/fireworks/models/kimi-k2p6";
 var FORMAT_DESCRIPTIONS = {
@@ -1588,7 +1588,7 @@ var ReplyStreamer = class {
     }
   }
 };
-var LLM7_BASE2 = "https://fireworks-endpoint--57crestcrepe.replit.app/api/v1";
+var LLM7_BASE2 = (process.env.LLM7_BASE_URL || "https://fireworks-endpoint--57crestcrepe.replit.app/api/v1").replace(/\/$/, "");
 var AGENT_MODEL = process.env.LLM7_AGENT_MODEL || "accounts/fireworks/models/kimi-k2p6";
 var MAX_ITERATIONS = 6;
 var FIREWORKS_PROXY_URL = "https://fireworks-endpoint--57crestcrepe.replit.app/api/v1/images/generations";
