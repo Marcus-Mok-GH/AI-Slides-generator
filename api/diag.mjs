@@ -64,6 +64,7 @@ export default async function handler(req, res) {
           process.env.POSTGRES_URL_NON_POOLING,
       ),
       jwtSecret: Boolean(process.env.JWT_SECRET),
+    pollinationsKey: Boolean(process.env.POLLINATIONS_API_KEY),
     },
     packages,
     note: 'Packages listed as missing are simply not imported by this function; each Vercel function only ships the dependencies it requires.',

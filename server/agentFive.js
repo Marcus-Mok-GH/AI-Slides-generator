@@ -70,7 +70,7 @@ import { repairJson } from './jsonRepair.js'
 import { runBrowserAction } from './tools/browser.js'
 import { createPlan, getPlanByChatId, updatePlanStatus, getRecentPlans } from './db.js'
 
-import { AGENT_MODEL, llmHeaders, llmUrl, llmError } from './llm.js'
+import { AGENT_MODEL, llmHeaders, llmUrl, llmError, assertLlmKey } from './llm.js'
 const MAX_ITERATIONS = 6
 
 const FIREWORKS_PROXY_URL =
@@ -249,6 +249,7 @@ function extractJson(text) {
  * callers can do something with partial output if desired.
  */
 async function callAgentLlm(messages, { onDelta } = {}) {
+  assertLlmKey()
   const url = llmUrl('/chat/completions')
   const res = await fetch(url, {
     method: 'POST',

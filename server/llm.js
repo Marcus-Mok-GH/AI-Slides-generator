@@ -23,6 +23,20 @@ export function llmKey() {
   return (process.env.POLLINATIONS_API_KEY || '').replace(/\s+/g, '')
 }
 
+/**
+ * Fails fast with an actionable message when the deployment has no key,
+ * instead of forwarding an anonymous request and relaying a cryptic 401.
+ */
+export function assertLlmKey() {
+  if (!llmKey()) {
+    const err = new Error(
+      'POLLINATIONS_API_KEY is not set. Add it to the environment (Vercel: Settings → Environment Variables) and redeploy.',
+    )
+    err.statusCode = 503
+    throw err
+  }
+}
+
 export function llmHeaders(extra = {}) {
   const headers = { 'Content-Type': 'application/json', ...extra }
   const key = llmKey()

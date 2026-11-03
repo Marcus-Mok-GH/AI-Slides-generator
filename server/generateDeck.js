@@ -1,7 +1,7 @@
 import { DeckStreamParser } from './streamParser.js'
 import { repairJson } from './jsonRepair.js'
 
-import { DECK_MODEL, SLIDE_MODEL, llmHeaders, llmUrl, llmError } from './llm.js'
+import { DECK_MODEL, SLIDE_MODEL, llmHeaders, llmUrl, llmError, assertLlmKey } from './llm.js'
 
 const FORMAT_DESCRIPTIONS = {
   presentation: 'a slide-based presentation deck',
@@ -175,6 +175,7 @@ visual systems. Return strictly valid JSON. No markdown.`
 }
 
 async function callLlm7({ model, system, user }) {
+  assertLlmKey()
   const url = llmUrl('/chat/completions')
   const res = await fetch(url, {
     method: 'POST',

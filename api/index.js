@@ -283,6 +283,15 @@ var AGENT_MODEL = process.env.POLLINATIONS_AGENT_MODEL || DEFAULT_MODEL;
 function llmKey() {
   return (process.env.POLLINATIONS_API_KEY || "").replace(/\s+/g, "");
 }
+function assertLlmKey() {
+  if (!llmKey()) {
+    const err = new Error(
+      "POLLINATIONS_API_KEY is not set. Add it to the environment (Vercel: Settings \u2192 Environment Variables) and redeploy."
+    );
+    err.statusCode = 503;
+    throw err;
+  }
+}
 function llmHeaders(extra = {}) {
   const headers = { "Content-Type": "application/json", ...extra };
   const key = llmKey();
@@ -463,6 +472,7 @@ this one idea using typography, geometry, color, gradients, spacing, and CSS-dra
 visual systems. Return strictly valid JSON. No markdown.`;
 }
 async function callLlm7({ model, system, user }) {
+  assertLlmKey();
   const url = llmUrl("/chat/completions");
   const res = await fetch(url, {
     method: "POST",
@@ -1791,6 +1801,7 @@ function extractJson2(text) {
   return { reply: text.trim(), needs_clarification: false, tool_calls: [] };
 }
 async function callAgentLlm(messages, { onDelta } = {}) {
+  assertLlmKey();
   const url = llmUrl("/chat/completions");
   const res = await fetch(url, {
     method: "POST",
