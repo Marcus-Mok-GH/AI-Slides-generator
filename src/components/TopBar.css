@@ -470,6 +470,28 @@
   }
 }
 
+/* Small phones: the brand, credits, theme and avatar fill the first row, so
+   give search its own full-width line instead of squeezing it to ~100px. */
+@media (max-width: 560px) {
+  .topbar {
+    flex-wrap: wrap;
+    padding: 10px max(16px, env(safe-area-inset-right)) 10px
+      max(16px, env(safe-area-inset-left));
+    gap: 8px 10px;
+  }
+  .search {
+    order: 3;
+    flex-basis: 100%;
+    max-width: none;
+  }
+  .search input {
+    font-size: 16px; /* >=16px stops iOS from zooming on focus */
+  }
+  .kbd {
+    display: none;
+  }
+}
+
 @media (max-width: 480px) {
   .credits-pill {
     padding: 0 10px;

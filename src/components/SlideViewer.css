@@ -2,6 +2,10 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  /* Mobile browsers report 100vh as the *largest* viewport, so with the URL
+     bar visible the bottom controls would sit below the fold. dvh tracks the
+     real visible viewport instead. */
+  height: 100dvh;
   background: var(--bg);
   position: relative;
 }
@@ -945,6 +949,23 @@
   margin-top: 12px;
 }
 
+/* Defaults for the split button labels (desktop). These MUST stay above the
+   mobile media queries — when they sat after them, equal specificity meant
+   the desktop values won on phones and the back/edit buttons rendered both
+   labels at once (overflowing the bar). */
+.vbar-edit-full {
+  display: inline;
+}
+.vbar-edit-mini {
+  display: none;
+}
+.vbar-back-icon {
+  display: none;
+}
+.vbar-back-label {
+  display: inline;
+}
+
 /* ============================================================
    Mobile thumb strip + responsive overrides
    ============================================================ */
@@ -1038,12 +1059,59 @@
     width: 60px;
   }
 
+  .stage {
+    align-items: center;
+    justify-content: center;
+  }
+
   .stage-slide-area {
-    padding: 18px 16px 24px;
+    /* Reset the desktop gutters/margins that used to squeeze the slide into a
+       thumbnail on a phone. */
+    margin: 0;
+    padding: 0;
+  }
+
+  /* On phones the slide is width-bound, so let the stage area hug the slide's
+     16:9 box instead of stretching to the full column height. The freed space
+     above/below is where the nav arrows and counter live, so they never sit on
+     top of the slide content. */
+  .stage-slide-area:not(.is-generating) {
+    flex: 0 0 auto;
+    width: 100%;
+    max-height: 100%;
+    aspect-ratio: 16 / 9;
+  }
+  .stage-slide-area.is-generating {
+    flex: 1;
+    /* `align-items: center` on the stage keeps the slide hug-height; the
+       thinking card needs the full column instead. */
+    align-self: stretch;
+    min-height: 0;
+    padding: 12px;
+    /* The thinking card is taller than a short phone screen — let it scroll
+       instead of hanging off the bottom edge. */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
   .stage-frame {
-    border-radius: 14px;
+    border-radius: 12px;
   }
+
+  /* Controls sit below the slide box rather than on top of it. */
+  .stage-nav {
+    top: auto;
+    bottom: -58px;
+    transform: none;
+    width: 44px;
+    height: 44px;
+  }
+  .stage-nav.prev { left: calc(50% - 100px); }
+  .stage-nav.next { right: calc(50% - 100px); }
+  .stage-counter-pill {
+    bottom: -48px;
+  }
+
 
   /* The slide itself is rendered on a fixed 1280×720 canvas and uniformly
      scaled to fit the stage, so its internal layout/typography no longer
@@ -1051,7 +1119,10 @@
 
   /* Compact viewer top bar */
   .viewer-bar {
-    padding: 10px 14px;
+    /* Notches sit on the left/right in landscape, so keep its controls inside
+       the safe area. */
+    padding: 10px max(14px, env(safe-area-inset-right)) 10px
+      max(14px, env(safe-area-inset-left));
     gap: 8px;
   }
   .vbar-back-label {
@@ -1066,6 +1137,9 @@
     flex-shrink: 0;
   }
   .vbar-back-icon {
+    /* The shared defaults hide the arrow and show the word label; on phones
+       it is the other way round. Without this the button renders empty. */
+    display: inline;
     font-size: 18px;
   }
   .vbar-meta {
@@ -1105,25 +1179,20 @@
   .viewer-bar .vbar-status {
     display: none;
   }
-  .stage-slide-area {
-    padding: 10px 8px 20px;
+  .thinking-panel {
+    padding: 8px 4px;
   }
   .stage-nav {
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
   }
-  .stage-nav.prev { left: 4px; }
-  .stage-nav.next { right: 4px; }
+  .stage-nav.prev { left: calc(50% - 96px); }
+  .stage-nav.next { right: calc(50% - 96px); }
   .stage-counter-pill {
-    bottom: 8px;
-    font-size: 11px;
-    padding: 4px 10px;
-  }
-  .notes-toggle {
-    bottom: 8px;
-    right: 10px;
-    min-height: 36px;
+    bottom: -46px;
+    font-size: 12px;
+    padding: 5px 12px;
   }
   .thumb-strip {
     padding: 8px 10px;
@@ -1149,8 +1218,36 @@
   .vbar-title {
     gap: 4px;
   }
-  .stage-slide-area {
-    padding: 8px 12px 12px;
+  /* Landscape: height is the binding constraint, so drop the 16:9 box and let
+     the stage fill the column — the slide scales down inside it and the nav
+     arrows sit in the empty side margins instead of below the slide. */
+  .stage {
+    align-items: stretch;
+  }
+  .stage-slide-area:not(.is-generating) {
+    flex: 1 1 auto;
+    width: auto;
+    height: 100%;
+    aspect-ratio: auto;
+    margin: 0;
+    /* Keep the slide off the very edges of the screen, and clear of a notch
+       when the phone is rotated. */
+    padding: 8px max(60px, calc(env(safe-area-inset-right, 0px) + 20px)) 10px
+      max(60px, calc(env(safe-area-inset-left, 0px) + 20px));
+  }
+  .stage-nav {
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+  }
+  .stage-nav.prev { left: 10px; }
+  .stage-nav.next { right: 10px; }
+  .stage-counter-pill {
+    top: 10px;
+    right: 10px;
+    left: auto;
+    bottom: auto;
+    transform: none;
   }
   .thumb-strip {
     padding: 6px 10px;
@@ -1158,20 +1255,6 @@
   .notes-panel.is-open {
     height: 110px;
   }
-}
-
-/* Defaults for the wide buttons / split labels (desktop) */
-.vbar-edit-full {
-  display: inline;
-}
-.vbar-edit-mini {
-  display: none;
-}
-.vbar-back-icon {
-  display: none;
-}
-.vbar-back-label {
-  display: inline;
 }
 
 /* Editor backdrop (mobile only) */
@@ -1397,6 +1480,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Height of the bottom HUD; the notes sheet sits above it. */
+  --present-hud-h: 56px;
 }
 
 /* Slide stage — fills all space above the HUD */
@@ -1410,18 +1495,7 @@
   overflow: hidden;
 }
 
-/* The slide iframe inside present mode — scale to fill */
-.present-stage > .html-slide-wrap,
-.present-stage > .slide-wrap,
-.present-stage > div {
-  width: 100%;
-  height: 100%;
-  max-width: calc((100vh - 72px) * 16 / 9);
-  max-height: calc(100vw * 9 / 16);
-  position: relative;
-}
 
-/* Click-zone hover hints */
 .present-zone-hint {
   position: absolute;
   top: 0;
@@ -1449,13 +1523,16 @@
 /* Bottom HUD bar */
 .present-hud {
   flex-shrink: 0;
-  height: 56px;
+  height: var(--present-hud-h, 56px);
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 0 20px;
-  background: var(--bg);
-  border-top: 1px solid var(--border);
+  /* The overlay is always black, so the HUD needs dark chrome of its own —
+     var(--bg) flips to white in light theme and made the translucent
+     buttons invisible. */
+  background: #000;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .present-hud-btn {
@@ -1535,7 +1612,7 @@
 /* Speaker notes panel — slides up from bottom */
 .present-notes {
   position: absolute;
-  bottom: 56px;
+  bottom: var(--present-hud-h, 56px);
   left: 0;
   right: 0;
   max-height: 30vh;
@@ -1582,18 +1659,102 @@
 .present-slide-enter-right { animation-name: slide-in-right; }
 .present-slide-enter-left  { animation-name: slide-in-left; }
 
-/* Slide wrapper inside present mode — scales to fill stage */
-.present-slide-wrap {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* The slide is laid out on the canonical 1280×720 canvas and scaled to fit
+   whichever stage area the device gives us, so nothing is ever cropped. */
+.present-stage-inner {
+  position: absolute;
+  inset: 0;
 }
 
-/* HtmlSlide iframe inside present mode — stretch to fill */
-.present-slide-wrap .html-slide-frame {
-  width: min(100vw, calc((100vh - 72px) * 16 / 9));
-  height: min(calc(100vh - 72px), calc(100vw * 9 / 16));
-  display: block;
+.present-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #000;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.present-slide-anim {
+  width: 100%;
+  height: 100%;
+}
+
+
+/* Portrait phones: nudge the viewer toward landscape for a readable slide */
+.present-rotate-hint {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.present-rotate-hint-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+@media (max-width: 900px) and (orientation: portrait) {
+  .present-rotate-hint {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 900px) {
+  .present-overlay {
+    --present-hud-h: 62px;
+  }
+  .present-hud {
+    /* Grow past the fixed height so the home-indicator inset does not
+       squeeze the buttons. */
+    height: calc(var(--present-hud-h) + env(safe-area-inset-bottom, 0px));
+    padding: 0 max(10px, env(safe-area-inset-right))
+      env(safe-area-inset-bottom, 0px) max(10px, env(safe-area-inset-left));
+    gap: 6px;
+  }
+  .present-hud-btn {
+    height: 44px;
+    min-width: 44px;
+    padding: 0 12px;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .present-hud-btn.present-exit {
+    padding: 0 10px;
+    font-size: 13px;
+  }
+  .present-hud-sep {
+    display: none;
+  }
+  .present-counter {
+    gap: 3px;
+    min-width: 0;
+  }
+  .present-progress {
+    width: 100%;
+    max-width: 140px;
+  }
+  .present-counter-text {
+    font-size: 11px;
+  }
+  .present-notes {
+    padding: 14px 18px 18px;
+    max-height: 34vh;
+  }
+  .present-notes-text {
+    font-size: 15px;
+  }
 }

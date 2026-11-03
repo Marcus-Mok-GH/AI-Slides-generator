@@ -83,6 +83,15 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
   for the ⌘K hint.
 - **Viewer layout**: `SlideViewer.css` puts the desktop grid in its base rules
   and keeps the trailing media queries for mobile/touch overrides only.
+- **Mobile viewer**: under 900px the stage area hugs the slide's 16:9 box
+  (`aspect-ratio`, no desktop gutters) and the prev/next arrows plus counter
+  sit *below* that box (`bottom: -58px`) instead of on top of the slide.
+  Landscape switches to `height: 100%` with side gutters because height, not
+  width, is the binding constraint. `.viewer` uses `100dvh` so browser chrome
+  never pushes the controls below the fold. The stage supports swipe nav.
+- **Touch + notch**: `index.html` sets `viewport-fit=cover`; anything pinned to
+  an edge (mobile nav, present HUD, editor drawer, viewer bar) must pad with
+  `env(safe-area-inset-*)`.
 - **Slide charts**: Hand-rolled SVG in `lib/charts.js` (no Chart.js/Recharts dependency).
 
 ### Anti-Patterns (THIS PROJECT)
@@ -190,7 +199,7 @@ SELECT id, email, created_at FROM users ORDER BY created_at DESC;
 - No batch operations (one deck at a time)
 - No version history (auto-save overwrites)
 - PDF/PPTX export depends on Puppeteer + headless Chrome, so it needs the Chrome binary at runtime
-- Mobile editing narrow (viewing optimized)
+- Mobile editing is a slide-up drawer over the slide, so you edit HTML/CSS without a live preview
 - No live image provider: Agent Five's image tool points at an offline proxy
 - No error boundary: a render-time throw blanks the app instead of showing a fallback
 

@@ -27,7 +27,15 @@ function useFitScale(containerRef) {
     const compute = () => {
       const r = el.getBoundingClientRect()
       if (r.width === 0 || r.height === 0) return
-      const s = Math.min(r.width / SLIDE_WIDTH, r.height / SLIDE_HEIGHT)
+      // Fit inside the padding box so framed stages keep their breathing room
+      // on every breakpoint (mobile stage padding, landscape gutters, ...).
+      const cs = getComputedStyle(el)
+      const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0)
+      const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0)
+      const w = Math.max(r.width - padX, 0)
+      const h = Math.max(r.height - padY, 0)
+      if (w === 0 || h === 0) return
+      const s = Math.min(w / SLIDE_WIDTH, h / SLIDE_HEIGHT)
       setScale(s > 0 ? s : 0)
     }
     compute()
@@ -201,6 +209,9 @@ function ThinkingPanel({ theme, expectedCount, slidesSoFar, prompt, deckTitle, t
 
 function PresentMode({ slides, theme, active, total, deckTitle, onNext, onPrev, onExit }) {
   const containerRef = useRef(null)
+  const stageRef = useRef(null)
+  const scale = useFitScale(stageRef)
+  const touchStartRef = useRef(null)
   const [notesOpen, setNotesOpen] = useState(false)
   const [dir, setDir] = useState(0) // -1 left, 0 none, 1 right (for animation)
   const slide = slides[active]
@@ -247,26 +258,66 @@ function PresentMode({ slides, theme, active, total, deckTitle, onNext, onPrev, 
     else if (pct > 0.7) { setDir(1); onNext() }
   }
 
+  /* Swipe left/right to change slides on touch devices. */
+  function handleTouchStart(e) {
+    const t = e.changedTouches?.[0]
+    if (!t) return
+    touchStartRef.current = { x: t.clientX, y: t.clientY }
+  }
+
+  function handleTouchEnd(e) {
+    const start = touchStartRef.current
+    touchStartRef.current = null
+    const t = e.changedTouches?.[0]
+    if (!start || !t) return
+    const dx = t.clientX - start.x
+    const dy = t.clientY - start.y
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.4) return
+    if (dx < 0) { setDir(1); onNext() }
+    else { setDir(-1); onPrev() }
+  }
+
   const pct = total > 1 ? Math.round(((active + 1) / total) * 100) : 100
 
   return (
     <div className="present-overlay" ref={containerRef}>
       {/* Slide area — clickable for nav */}
-      <div className="present-stage" onClick={handleZoneClick}>
-        {slide ? (
-          <div
-            key={active}
-            className={`present-slide-wrap present-slide-enter present-slide-enter-${dir === 1 ? 'right' : dir === -1 ? 'left' : 'none'}`}
-          >
-            <HtmlSlide
-              slide={slide}
-              theme={theme}
-              index={active}
-              total={total}
-              deckTitle={deckTitle}
-            />
-          </div>
-        ) : null}
+      <div
+        className="present-stage"
+        onClick={handleZoneClick}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="present-stage-inner" ref={stageRef}>
+          {slide && scale > 0 ? (
+            <div
+              className="present-frame"
+              style={{
+                width: `${SLIDE_WIDTH}px`,
+                height: `${SLIDE_HEIGHT}px`,
+                transform: `translate(-50%, -50%) scale(${scale})`,
+              }}
+            >
+              <div
+                key={active}
+                className={`present-slide-anim present-slide-enter present-slide-enter-${dir === 1 ? 'right' : dir === -1 ? 'left' : 'none'}`}
+              >
+                <HtmlSlide
+                  slide={slide}
+                  theme={theme}
+                  index={active}
+                  total={total}
+                  deckTitle={deckTitle}
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="present-rotate-hint" aria-hidden>
+          <span className="present-rotate-hint-icon">⟳</span>
+          Rotate your phone for a bigger view
+        </div>
 
         {/* Ghost click-zone hints */}
         {active > 0 && (
@@ -518,6 +569,28 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
   const userJump = (i) => {
     userNavigatedRef.current = true
     setActive(i)
+  }
+
+  /* Swipe left/right on the stage to move between slides (touch devices). */
+  const stageTouchRef = useRef(null)
+  function onStageTouchStart(e) {
+    const t = e.changedTouches?.[0]
+    if (!t) return
+    stageTouchRef.current = { x: t.clientX, y: t.clientY }
+  }
+  function onStageTouchEnd(e) {
+    const start = stageTouchRef.current
+    stageTouchRef.current = null
+    const t = e.changedTouches?.[0]
+    if (!start || !t || slideCount === 0) return
+    const dx = t.clientX - start.x
+    const dy = t.clientY - start.y
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.4) return
+    userJump(
+      dx < 0
+        ? Math.min(active + 1, slideCount - 1)
+        : Math.max(active - 1, 0),
+    )
   }
 
   useEffect(() => {
@@ -785,7 +858,12 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
         </div>
 
         <main className="stage">
-          <div className="stage-slide-area" ref={stageRef}>
+          <div
+            className={`stage-slide-area${showGenerating ? ' is-generating' : ''}`}
+            ref={stageRef}
+            onTouchStart={onStageTouchStart}
+            onTouchEnd={onStageTouchEnd}
+          >
             {showGenerating ? (
               <ThinkingPanel
                 theme={deck.theme || {}}

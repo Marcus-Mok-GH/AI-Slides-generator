@@ -512,6 +512,15 @@
   .suggestions { gap: 8px; justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 8px; scrollbar-width: none; -ms-overflow-style: none; margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
   .suggestions::-webkit-scrollbar { display: none; }
   .sugg-title { flex-shrink: 0; }
+  /* Chips stay single-line and scroll horizontally instead of squeezing
+     into narrow, tall pills. */
+  .sugg-chip {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    max-width: 80vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .select { font-size: 16px; padding: 10px 12px; }
 }
 

@@ -363,8 +363,8 @@
 /* ---- Mobile ---- */
 @media (max-width: 720px) {
   .opts-page { padding: 4px 0 60px; }
-  .theme-grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
-  .theme-card { min-height: 80px; }
+  .theme-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .theme-card { min-height: 76px; }
   .opts-generate-btn { width: 100%; justify-content: center; min-height: 48px; }
   .opts-footer { justify-content: stretch; }
   .seg { flex-wrap: wrap; }

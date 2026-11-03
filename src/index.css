@@ -139,6 +139,9 @@ h1, h2, h3, h4 {
 
 html {
   scroll-behavior: smooth;
+  /* Stop iOS Safari from inflating text in landscape. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html,
