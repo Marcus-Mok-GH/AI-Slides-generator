@@ -1,4 +1,9 @@
-import bcrypt from 'bcrypt'
+// bcryptjs is a pure-JS implementation of the exact same $2b$ algorithm as
+// the native `bcrypt` module, so existing stored hashes keep working. The
+// native module is avoided on purpose: it is a compiled addon, and a binary
+// that does not match the serverless runtime throws on import — which takes
+// the whole function down before any route can answer.
+import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { upsertUser, findUserByEmail, createUser } from '../db.js'
 
