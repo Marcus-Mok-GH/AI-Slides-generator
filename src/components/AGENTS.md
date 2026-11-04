@@ -27,7 +27,7 @@ src/components/
 | Render slides | `HtmlSlide.jsx` | Sandboxed iframe with slide HTML/CSS |
 | View slide thumbnails | `ThumbPreview.jsx` | Lazy 16:9 iframe thumbs used by the viewer rail + mobile strip |
 | Edit deck | `SlideViewer.jsx` | Grid/full-screen modes, drag-to-reorder |
-| Change layout | `SlideEditor.jsx` | Right sidebar, layout picker, text editing |
+| Change layout | `SlideEditor.jsx` | Right sidebar, layout picker, AI edit prompt box |
 | Create new deck | `CreateHero.jsx` | Prompt input, template chips, URL fetcher |
 | View recent decks | `RecentGallery.jsx` | Search, open, delete actions |
 | Top navigation | `TopBar.jsx` | Logo, search bar, theme toggle, user menu |

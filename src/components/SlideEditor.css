@@ -375,3 +375,61 @@
     font-size: 14px;
   }
 }
+
+/* ---- AI edit prompt box ---- */
+.ai-edit-section {
+  border-radius: var(--radius-lg);
+}
+
+.ai-edit-input {
+  min-height: 74px;
+}
+
+.ai-edit-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ai-edit-chip {
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease,
+    background-color var(--duration-fast) ease;
+}
+
+.ai-edit-chip:hover {
+  color: var(--text);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.ai-apply-btn {
+  width: 100%;
+  background: var(--accent-grad);
+  color: var(--on-accent);
+  box-shadow: 0 8px 24px -10px var(--accent-glow);
+}
+
+.ai-apply-btn:hover:not(:disabled) {
+  background: var(--accent-grad);
+  filter: brightness(1.06);
+  box-shadow: 0 12px 28px -10px var(--accent-glow);
+}
+
+.ai-apply-btn:disabled {
+  opacity: 0.5;
+}
+
+.ai-apply-btn .spinner-sm {
+  border-color: color-mix(in srgb, var(--on-accent) 40%, transparent);
+  border-top-color: var(--on-accent);
+}

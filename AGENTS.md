@@ -220,8 +220,8 @@ SELECT id, email, created_at FROM users ORDER BY created_at DESC;
 - No version history (auto-save overwrites)
 - PDF/PPTX export depends on Puppeteer + headless Chrome, so it needs the Chrome binary at runtime
 - Mobile editing is a bottom sheet that stops part-way up the screen; the live
-  slide preview above it is small on short phones (~300px wide) and the space
-  left for the HTML/CSS fields is correspondingly short
+  slide preview above it is small on short phones (~300px wide) and the edit
+  prompt box is correspondingly short
 - No live image provider: Agent Five's image tool points at an offline proxy
 - No error boundary: a render-time throw blanks the app instead of showing a fallback
 

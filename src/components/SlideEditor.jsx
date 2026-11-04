@@ -1,9 +1,19 @@
 import { useState } from 'react'
-import { regenerateSlide, redesignSlide } from '../lib/api.js'
+import { editSlide, regenerateSlide, redesignSlide } from '../lib/api.js'
 import './SlideEditor.css'
+
+const AI_EDIT_CHIPS = [
+  'Make it more minimal',
+  'Bigger title',
+  'Tighten the wording',
+  'More visual contrast',
+]
 
 export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }) {
   const slide = deck.slides[slideIndex]
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiEditing, setAiEditing] = useState(false)
+  const [aiError, setAiError] = useState('')
   const [instruction, setInstruction] = useState('')
   const [regenerating, setRegenerating] = useState(false)
   const [regenError, setRegenError] = useState('')
@@ -14,6 +24,24 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
 
   function patch(partial) {
     onChangeSlide({ ...slide, ...partial })
+  }
+
+  async function doAiEdit() {
+    setAiEditing(true)
+    setAiError('')
+    try {
+      const newSlide = await editSlide({
+        deck,
+        slideIndex,
+        instruction: aiPrompt,
+      })
+      onChangeSlide(newSlide)
+      setAiPrompt('')
+    } catch (e) {
+      setAiError(e.message || 'Failed to edit slide')
+    } finally {
+      setAiEditing(false)
+    }
   }
 
   async function doRegenerate() {
@@ -58,7 +86,7 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
       <div className="editor-head">
         <div className="editor-head-text">
           <span className="editor-eyebrow">Editing slide {slideIndex + 1}</span>
-          <h3 className="editor-title">HTML canvas</h3>
+          <h3 className="editor-title">Edit slide</h3>
         </div>
         {onClose && (
           <button
@@ -82,28 +110,51 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
         />
       </div>
 
-      <div className="ed-section">
-        <label className="ed-label">HTML</label>
+      <div className="ed-section ai-edit-section">
+        <label className="ed-label">Describe what to change</label>
         <textarea
-          className="ed-textarea ed-code"
-          rows={10}
-          value={slide.html || ''}
-          onChange={(e) => patch({ html: e.target.value })}
-          placeholder="<div class=&quot;slide&quot;>...</div>"
+          className="ed-textarea ai-edit-input"
+          rows={3}
+          value={aiPrompt}
+          onChange={(e) => setAiPrompt(e.target.value)}
+          placeholder="e.g. Swap the list for three stat cards, and make the title punchier"
           spellCheck={false}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && aiPrompt.trim() && !aiEditing) {
+              doAiEdit()
+            }
+          }}
         />
-      </div>
-
-      <div className="ed-section">
-        <label className="ed-label">CSS</label>
-        <textarea
-          className="ed-textarea ed-code"
-          rows={12}
-          value={slide.css || ''}
-          onChange={(e) => patch({ css: e.target.value })}
-          placeholder=".slide { ... }"
-          spellCheck={false}
-        />
+        <div className="ai-edit-chips">
+          {AI_EDIT_CHIPS.map((chip) => (
+            <button
+              key={chip}
+              type="button"
+              className="ai-edit-chip"
+              onClick={() => setAiPrompt(chip)}
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="regen-btn ai-apply-btn"
+          disabled={aiEditing || !aiPrompt.trim()}
+          onClick={doAiEdit}
+        >
+          {aiEditing ? (
+            <>
+              <span className="spinner-sm" /> Applying…
+            </>
+          ) : (
+            'Apply edit ✦'
+          )}
+        </button>
+        <p className="regen-hint">
+          AI makes targeted edits to this slide — everything else stays untouched. (Ctrl+Enter)
+        </p>
+        {aiError && <div className="regen-error">{aiError}</div>}
       </div>
 
       <div className="ed-section">

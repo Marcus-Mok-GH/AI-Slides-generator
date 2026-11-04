@@ -1,5 +1,5 @@
 import express from 'express'
-import { generateDeck, streamGenerateDeck, regenerateSlide, redesignSlide } from './generateDeck.js'
+import { generateDeck, streamGenerateDeck, regenerateSlide, redesignSlide, editSlide } from './generateDeck.js'
 import {
   listDecks, getDeck, saveDeck, deleteDeck, renameDeck, migrate,
   migratePromptHistory, savePromptHistory, getPromptHistory, deletePromptHistoryItem,
@@ -665,6 +665,23 @@ function decodeEntities(s) {
     .replace(/&#39;/g, "'")
     .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(parseInt(d, 10)))
 }
+
+app.post('/api/edit-slide', async (req, res) => {
+  try {
+    const { deck, slideIndex, instruction } = req.body || {}
+    const { slide, notes } = await editSlide({
+      deck,
+      slideIndex: Number(slideIndex),
+      instruction: typeof instruction === 'string' ? instruction.trim() : '',
+    })
+    res.json({ slide, notes })
+  } catch (err) {
+    console.error('[edit-slide] error:', err)
+    res.status(500).json({
+      error: err?.message || 'Failed to edit slide',
+    })
+  }
+})
 
 app.post('/api/regenerate-slide', async (req, res) => {
   try {

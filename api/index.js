@@ -803,6 +803,156 @@ Return JSON for the rewritten slide only.`;
   const parsed = extractJson(content);
   return normalizeSlide(parsed, slideIndex);
 }
+function buildEditSystemPrompt() {
+  return `You are an expert slide editor applying TARGETED edits to ONE slide's
+html and css. You are given the current html and css plus a user instruction.
+
+You are a strict JSON-only assistant. Return ONLY a JSON object \u2014 no prose,
+no code fences, no commentary \u2014 in ONE of these two shapes:
+
+1) TARGETED EDITS (preferred \u2014 use whenever the change is localized):
+{
+  "ops": [
+    {
+      "target": "html" | "css",
+      "search_block": "exact text copied verbatim from the current html/css",
+      "replace_block": "the replacement text"
+    }
+  ],
+  "notes": "one short sentence describing what changed"
+}
+
+Rules for ops:
+- search_block must be copied EXACTLY from the current code, character for
+  character (whitespace included), and must be long enough to be UNIQUE in
+  its target field \u2014 it must occur exactly once.
+- Use as few ops as possible. Ops apply in order.
+- An empty replace_block deletes the search_block.
+- You may add new css by appending: search for the last css rule and extend it.
+
+2) FULL REPLACEMENT (only when the instruction requires rewriting most of
+   the slide \u2014 e.g. a new layout direction):
+{
+  "html": "<div class='slide s2'> \u2026 </div>",
+  "css":  ".slide { \u2026 }",
+  "notes": "one short sentence describing what changed"
+}
+
+HARD CONSTRAINTS (1280\xD7720 sandbox):
+- html keeps ONE root: the SAME root div the slide already has (e.g.
+  <div class='slide s2'>). Copy its attributes and quote style exactly \u2014
+  never rename or requote it.
+- Use semantic markup only: <h1>, <h2>, <p>, <ul><li>, <ol><li>,
+  <blockquote>, <figure>, <figcaption>, <span>, <div>, <cite>.
+- Forbidden tags: <html>, <head>, <body>, <script>, <link>, <style>,
+  <img>, <iframe>. No external assets. No @import. No url(http\u2026).
+- Keep using the host CSS vars: --bg, --primary, --accent, --fg, --muted.
+- css selectors stay slide-scoped (start with .slide\u2026).
+- Do NOT change speakerNotes \u2014 they are not part of html/css.
+- Preserve everything the user did NOT ask to change: wording, structure,
+  classes, visual treatments.
+
+Return strictly valid JSON. Nothing else.`;
+}
+function assertSlideRoot(html) {
+  if (!/<div\b[^>]*class=(['"])[^'"]*\bslide\b[^'"]*\1/i.test(html)) {
+    throw new Error('edited html lost its slide root div (class="slide \u2026")');
+  }
+}
+function applyEditOps(slide, ops) {
+  let html = slide.html || "";
+  let css = slide.css || "";
+  ops.forEach((op, i) => {
+    if (!op || typeof op !== "object") {
+      throw new Error(`op ${i + 1}: not an object`);
+    }
+    const target = op.target;
+    if (target !== "html" && target !== "css") {
+      throw new Error(`op ${i + 1}: target must be "html" or "css"`);
+    }
+    const search = String(op.search_block ?? "");
+    const replace = String(op.replace_block ?? "");
+    if (!search) throw new Error(`op ${i + 1}: empty search_block`);
+    const current = target === "html" ? html : css;
+    const first = current.indexOf(search);
+    if (first === -1) {
+      throw new Error(
+        `op ${i + 1}: search_block not found in ${target} (starts with: ${JSON.stringify(search.slice(0, 80))})`
+      );
+    }
+    if (current.indexOf(search, first + 1) !== -1) {
+      throw new Error(`op ${i + 1}: search_block matches multiple times in ${target} \u2014 make it more specific`);
+    }
+    const next = current.slice(0, first) + replace + current.slice(first + search.length);
+    if (target === "html") html = next;
+    else css = next;
+  });
+  return { html, css };
+}
+async function editSlide({ deck, slideIndex, instruction }) {
+  if (!deck || !Array.isArray(deck.slides)) {
+    throw new Error("Missing deck");
+  }
+  if (slideIndex < 0 || slideIndex >= deck.slides.length) {
+    throw new Error("Invalid slideIndex");
+  }
+  if (!instruction || !instruction.trim()) {
+    throw new Error("Missing instruction");
+  }
+  const target = deck.slides[slideIndex];
+  const system = buildEditSystemPrompt();
+  const user = `Slide #${slideIndex + 1} of deck "${deck.title || "Untitled"}".
+
+Current html:
+"""${target.html || ""}"""
+
+Current css:
+"""${target.css || ""}"""
+
+User instruction:
+"""${instruction.trim()}"""
+
+Return JSON \u2014 targeted "ops" if possible, else full "html"+"css" replacement.`;
+  let lastErr = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const prompt = attempt === 0 ? user : `${user}
+
+Your previous response failed to apply: ${lastErr.message}
+Return corrected JSON. search_block values must be copied EXACTLY from the
+current html/css above.`;
+    const content = await callLlm7({ model: SLIDE_MODEL, system, user: prompt });
+    const parsed = extractJson(content);
+    if (typeof parsed?.html === "string" && parsed.html.trim()) {
+      const html = parsed.html.trim();
+      assertSlideRoot(html);
+      return {
+        slide: {
+          ...target,
+          html,
+          css: typeof parsed.css === "string" ? parsed.css.trim() : target.css || ""
+        },
+        notes: typeof parsed.notes === "string" ? parsed.notes : ""
+      };
+    }
+    if (Array.isArray(parsed?.ops) && parsed.ops.length > 0) {
+      try {
+        const { html, css } = applyEditOps(target, parsed.ops);
+        assertSlideRoot(html);
+        return {
+          slide: { ...target, html, css },
+          notes: typeof parsed.notes === "string" ? parsed.notes : ""
+        };
+      } catch (err) {
+        lastErr = err;
+        continue;
+      }
+    }
+    lastErr = new Error('model returned neither "ops" nor "html"');
+  }
+  throw new Error(
+    `Could not apply that edit (${lastErr?.message || "unknown error"}). Try rephrasing the instruction.`
+  );
+}
 
 // server/db.js
 var connectionString = process.env.POSTGRES_URL;
@@ -3275,6 +3425,22 @@ app.post("/api/fetch-url", async (req, res) => {
 function decodeEntities(s) {
   return String(s).replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#(\d+);/g, (_, d) => String.fromCharCode(parseInt(d, 10)));
 }
+app.post("/api/edit-slide", async (req, res) => {
+  try {
+    const { deck, slideIndex, instruction } = req.body || {};
+    const { slide, notes } = await editSlide({
+      deck,
+      slideIndex: Number(slideIndex),
+      instruction: typeof instruction === "string" ? instruction.trim() : ""
+    });
+    res.json({ slide, notes });
+  } catch (err) {
+    console.error("[edit-slide] error:", err);
+    res.status(500).json({
+      error: err?.message || "Failed to edit slide"
+    });
+  }
+});
 app.post("/api/regenerate-slide", async (req, res) => {
   try {
     const { deck, slideIndex, instruction } = req.body || {};

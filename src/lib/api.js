@@ -73,6 +73,15 @@ export async function generateDeck(payload) {
   return data.deck
 }
 
+export async function editSlide({ deck, slideIndex, instruction }) {
+  const data = await postJson('/api/edit-slide', {
+    deck,
+    slideIndex,
+    instruction,
+  })
+  return data.slide
+}
+
 export async function regenerateSlide({ deck, slideIndex, instruction }) {
   const data = await postJson('/api/regenerate-slide', {
     deck,
