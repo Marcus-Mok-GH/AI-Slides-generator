@@ -10,6 +10,7 @@ UI components for the AI Slides Generator frontend. Contains 26 React components
 ```
 src/components/
 ├── HtmlSlide.jsx       # Sandboxed slide renderer (iframe)
+├── ThumbPreview.jsx    # Live 16:9 slide thumbnail (lazy iframe)
 ├── SlideViewer.jsx      # Deck editor UI (grid/full-screen)
 ├── SlideEditor.jsx      # Layout picker + inline editing
 ├── CreateHero.jsx       # Prompt input + template chips
@@ -24,6 +25,7 @@ src/components/
 | Task | Component | Notes |
 |------|-----------|-------|
 | Render slides | `HtmlSlide.jsx` | Sandboxed iframe with slide HTML/CSS |
+| View slide thumbnails | `ThumbPreview.jsx` | Lazy 16:9 iframe thumbs used by the viewer rail + mobile strip |
 | Edit deck | `SlideViewer.jsx` | Grid/full-screen modes, drag-to-reorder |
 | Change layout | `SlideEditor.jsx` | Right sidebar, layout picker, text editing |
 | Create new deck | `CreateHero.jsx` | Prompt input, template chips, URL fetcher |
@@ -56,6 +58,7 @@ src/components/
 ## UNIQUE PATTERNS
 
 - **Sandboxed rendering**: `HtmlSlide.jsx` uses iframe for slide isolation
+- **Live thumbnails**: `ThumbPreview.jsx` renders the real slide document in a 1280x720 iframe scaled down with `transform`. Thumbs mount lazily (IntersectionObserver, 320px margin) and rescale via ResizeObserver, so the rail and the mobile strip share one component (`RailItem` in `SlideViewer.jsx`).
 - **Debounced auto-save**: Integrated with `App.jsx` state machine
 - **SSE streaming**: Real-time updates via `streamGenerateDeck()`
 - **Theme system**: CSS variables + `useTheme.js` hook

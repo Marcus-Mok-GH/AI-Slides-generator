@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import SlideEditor from './SlideEditor.jsx'
 import HtmlSlide from './HtmlSlide.jsx'
+import ThumbPreview from './ThumbPreview.jsx'
 import './SlideViewer.css'
 
 /* ----------------------------------------------------------------
@@ -384,6 +385,63 @@ function PresentMode({ slides, theme, active, total, deckTitle, onNext, onPrev, 
   )
 }
 
+
+/* One rail entry, shared by the desktop rail and the mobile strip. Both show
+   a live 16:9 thumbnail of the actual slide, a number chip, and the title. */
+function RailItem({ slide, index, total, theme, deckTitle, active, compact, onClick }) {
+  const isPartial = slide?.partial
+  const cls = [
+    'rail-item',
+    compact ? 'rail-item-compact' : '',
+    active ? 'is-active' : '',
+    !slide ? 'is-pending' : '',
+    isPartial ? 'is-partial' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+  return (
+    <button
+      type="button"
+      role={compact ? 'tab' : undefined}
+      aria-selected={compact ? active : undefined}
+      className={cls}
+      onClick={onClick}
+      disabled={!slide}
+      aria-current={!compact && active ? 'true' : undefined}
+      aria-label={slide?.title ? `Slide ${index + 1}: ${slide.title}` : `Slide ${index + 1}, loading`}
+    >
+      <span className="rail-thumb-wrap">
+        {slide ? (
+          <ThumbPreview
+            slide={slide}
+            theme={theme}
+            index={index}
+            total={total}
+            deckTitle={deckTitle}
+          />
+        ) : (
+          <span
+            className="thumb-skeleton"
+            style={{ background: theme?.background || '#0f0f1a' }}
+          />
+        )}
+        <span className="rail-num">{index + 1}</span>
+        {isPartial ? <span className="rail-partial-badge">writing…</span> : null}
+      </span>
+      <span className="rail-caption">
+        {slide && slide.title ? (
+          <span className="rail-title">
+            {slide.title}
+            {isPartial ? <span className="caret-blink">▌</span> : null}
+          </span>
+        ) : (
+          <span className="rail-title shimmer-line" style={{ display: 'block', width: '70%' }} />
+        )}
+      </span>
+    </button>
+  )
+}
+
 export default function SlideViewer({ deck, savingState, onDeckChange, onBack }) {
   const [active, setActive] = useState(0)
   const [editing, setEditing] = useState(false)
@@ -627,8 +685,6 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     (n, s) => n + (s && !s.partial ? 1 : 0),
     0,
   )
-  const inProgressIndex =
-    isStreaming && completedCount < expectedCount ? completedCount : -1
   const progressPct = isStreaming
     ? Math.min(100, Math.round((completedCount / Math.max(expectedCount, 1)) * 100))
     : 100
@@ -651,6 +707,13 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
   for (let i = 0; i < Math.max(slideCount, isStreaming ? expectedCount : 0); i++) {
     thumbItems.push(deck.slides[i] || null)
   }
+
+  // Keep the active slide's rail entry in view (desktop rail scrolls
+  // vertically, the mobile strip horizontally).
+  useEffect(() => {
+    const el = document.querySelector('.rail-item.is-active')
+    el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+  }, [active])
 
   const showGenerating = !slide || (slide.partial && !slide.title)
   const hasNotes = !!slide?.speakerNotes
@@ -794,66 +857,36 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
         <aside className="viewer-side">
           <div className="side-title">Slides</div>
           <ol className="thumb-list">
-            {thumbItems.map((s, i) => {
-              const isPartial = s?.partial
-              const isInProgress = i === inProgressIndex
-              return (
-                <li key={i}>
-                  <button
-                    type="button"
-                    className={`thumb ${i === active ? 'is-active' : ''} ${
-                      s ? '' : 'is-pending'
-                    } ${isPartial ? 'is-partial' : ''} ${
-                      isInProgress ? 'is-in-progress' : ''
-                    }`}
-                    onClick={() => userJump(i)}
-                    disabled={!s}
-                    aria-current={i === active ? 'true' : undefined}
-                    aria-label={s?.title ? `Slide ${i + 1}: ${s.title}` : `Slide ${i + 1}, loading`}
-                  >
-                    <div className="thumb-num">{i + 1}</div>
-                    <div className="thumb-text">
-                      {s && s.title ? (
-                        <>
-                          <div className="thumb-title">
-                            {s.title}
-                            {isPartial ? <span className="caret-blink">▌</span> : null}
-                          </div>
-                          <div className="thumb-layout">
-                            {isPartial ? 'writing HTML/CSS…' : 'HTML canvas'}
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="thumb-title shimmer-line" />
-                          <div className="thumb-layout shimmer-line short" />
-                        </>
-                      )}
-                    </div>
-                  </button>
-                </li>
-              )
-            })}
+            {thumbItems.map((s, i) => (
+              <li key={i}>
+                <RailItem
+                  slide={s}
+                  index={i}
+                  total={Math.max(slideCount, expectedCount)}
+                  theme={deck.theme}
+                  deckTitle={deck.title}
+                  active={i === active}
+                  onClick={() => userJump(i)}
+                />
+              </li>
+            ))}
           </ol>
         </aside>
 
         {/* Mobile-only horizontal slide rail */}
         <div className="thumb-strip" role="tablist" aria-label="Slides">
           {thumbItems.map((s, i) => (
-            <button
+            <RailItem
               key={i}
-              type="button"
-              role="tab"
-              aria-selected={i === active}
-              className={`strip-thumb ${i === active ? 'is-active' : ''} ${s ? '' : 'is-pending'}`}
-              onClick={() => s && userJump(i)}
-              disabled={!s}
-            >
-              <span className="strip-num">{i + 1}</span>
-              <span className="strip-title">
-                {s ? s.title : <span className="shimmer-line" />}
-              </span>
-            </button>
+              slide={s}
+              index={i}
+              total={Math.max(slideCount, expectedCount)}
+              theme={deck.theme}
+              deckTitle={deck.title}
+              active={i === active}
+              compact
+              onClick={() => userJump(i)}
+            />
           ))}
         </div>
 
@@ -916,10 +949,27 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
             )}
 
             {!showGenerating && (
-              <div className="stage-counter-pill">
-                {slideCount === 0
-                  ? 'Drafting…'
-                  : `${active + 1} / ${Math.max(slideCount, expectedCount)}`}
+              <div className="stage-footer">
+                <div
+                  className="stage-progress"
+                  role="progressbar"
+                  aria-valuenow={Math.round(((active + 1) / Math.max(slideCount, 1)) * 100)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Slide position"
+                >
+                  <div
+                    className="stage-progress-fill"
+                    style={{
+                      width: `${Math.round(((active + 1) / Math.max(slideCount, 1)) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <span className="stage-counter">
+                  {slideCount === 0
+                    ? 'Drafting…'
+                    : `${active + 1} / ${Math.max(slideCount, expectedCount)}`}
+                </span>
               </div>
             )}
           </div>

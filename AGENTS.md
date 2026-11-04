@@ -81,8 +81,19 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
   (`:root` and `[data-theme="dark"]`). Component CSS must reference tokens, not
   raw hex. Headings use `var(--font-display)`; `var(--font-mono)` is reserved
   for the ⌘K hint.
+- **Viewer rail**: rail + mobile strip share one `RailItem` in `SlideViewer.jsx`
+  rendering live 16:9 iframe thumbnails (`ThumbPreview.jsx`). Thumbs mount lazily
+  (IntersectionObserver) and scale the 1280×720 canvas to the box width
+  (ResizeObserver). Editing a slide repaints its thumb live.
+- **Viewer layout**: `SlideViewer.css` puts the desktop grid in its base rules
 - **Viewer layout**: `SlideViewer.css` puts the desktop grid in its base rules
   and keeps the trailing media queries for mobile/touch overrides only.
+- **Viewer rail**: desktop rail items are live 16:9 thumbnails (`ThumbPreview.jsx`,
+  lazily-mounted scaled iframes shared with the mobile strip via `RailItem`),
+  with a number chip overlay and one-line title. The slide position lives in a
+  `stage-footer` bar (progress line left, `n / total` right) under the stage —
+  there is no floating counter pill any more.
+- **Mobile viewer**: under 900px the stage area hugs the slide's 16:9 box
 - **Mobile viewer**: under 900px the stage area hugs the slide's 16:9 box
   (`aspect-ratio`, no desktop gutters) and the prev/next arrows plus counter
   sit *below* that box (`bottom: -58px`) instead of on top of the slide.
@@ -94,6 +105,10 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
   `SlideEditor.css`); the stage reserves the same height via
   `padding-bottom` so the slide stays visible *and live* above the sheet while
   you type. Landscape docks the sheet to the right instead (`padding-right`).
+- **Viewer layout**: desktop grid in base rules, mobile/touch overrides in
+  trailing media queries only.
+- **Stage footer**: slide position + progress live in `.stage-footer` under the
+  slide (the old floating counter pill is gone).
 - **Touch + notch**: `index.html` sets `viewport-fit=cover`; anything pinned to
   an edge (mobile nav, present HUD, editor sheet, viewer bar) must pad with
   `env(safe-area-inset-*)`.
