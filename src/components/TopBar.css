@@ -56,9 +56,10 @@
   gap: 8px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 8px 12px;
-  transition: all var(--duration-fast) ease;
+  border-radius: 999px;
+  padding: 9px 16px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--duration-fast) var(--ease-out-expo);
   min-width: 0;
 }
 
@@ -68,7 +69,7 @@
 
 .search:focus-within {
   border-color: var(--accent);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 0 0 3px var(--ring-soft), var(--shadow-sm);
 }
 
 .search input {
@@ -145,20 +146,22 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-weight: 500;
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  color: var(--accent-strong);
+  font-weight: 600;
 }
 
 .agent-five-btn:hover {
-  border-color: var(--border-strong);
-  background: var(--surface-2);
+  background: var(--accent-soft);
+  filter: brightness(0.98);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .agent-five-spark {
   display: inline-block;
-  background: linear-gradient(120deg, var(--blue), var(--green));
+  background: var(--accent-grad);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -325,7 +328,7 @@
   width: 32px;
   height: 32px;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--accent-grad);
   color: var(--on-surface);
   font-weight: 700;
   font-size: 11px;
@@ -334,14 +337,14 @@
   cursor: pointer;
   box-shadow: none;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 2px solid transparent;
   padding: 0;
-  transition: all var(--duration-base) ease;
+  transition: all var(--duration-base) var(--ease-out-expo);
 }
 
 .avatar:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-md);
+  border-color: var(--accent-light);
+  box-shadow: var(--shadow-glow);
 }
 
 .avatar-img {
@@ -422,7 +425,7 @@
   align-items: center;
   gap: 6px;
   height: 32px;
-  padding: 0 12px;
+  padding: 0 14px;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -432,13 +435,14 @@
   letter-spacing: -0.01em;
   white-space: nowrap;
   user-select: none;
-  transition: all var(--duration-fast) ease;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--duration-fast) var(--ease-out-expo);
 }
 
 .credits-pill-spark {
   font-size: 11px;
   line-height: 1;
-  color: var(--blue);
+  color: var(--accent);
 }
 
 .credits-pill-amount {

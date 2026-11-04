@@ -92,7 +92,7 @@
 .ed-textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
-  background: var(--on-surface);
+  background: var(--surface);
 }
 
 .ed-textarea {
@@ -256,7 +256,7 @@
     color var(--duration-fast) ease;
 }
 .img-clear:hover {
-  background: var(--on-surface);
+  background: var(--surface);
   color: var(--error-text);
 }
 .img-empty {

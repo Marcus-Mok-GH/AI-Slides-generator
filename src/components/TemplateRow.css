@@ -20,7 +20,7 @@
 .row-link {
   background: transparent;
   border: none;
-  color: var(--accent);
+  color: var(--accent-strong);
   font-weight: 600;
   font-size: 13px;
   padding: 5px 8px;
@@ -89,17 +89,19 @@
 
 .template-thumb {
   aspect-ratio: 16 / 10;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   position: relative;
   overflow: hidden;
   border: 1px solid var(--border);
   box-shadow: none;
   transition: transform var(--duration-base) var(--ease-out-expo),
-    box-shadow var(--duration-base) ease;
+    box-shadow var(--duration-base) ease,
+    border-color var(--duration-base) ease;
 }
 .template-card:hover .template-thumb {
-  transform: none;
-  box-shadow: var(--shadow-sm);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-strong);
 }
 .template-card:active .template-thumb {
   transform: translateY(0) scale(1);
@@ -150,7 +152,7 @@
   transition: color var(--duration-fast) ease;
 }
 .template-card:hover .template-name {
-  color: var(--accent);
+  color: var(--accent-strong);
 }
 .template-tag {
   font-size: 12px;

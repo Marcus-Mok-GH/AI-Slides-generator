@@ -10,10 +10,10 @@
 }
 .tpl-title {
   font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 500;
+  font-size: 32px;
+  font-weight: 600;
   color: var(--text);
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   letter-spacing: -0.03em;
 }
 .tpl-sub {
@@ -30,10 +30,10 @@
   margin-bottom: 28px;
 }
 .tpl-cat-btn {
-  padding: 7px 18px;
+  padding: 8px 18px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 500;
@@ -41,16 +41,23 @@
   transition:
     background 150ms ease,
     color 150ms ease,
-    border-color 150ms ease;
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
 }
 .tpl-cat-btn:hover {
   color: var(--text);
-  border-color: var(--text-muted);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
 }
 .tpl-cat-btn.is-active {
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--bg);
+  background: var(--accent-grad);
+  border-color: transparent;
+  color: var(--on-surface);
+  box-shadow: 0 4px 14px -4px var(--accent-ring);
+}
+.tpl-cat-btn.is-active:hover {
+  color: var(--on-surface);
 }
 
 /* ---- Card grid ---- */
@@ -65,21 +72,21 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--border);
   background: var(--surface);
   overflow: hidden;
   cursor: pointer;
   text-align: left;
   transition:
-    transform 200ms cubic-bezier(0.16,1,0.3,1),
+    transform 200ms var(--ease-out-expo),
     box-shadow 200ms ease,
     border-color 200ms ease;
 }
 .tpl-card:hover,
 .tpl-card.is-hovered {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
   border-color: var(--border-strong);
 }
 .tpl-card:focus-visible {
@@ -141,11 +148,12 @@
 }
 .tpl-tag {
   font-size: 11px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  padding: 2px 8px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  padding: 3px 9px;
   border-radius: 999px;
   white-space: nowrap;
 }
@@ -165,12 +173,13 @@
   justify-content: center;
   font-size: 14px;
   font-weight: 600;
-  color: var(--bg);
-  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  background: rgba(12, 14, 20, 0.66);
   opacity: 0;
   transition: opacity 180ms ease;
   pointer-events: none;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 .tpl-card:hover .tpl-use-overlay,
 .tpl-card.is-hovered .tpl-use-overlay {

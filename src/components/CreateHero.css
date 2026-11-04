@@ -9,22 +9,26 @@
 }
 
 .hero-title {
-  font-size: clamp(32px, 5vw, 48px);
-  letter-spacing: -0.03em;
-  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: clamp(36px, 5.5vw, 60px);
+  letter-spacing: -0.035em;
+  margin: 0 0 14px;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.04;
 }
 
 .grad {
-  color: var(--accent);
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .hero-sub {
   margin: 0 auto;
   max-width: 560px;
   color: var(--text-muted);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.6;
   letter-spacing: -0.01em;
 }
@@ -51,21 +55,22 @@
   letter-spacing: -0.01em;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all var(--duration-fast) ease;
+  transition: all var(--duration-fast) var(--ease-out-expo);
 }
 
 .format-tab:hover {
-  border-color: var(--text);
+  border-color: var(--border-strong);
   color: var(--text);
   background: var(--surface);
+  transform: translateY(-1px);
 }
 
 .format-tab.is-active {
-  border-color: var(--text);
+  border-color: transparent;
   color: var(--on-surface);
-  background: var(--text);
+  background: var(--accent-grad);
   font-weight: 600;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-glow);
 }
 
 .format-icon {
@@ -74,20 +79,19 @@
 
 /* ---- Prompt card ---- */
 .prompt-card {
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   padding: 24px;
-  box-shadow: var(--shadow-sm);
-  transition: all var(--duration-base) ease;
-  max-width: 640px;
+  box-shadow: var(--shadow-md);
+  transition: all var(--duration-base) var(--ease-out-expo);
+  max-width: 680px;
   margin: 0 auto;
 }
 
 .prompt-card:focus-within {
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 0 0 4px var(--ring-soft), var(--shadow-lg);
   border-color: var(--accent-light);
-  transform: translateY(-2px);
 }
 
 .prompt-tools {
@@ -156,7 +160,7 @@
 .prompt-input:focus {
   border-color: var(--accent);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 0 0 3px var(--ring-soft);
 }
 
 /* ---- History dropdown ---- */
@@ -310,13 +314,13 @@
   padding: 12px 28px;
   border-radius: 999px;
   border: none;
-  background: var(--text);
+  background: var(--accent-grad);
   color: var(--on-surface);
   font-weight: 600;
   font-size: 15px;
   letter-spacing: -0.01em;
-  box-shadow: var(--shadow-md);
-  transition: all var(--duration-fast) ease;
+  box-shadow: var(--shadow-glow);
+  transition: all var(--duration-fast) var(--ease-out-expo);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -324,9 +328,7 @@
 
 .generate-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-  background: var(--text);
-  opacity: 0.9;
+  box-shadow: 0 18px 36px -12px var(--accent-glow), var(--shadow-lg);
 }
 
 .generate-btn:disabled {
@@ -417,7 +419,7 @@
 }
 
 .seg-btn.is-on {
-  background: var(--on-surface);
+  background: var(--surface);
   color: var(--text);
   box-shadow: var(--shadow-sm);
   font-weight: 600;
@@ -427,7 +429,7 @@
   padding: 7px 12px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  background: var(--on-surface);
+  background: var(--surface);
   font-size: 13px;
   color: var(--text);
   outline: none;
@@ -485,9 +487,9 @@
 }
 
 .sugg-chip:hover {
-  border-color: var(--border-strong);
-  color: var(--text);
-  background: var(--surface);
+  border-color: var(--accent-light);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
   transform: translateY(-1px);
 }
 
