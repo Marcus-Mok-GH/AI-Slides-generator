@@ -77,6 +77,13 @@ function isDbError(err) {
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, dbConnected: hasDb })
 })
+/**
+ * Public client configuration. Exposes only values that are public by design
+ * (OAuth client IDs are embedded in every sign-in page Google serves anyway).
+ */
+app.get('/api/config', (_req, res) => {
+  res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || null })
+})
 
 /**
  * Public stats — no auth required. Used by the landing page counter.

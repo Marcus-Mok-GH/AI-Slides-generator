@@ -192,6 +192,7 @@ SELECT id, email, created_at FROM users ORDER BY created_at DESC;
 11. **Vite proxy**: `/api` → `localhost:3001` with `changeOrigin: true` (CORS-safe)
 12. **External APIs**: Pollinations key comes from `POLLINATIONS_API_KEY`; base URL and models are overridable, but there is no fallback provider
 13. **Charts**: Dependency-free SVG in `lib/charts.js` (bar/line/pie only)
+14. **Google sign-in**: `GOOGLE_CLIENT_ID` (server env) enables it; `/api/config` exposes the ID to the login page, which hides the Google button when unset. ID tokens are verified against Google's tokeninfo endpoint in `server/routes/auth.js` (`/api/auth/google`); accounts link by verified email and have `password_hash = NULL` (no password login)
 
 ## ARCHITECTURE DECISIONS
 

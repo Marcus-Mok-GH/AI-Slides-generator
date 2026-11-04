@@ -1151,19 +1151,20 @@ async function findUserByEmail(email) {
   );
   return rows[0] || null;
 }
-async function createUser({ id, email, firstName, lastName, passwordHash }) {
+async function createUser({ id, email, firstName, lastName, passwordHash, profileImageUrl = null }) {
   dbRequired();
   const { rows } = await pool.query(
-    `INSERT INTO users (id, email, first_name, last_name, password_hash, credits_cents, last_login_at)
-     VALUES ($1, $2, $3, $4, $5, $6, NOW())
+    `INSERT INTO users (id, email, first_name, last_name, password_hash, profile_image_url, credits_cents, last_login_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
      ON CONFLICT (email) DO UPDATE SET
        first_name   = EXCLUDED.first_name,
        last_name    = EXCLUDED.last_name,
        password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
+       profile_image_url = COALESCE(EXCLUDED.profile_image_url, users.profile_image_url),
        last_login_at = NOW(),
        updated_at   = NOW()
      RETURNING id, email, first_name, last_name, profile_image_url, credits_cents, metadata, preferences, last_login_at`,
-    [id, email, firstName, lastName, passwordHash, NEW_USER_CENTS]
+    [id, email, firstName, lastName, passwordHash, profileImageUrl, NEW_USER_CENTS]
   );
   return rows[0];
 }
@@ -2826,7 +2827,7 @@ router.post("/register", async (req, res) => {
   }
   try {
     const existing = await findUserByEmail(email);
-    if (existing?.password_hash) {
+    if (existing) {
       return res.status(409).json({ error: "An account with this email already exists" });
     }
     const passwordHash = await hashPassword(password);
@@ -2892,6 +2893,70 @@ router.post("/login", async (req, res) => {
   } catch (err) {
     console.error("[auth/login] error:", err);
     res.status(500).json({ error: "Login failed" });
+  }
+});
+var GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
+async function verifyGoogleIdToken(idToken) {
+  const url = `${GOOGLE_TOKENINFO_URL}?id_token=${encodeURIComponent(idToken)}`;
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    throw new Error("Google rejected the sign-in token");
+  }
+  const claims = await resp.json();
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (claims.aud !== clientId) {
+    throw new Error("Google token was not issued for this app");
+  }
+  if (claims.email_verified !== "true" && claims.email_verified !== true) {
+    throw new Error("Google account email is not verified");
+  }
+  return claims;
+}
+router.post("/google", async (req, res) => {
+  const { idToken } = req.body || {};
+  if (!idToken || typeof idToken !== "string") {
+    return res.status(400).json({ error: "Missing Google identity token" });
+  }
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return res.status(503).json({ error: "Google sign-in is not configured" });
+  }
+  try {
+    const claims = await verifyGoogleIdToken(idToken);
+    const email = String(claims.email || "").toLowerCase().trim();
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ error: "Google account did not return a usable email" });
+    }
+    let user = await findUserByEmail(email);
+    if (!user) {
+      const id = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `u_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+      user = await createUser({
+        id,
+        email,
+        firstName: claims.given_name?.trim() || null,
+        lastName: claims.family_name?.trim() || null,
+        passwordHash: null,
+        profileImageUrl: claims.picture || null
+      });
+    }
+    const token = signToken(user);
+    await updateUserLastLogin(user.id);
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        profileImageUrl: user.profile_image_url
+      },
+      credits: {
+        balanceCents: user.credits_cents,
+        deckCostCents: DECK_GENERATION_CENTS
+      }
+    });
+  } catch (err) {
+    console.error("[auth/google] error:", err);
+    res.status(401).json({ error: err?.message || "Google sign-in failed" });
   }
 });
 router.get("/me", async (req, res) => {
@@ -2964,6 +3029,9 @@ function isDbError(err) {
 }
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, dbConnected: hasDb });
+});
+app.get("/api/config", (_req, res) => {
+  res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || null });
 });
 var _statsCache = null;
 var _statsCacheAt = 0;

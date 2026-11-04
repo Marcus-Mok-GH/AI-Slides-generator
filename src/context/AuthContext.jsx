@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
-import { fetchCurrentUser, login as apiLogin, register as apiRegister, logout as apiLogout } from '../lib/api.js'
+import { fetchCurrentUser, login as apiLogin, loginWithGoogle as apiGoogleLogin, register as apiRegister, logout as apiLogout } from '../lib/api.js'
 
 const AuthContext = createContext(null)
 
@@ -54,6 +54,13 @@ export function AuthProvider({ children }) {
     setError(null)
     return data
   }, [])
+  const handleGoogleLogin = useCallback(async (idToken) => {
+    const data = await apiGoogleLogin(idToken)
+    setUser(data?.user || null)
+    setCredits(data?.credits || null)
+    setError(null)
+    return data
+  }, [])
 
   const handleLogout = useCallback(() => {
     apiLogout()
@@ -71,10 +78,11 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(user),
       setCredits,
       login: handleLogin,
+      loginWithGoogle: handleGoogleLogin,
       register: handleRegister,
       logout: handleLogout,
     }),
-    [credits, error, loading, user, handleLogin, handleRegister, handleLogout],
+    [credits, error, loading, user, handleLogin, handleGoogleLogin, handleRegister, handleLogout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

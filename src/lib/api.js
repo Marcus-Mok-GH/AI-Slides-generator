@@ -56,6 +56,14 @@ export async function login({ email, password }) {
   return data
 }
 
+export async function loginWithGoogle(idToken) {
+  const data = await postJson('/api/auth/google', { idToken })
+  if (data.token) {
+    localStorage.setItem('slideai:token', data.token)
+  }
+  return data
+}
+
 export async function register({ email, password, firstName, lastName }) {
   const data = await postJson('/api/auth/register', { email, password, firstName, lastName })
   if (data.token) {

@@ -23,8 +23,11 @@ router.post('/register', async (req, res) => {
   }
 
   try {
+    // Any existing row blocks re-registration. Without this check, a stranger
+    // could set a password on a Google-only account (no password_hash) and
+    // take it over — Google sign-in is the account-linking path instead.
     const existing = await findUserByEmail(email)
-    if (existing?.password_hash) {
+    if (existing) {
       return res.status(409).json({ error: 'An account with this email already exists' })
     }
 
@@ -102,6 +105,86 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('[auth/login] error:', err)
     res.status(500).json({ error: 'Login failed' })
+  }
+})
+
+const GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo'
+
+/**
+ * Verify a Google ID token by asking Google's tokeninfo endpoint, then check
+ * the audience and email_verified claims ourselves. Returns the token claims.
+ */
+export async function verifyGoogleIdToken(idToken) {
+  const url = `${GOOGLE_TOKENINFO_URL}?id_token=${encodeURIComponent(idToken)}`
+  const resp = await fetch(url)
+  if (!resp.ok) {
+    throw new Error('Google rejected the sign-in token')
+  }
+  const claims = await resp.json()
+  const clientId = process.env.GOOGLE_CLIENT_ID
+  if (claims.aud !== clientId) {
+    throw new Error('Google token was not issued for this app')
+  }
+  if (claims.email_verified !== 'true' && claims.email_verified !== true) {
+    throw new Error('Google account email is not verified')
+  }
+  return claims
+}
+
+router.post('/google', async (req, res) => {
+  const { idToken } = req.body || {}
+
+  if (!idToken || typeof idToken !== 'string') {
+    return res.status(400).json({ error: 'Missing Google identity token' })
+  }
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return res.status(503).json({ error: 'Google sign-in is not configured' })
+  }
+
+  try {
+    const claims = await verifyGoogleIdToken(idToken)
+    const email = String(claims.email || '').toLowerCase().trim()
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ error: 'Google account did not return a usable email' })
+    }
+
+    // Link by verified email: an existing email/password account signs in
+    // through Google seamlessly; a new email gets a passwordless account.
+    let user = await findUserByEmail(email)
+    if (!user) {
+      const id = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+        ? crypto.randomUUID()
+        : `u_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+      user = await createUser({
+        id,
+        email,
+        firstName: claims.given_name?.trim() || null,
+        lastName: claims.family_name?.trim() || null,
+        passwordHash: null,
+        profileImageUrl: claims.picture || null,
+      })
+    }
+
+    const token = signToken(user)
+    await updateUserLastLogin(user.id)
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        profileImageUrl: user.profile_image_url,
+      },
+      credits: {
+        balanceCents: user.credits_cents,
+        deckCostCents: DECK_GENERATION_CENTS,
+      },
+    })
+  } catch (err) {
+    console.error('[auth/google] error:', err)
+    res.status(401).json({ error: err?.message || 'Google sign-in failed' })
   }
 })
 

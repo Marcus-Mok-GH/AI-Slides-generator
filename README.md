@@ -91,6 +91,7 @@ Environment variables used by this project:
 - `POSTGRES_URL` — Neon Postgres connection string (Vercel Storage). No fallback env vars are read.
 - `JWT_SECRET` — signing key for auth tokens; use a long random value in production
 - `POLLINATIONS_API_KEY` — required for deck generation and Agent Five
+- `GOOGLE_CLIENT_ID` — optional; enables "Continue with Google" on the login page. Create a Web OAuth client in Google Cloud Console and add every app origin (local dev + production) to its Authorized JavaScript origins. When unset, the Google button is hidden and `POST /api/auth/google` returns 503.
 
 Rotating `JWT_SECRET` logs every existing user out, so change it deliberately.
 

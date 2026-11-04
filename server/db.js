@@ -281,19 +281,20 @@ export async function findUserByEmail(email) {
   return rows[0] || null
 }
 
-export async function createUser({ id, email, firstName, lastName, passwordHash }) {
+export async function createUser({ id, email, firstName, lastName, passwordHash, profileImageUrl = null }) {
   dbRequired()
   const { rows } = await pool.query(
-    `INSERT INTO users (id, email, first_name, last_name, password_hash, credits_cents, last_login_at)
-     VALUES ($1, $2, $3, $4, $5, $6, NOW())
+    `INSERT INTO users (id, email, first_name, last_name, password_hash, profile_image_url, credits_cents, last_login_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
      ON CONFLICT (email) DO UPDATE SET
        first_name   = EXCLUDED.first_name,
        last_name    = EXCLUDED.last_name,
        password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
+       profile_image_url = COALESCE(EXCLUDED.profile_image_url, users.profile_image_url),
        last_login_at = NOW(),
        updated_at   = NOW()
      RETURNING id, email, first_name, last_name, profile_image_url, credits_cents, metadata, preferences, last_login_at`,
-    [id, email, firstName, lastName, passwordHash, NEW_USER_CENTS],
+    [id, email, firstName, lastName, passwordHash, profileImageUrl, NEW_USER_CENTS],
   )
   return rows[0]
 }
