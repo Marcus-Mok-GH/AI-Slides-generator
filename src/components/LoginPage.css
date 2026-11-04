@@ -1,5 +1,6 @@
 .login-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -8,7 +9,11 @@
     radial-gradient(45% 40% at 88% 18%, var(--brand-soft), transparent 65%),
     radial-gradient(50% 45% at 50% 110%, var(--brand-soft), transparent 70%),
     var(--bg);
-  padding: 24px;
+  padding:
+    max(24px, env(safe-area-inset-top))
+    max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom))
+    max(24px, env(safe-area-inset-left));
 }
 
 .login-card {
@@ -49,10 +54,6 @@
   font-weight: 700;
   font-size: 18px;
   letter-spacing: -0.03em;
-}
-
-.login-brand-name b {
-  color: var(--brand);
 }
 
 .login-brand-name b {
@@ -141,8 +142,9 @@
   background: var(--accent-grad);
   color: var(--on-surface);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: 999px;
   padding: 13px;
+  min-height: 46px;
   font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -192,10 +194,75 @@
   color: var(--accent-hover);
 }
 
-@media (max-width: 480px) {
-  .login-card {
-    padding: 30px 22px;
+@media (max-width: 720px) {
+  /* Top-align so the keyboard never hides the form start; the card scrolls
+     naturally instead of fighting the visual viewport. */
+  .login-page {
+    align-items: flex-start;
+    padding:
+      max(10dvh, env(safe-area-inset-top))
+      max(18px, env(safe-area-inset-right))
+      max(20px, env(safe-area-inset-bottom))
+      max(18px, env(safe-area-inset-left));
   }
+
+  .login-card {
+    padding: 26px 20px 22px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .login-brand {
+    margin-bottom: 20px;
+  }
+
+  .login-title {
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
+
+  .login-subtitle {
+    font-size: 13.5px;
+    margin-bottom: 20px;
+  }
+
+  .login-error {
+    font-size: 12.5px;
+    margin-bottom: 12px;
+  }
+
+  .login-form {
+    gap: 12px;
+  }
+
+  .login-field input {
+    min-height: 44px;
+    padding: 12px 14px;
+  }
+
+  .login-form .login-submit {
+    padding: 15px;
+    font-size: 15px;
+    margin-top: 10px;
+  }
+
+  .login-submit:active:not(:disabled) {
+    transform: none;
+  }
+
+  .login-toggle {
+    margin-top: 18px;
+    padding-bottom: 2px;
+  }
+
+  /* Larger tap target without shifting layout */
+  .login-link {
+    padding: 6px 8px;
+    margin: -6px -8px;
+  }
+}
+
+@media (max-width: 420px) {
   .login-row {
     grid-template-columns: 1fr;
   }

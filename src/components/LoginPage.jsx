@@ -11,6 +11,12 @@ export default function LoginPage() {
   const [lastName, setLastName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  // Auto-focusing on touch devices pops the keyboard instantly and hides the
+  // page behind it — only pre-focus on pointer-precise devices.
+  const canAutoFocus =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(pointer: fine)').matches &&
+    window.matchMedia('(min-width: 721px)').matches
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -54,6 +60,7 @@ export default function LoginPage() {
                 <span className="login-label">First name</span>
                 <input
                   type="text"
+                  autoComplete="given-name"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   placeholder="Jane"
@@ -64,6 +71,7 @@ export default function LoginPage() {
                 <span className="login-label">Last name</span>
                 <input
                   type="text"
+                  autoComplete="family-name"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   placeholder="Doe"
@@ -77,11 +85,16 @@ export default function LoginPage() {
             <span className="login-label">Email</span>
             <input
               type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              enterKeyHint="next"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
-              autoFocus
+              autoFocus={canAutoFocus}
             />
           </label>
 
@@ -89,6 +102,8 @@ export default function LoginPage() {
             <span className="login-label">Password</span>
             <input
               type="password"
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              enterKeyHint="go"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
