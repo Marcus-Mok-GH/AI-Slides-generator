@@ -90,12 +90,12 @@ api/
   `isDbError(err)` to 503 rather than 500.
 - `dbRequired()` throws a 503-tagged error when no connection string is set, so
   the app runs (and the frontend degrades) without a database.
-- Connection string resolution order: `POSTGRES_URL` → `SUPABASE_DATABASE_URL`
-  → `DATABASE_URL`.
+- Connection string: `POSTGRES_URL` only (Neon). No fallback env vars are
+  read, so a stale `SUPABASE_DATABASE_URL` / `DATABASE_URL` is ignored.
 - `server/` is the only hand-written backend source. `api/index.js` is
   generated from it — never edit it, and always re-run `npm run api:build`.
 
 ## Environment
-`POSTGRES_URL` (or `SUPABASE_DATABASE_URL` / `DATABASE_URL`), `JWT_SECRET`,
+`POSTGRES_URL` (Neon), `JWT_SECRET`,
 `POLLINATIONS_API_KEY` (required for generation), `POLLINATIONS_BASE_URL`, `POLLINATIONS_DECK_MODEL` / `POLLINATIONS_SLIDE_MODEL` / `POLLINATIONS_AGENT_MODEL` (optional, default `openai/gpt-6-luna`),
 `STATS_BASE_TOTAL` / `STATS_BASE_TODAY` (optional), `DIAG_KEY` (optional).

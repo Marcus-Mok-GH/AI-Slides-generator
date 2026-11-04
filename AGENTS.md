@@ -231,7 +231,7 @@ SELECT id, email, created_at FROM users ORDER BY created_at DESC;
 |---------|----------|---------|----------|
 | Pollinations | `gen.pollinations.ai/v1` (`POLLINATIONS_API_KEY`) | GPT-6 Luna deck/agent calls | **None** (generation breaks) |
 | Fireworks (legacy proxy) | `fireworks-endpoint--57crestcrepe.replit.app` (offline) | Agent Five image + web-search tools only | Agent tools fail; deck generation unaffected |
-| Postgres | `POSTGRES_URL` → `SUPABASE_DATABASE_URL` → `DATABASE_URL` | Users + decks | No-op mock pool (DB routes 503, data loss) |
+| Postgres | `POSTGRES_URL` (Neon only, no fallbacks) | Users + decks | No-op mock pool (DB routes 503, data loss) |
 
 ---
 

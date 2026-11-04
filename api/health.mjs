@@ -5,12 +5,7 @@ export default function handler(req, res) {
     node: process.version,
     region: process.env.VERCEL_REGION || null,
     commit: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7) || null,
-    dbConfigured: Boolean(
-      process.env.POSTGRES_URL ||
-        process.env.DATABASE_URL ||
-        process.env.POSTGRES_PRISMA_URL ||
-        process.env.POSTGRES_URL_NON_POOLING,
-    ),
+    dbConfigured: Boolean(process.env.POSTGRES_URL),
     jwtConfigured: Boolean(process.env.JWT_SECRET),
   })
 }

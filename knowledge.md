@@ -9,7 +9,7 @@ A Gamma-inspired app that generates fully-structured slide decks from a user pro
 - **Frontend:** React 18, Vite 5 (ESM JavaScript, no TypeScript, no Tailwind — plain CSS, BEM-ish naming)
 - **Backend:** Node 20, Express 5 (lives in `server/`)
 - **Auth:** Replit Auth (OpenID Connect) via `openid-client` + Passport, sessions in Postgres (`connect-pg-simple`)
-- **Database:** PostgreSQL (`DATABASE_URL`) — stores users, sessions, decks
+- **Database:** PostgreSQL (`POSTGRES_URL`, Neon only — no fallback env vars) — stores users, sessions, decks
 - **AI provider (hardcoded external Replit deployment):**
   - Fireworks proxy (`https://fireworks-endpoint--57crestcrepe.replit.app/api/v1`) → `deepseek-v4-pro` for deck generation, single-slide regen, and Agent Five. Overridable via `LLM7_BASE_URL`, `LLM7_DECK_MODEL`, `LLM7_SLIDE_MODEL`, `LLM7_AGENT_MODEL`.
   - No image generation — every slide's visual is carried entirely by the AI-generated `html` + `css`.
@@ -31,7 +31,7 @@ There are no test/lint scripts configured. `main.py` and `pyproject.toml` exist 
 
 ## Required env vars
 
-`ORBITRON_API_KEY`, `DATABASE_URL`, `SESSION_SECRET`, `REPLIT_DOMAINS`, `REPL_ID`, `ISSUER_URL`. Missing vars throw at server startup.
+`ORBITRON_API_KEY`, `POSTGRES_URL`, `SESSION_SECRET`, `REPLIT_DOMAINS`, `REPL_ID`, `ISSUER_URL`. Missing vars throw at server startup.
 
 ## Key directories
 

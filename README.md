@@ -88,7 +88,7 @@ session table — the JWT carries identity, so no session store is read per requ
 
 Environment variables used by this project:
 
-- `POSTGRES_URL` (or `SUPABASE_DATABASE_URL` / `DATABASE_URL`) — Postgres connection string
+- `POSTGRES_URL` — Neon Postgres connection string (Vercel Storage). No fallback env vars are read.
 - `JWT_SECRET` — signing key for auth tokens; use a long random value in production
 - `POLLINATIONS_API_KEY` — required for deck generation and Agent Five
 
@@ -109,7 +109,7 @@ npm install
 Create a `.env` file (it is git-ignored) with at least:
 
 ```bash
-DATABASE_URL="postgres://user:pass@localhost:5432/slides"
+POSTGRES_URL="postgres://user:pass@localhost:5432/slides"
 JWT_SECRET="any-long-random-string"
 POLLINATIONS_API_KEY="pollinations-key"
 ```
@@ -174,8 +174,8 @@ Check a deployment with:
 - `GET /api/health` — runtime, region, commit, whether a database is configured
 - `GET /api/diag` — imports each package/module in isolation and reports the one that fails (`?db=1` also exercises the database pool)
 
-Required environment variables: a Postgres connection string (`POSTGRES_URL` on
-Vercel, or `DATABASE_URL`), `JWT_SECRET`, and `POLLINATIONS_API_KEY`.
+Required environment variables: `POSTGRES_URL` (Neon Postgres connection
+string), `JWT_SECRET`, and `POLLINATIONS_API_KEY`.
 
 Text generation goes through Pollinations AI (`https://gen.pollinations.ai/v1`,
 OpenAI-compatible) using `openai/gpt-6-luna`. Override with

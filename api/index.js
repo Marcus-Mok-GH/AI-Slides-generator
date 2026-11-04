@@ -805,8 +805,7 @@ Return JSON for the rewritten slide only.`;
 }
 
 // server/db.js
-var connectionString = process.env.POSTGRES_URL || // Vercel Storage / Neon
-process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
+var connectionString = process.env.POSTGRES_URL;
 var hasDb = Boolean(connectionString);
 var isSupabase = hasDb && /supabase\.(co|com)/i.test(connectionString);
 var isNeon = hasDb && /neon\.tech/i.test(connectionString);
@@ -823,7 +822,7 @@ function createMockPool() {
 }
 var mockPool = hasDb ? null : createMockPool();
 if (!hasDb) {
-  console.warn("[db] WARNING: DATABASE_URL is not set. Using no-op mock pool. DB-dependent routes will return 503.");
+  console.warn("[db] WARNING: POSTGRES_URL is not set. Using no-op mock pool. DB-dependent routes will return 503.");
 }
 var _pool = null;
 var _poolPromise = null;
@@ -890,7 +889,7 @@ var pool = {
 };
 function dbRequired() {
   if (!hasDb) {
-    const err = new Error("Database unavailable: DATABASE_URL is not configured");
+    const err = new Error("Database unavailable: POSTGRES_URL is not configured");
     err.statusCode = 503;
     throw err;
   }
@@ -911,7 +910,7 @@ var LEGACY_USER_CENTS = 1e4;
 var DECK_GENERATION_CENTS = 50;
 async function migrate() {
   if (!hasDb) {
-    console.warn("[db] migrate() skipped \u2014 no DATABASE_URL configured");
+    console.warn("[db] migrate() skipped \u2014 no POSTGRES_URL configured");
     return;
   }
   await pool.query(`
@@ -1127,7 +1126,7 @@ async function renameDeck(id, userId, newTitle) {
 }
 async function migratePromptHistory() {
   if (!hasDb) {
-    console.warn("[db] migratePromptHistory() skipped \u2014 no DATABASE_URL configured");
+    console.warn("[db] migratePromptHistory() skipped \u2014 no POSTGRES_URL configured");
     return;
   }
   await pool.query(`
@@ -1208,7 +1207,7 @@ async function deletePromptHistoryItem(id, userId) {
 }
 async function migrateAgentChats() {
   if (!hasDb) {
-    console.warn("[db] migrateAgentChats() skipped \u2014 no DATABASE_URL configured");
+    console.warn("[db] migrateAgentChats() skipped \u2014 no POSTGRES_URL configured");
     return;
   }
   await pool.query(`
@@ -1316,7 +1315,7 @@ async function deleteAgentChat(id, userId) {
 }
 async function migrateAgentPlans() {
   if (!hasDb) {
-    console.warn("[db] migrateAgentPlans() skipped \u2014 no DATABASE_URL configured");
+    console.warn("[db] migrateAgentPlans() skipped \u2014 no POSTGRES_URL configured");
     return;
   }
   await pool.query(`
@@ -1368,7 +1367,7 @@ async function migrateAgentPlans() {
 }
 async function migrateGenerationJobs() {
   if (!hasDb) {
-    console.warn("[db] migrateGenerationJobs() skipped \u2014 no DATABASE_URL configured");
+    console.warn("[db] migrateGenerationJobs() skipped \u2014 no POSTGRES_URL configured");
     return;
   }
   await pool.query(`

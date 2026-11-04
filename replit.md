@@ -49,7 +49,7 @@ vite.config.js          ← Dev proxy to Express on :3001
 - *Authentication → Email* — disable email confirmations during development if you want sign-up to log the user in immediately.
 
 ### Database — Supabase Postgres
-- Connection string is `SUPABASE_DATABASE_URL` (Supabase Transaction Pooler, port 6543, with `ssl: { rejectUnauthorized: false }`). Falls back to `DATABASE_URL` when not on Supabase.
+- Connection string is `POSTGRES_URL` only (Neon). No fallback env vars (`SUPABASE_DATABASE_URL` / `DATABASE_URL`) are read.
 - Pool capped at `max: 2` to stay friendly to serverless cold starts.
 - Tables: `users` (mirrors Supabase auth users by their UUID), `decks`, `prompt_history`. No sessions table — sessions live in the browser as JWTs managed by supabase-js.
 
@@ -125,7 +125,7 @@ The sandboxed iframe ships a pre-built set of semantic CSS classes. The AI only 
 ### Vercel (production)
 - `vercel.json` configures the build (`npm run build` → `dist/`), rewrites `/api/*` → `api/index.js`, and sets `maxDuration: 60` for the function.
 - Required env vars in the Vercel dashboard:
-  - `SUPABASE_DATABASE_URL` — Transaction pooler URL (port 6543)
+  - `POSTGRES_URL` — Neon Postgres connection string
   - `SUPABASE_URL` and `SUPABASE_ANON_KEY` — used by both the server (token verification) and the browser bundle (injected at build via `vite.config.js`)
   - Add the production URL under *Authentication → URL Configuration* in the Supabase dashboard so OAuth and magic-link redirects are accepted.
 - Vercel sets `VERCEL=1`, which `api/index.js` checks to skip the dev `.listen()` call.

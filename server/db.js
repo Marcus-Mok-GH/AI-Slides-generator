@@ -9,11 +9,10 @@
  * driver means a broken database degrades to 503s on DB routes only.
  */
 
-// Support Neon (Vercel Storage), Supabase, or Replit PostgreSQL.
-const connectionString =
-  process.env.POSTGRES_URL || // Vercel Storage / Neon
-  process.env.SUPABASE_DATABASE_URL ||
-  process.env.DATABASE_URL
+// Neon only (Vercel Storage). No fallback env vars: a stale
+// SUPABASE_DATABASE_URL or DATABASE_URL must never silently become the
+// app's database.
+const connectionString = process.env.POSTGRES_URL
 
 export const hasDb = Boolean(connectionString)
 const isSupabase = hasDb && /supabase\.(co|com)/i.test(connectionString)
@@ -32,7 +31,7 @@ function createMockPool() {
 const mockPool = hasDb ? null : createMockPool()
 
 if (!hasDb) {
-  console.warn('[db] WARNING: DATABASE_URL is not set. Using no-op mock pool. DB-dependent routes will return 503.')
+  console.warn('[db] WARNING: POSTGRES_URL is not set. Using no-op mock pool. DB-dependent routes will return 503.')
 }
 
 let _pool = null
@@ -104,7 +103,7 @@ export const pool = {
 
 function dbRequired() {
   if (!hasDb) {
-    const err = new Error('Database unavailable: DATABASE_URL is not configured')
+    const err = new Error('Database unavailable: POSTGRES_URL is not configured')
     err.statusCode = 503
     throw err
   }
@@ -144,7 +143,7 @@ export const DECK_GENERATION_CENTS = 50
  */
 export async function migrate() {
   if (!hasDb) {
-    console.warn('[db] migrate() skipped — no DATABASE_URL configured')
+    console.warn('[db] migrate() skipped — no POSTGRES_URL configured')
     return
   }
 
@@ -421,7 +420,7 @@ export async function renameDeck(id, userId, newTitle) {
 
 export async function migratePromptHistory() {
   if (!hasDb) {
-    console.warn('[db] migratePromptHistory() skipped — no DATABASE_URL configured')
+    console.warn('[db] migratePromptHistory() skipped — no POSTGRES_URL configured')
     return
   }
   await pool.query(`
@@ -508,7 +507,7 @@ export async function deletePromptHistoryItem(id, userId) {
 
 export async function migrateAgentChats() {
   if (!hasDb) {
-    console.warn('[db] migrateAgentChats() skipped — no DATABASE_URL configured')
+    console.warn('[db] migrateAgentChats() skipped — no POSTGRES_URL configured')
     return
   }
   await pool.query(`
@@ -618,7 +617,7 @@ export async function deleteAgentChat(id, userId) {
 
 export async function migrateAgentPlans() {
   if (!hasDb) {
-    console.warn('[db] migrateAgentPlans() skipped — no DATABASE_URL configured')
+    console.warn('[db] migrateAgentPlans() skipped — no POSTGRES_URL configured')
     return
   }
   await pool.query(`
@@ -729,7 +728,7 @@ export async function getRecentPlans(userId, limit = 20) {
 
 export async function migrateGenerationJobs() {
   if (!hasDb) {
-    console.warn('[db] migrateGenerationJobs() skipped — no DATABASE_URL configured')
+    console.warn('[db] migrateGenerationJobs() skipped — no POSTGRES_URL configured')
     return
   }
   await pool.query(`

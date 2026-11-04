@@ -6,7 +6,7 @@
  *  - neonConfig.webSocketConstructor is set to ws for Neon connections
  *  - Supabase connections use pg Pool with SSL; Neon connections do NOT get SSL
  *  - Plain PostgreSQL connections use pg Pool without SSL
- *  - Missing DATABASE_URL yields a mock pool
+ *  - Missing POSTGRES_URL yields a mock pool
  *  - migrate() now executes consolidated multi-statement queries
  *  - migratePromptHistory(), migrateAgentChats(), migrateAgentPlans(),
  *    migrateGenerationJobs() inline the ALTER TABLE statements in the
@@ -59,8 +59,6 @@ async function loadDbModule(envVars = {}) {
 
   // Clear all DB-related env vars, then apply overrides
   delete process.env.POSTGRES_URL
-  delete process.env.SUPABASE_DATABASE_URL
-  delete process.env.DATABASE_URL
   Object.assign(process.env, envVars)
 
   const pgPoolInstance = makePoolInstance()
@@ -124,7 +122,7 @@ describe('Pool selection', () => {
 
   it('uses NeonPool when connection string contains neon.tech', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://user:pass@ep-cool-name-123456.us-east-2.aws.neon.tech/neondb',
+      POSTGRES_URL: 'postgres://user:pass@ep-cool-name-123456.us-east-2.aws.neon.tech/neondb',
     })
 
     expect(mocks.neonPoolSpy.mock.calls).toHaveLength(1)
@@ -142,7 +140,7 @@ describe('Pool selection', () => {
 
   it('uses pg Pool when connection string contains supabase.co', async () => {
     const { mocks } = await loadDbModule({
-      SUPABASE_DATABASE_URL:
+      POSTGRES_URL:
         'postgres://user:pass@db.projectid.supabase.co:5432/postgres',
     })
 
@@ -152,7 +150,7 @@ describe('Pool selection', () => {
 
   it('uses pg Pool when connection string contains supabase.com', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://user:pass@db.projectid.supabase.com:5432/postgres',
+      POSTGRES_URL: 'postgres://user:pass@db.projectid.supabase.com:5432/postgres',
     })
 
     expect(mocks.pgPoolSpy.mock.calls).toHaveLength(1)
@@ -161,14 +159,14 @@ describe('Pool selection', () => {
 
   it('uses pg Pool for plain PostgreSQL connection string', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
 
     expect(mocks.pgPoolSpy.mock.calls).toHaveLength(1)
     expect(mocks.neonPoolSpy.mock.calls).toHaveLength(0)
   })
 
-  it('uses mock pool (no real Pool) when no DATABASE_URL is set', async () => {
+  it('uses mock pool (no real Pool) when no POSTGRES_URL is set', async () => {
     const { mocks, module } = await loadDbModule({})
 
     expect(mocks.pgPoolSpy.mock.calls).toHaveLength(0)
@@ -176,9 +174,9 @@ describe('Pool selection', () => {
     expect(module.hasDb).toBe(false)
   })
 
-  it('exports hasDb=true when DATABASE_URL is provided', async () => {
+  it('exports hasDb=true when POSTGRES_URL is provided', async () => {
     const { module } = await loadDbModule({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
 
     expect(module.hasDb).toBe(true)
@@ -203,7 +201,7 @@ describe('NeonPool configuration', () => {
 
   it('does NOT pass ssl option to NeonPool', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://user:pass@ep-xyz.us-east-2.aws.neon.tech/neondb',
+      POSTGRES_URL: 'postgres://user:pass@ep-xyz.us-east-2.aws.neon.tech/neondb',
     })
 
     const callArgs = mocks.neonPoolSpy.mock.calls[0][0]
@@ -212,7 +210,7 @@ describe('NeonPool configuration', () => {
 
   it('passes correct connection options to NeonPool', async () => {
     const connStr = 'postgres://user:pass@ep-xyz.us-east-2.aws.neon.tech/neondb'
-    const { mocks } = await loadDbModule({ DATABASE_URL: connStr })
+    const { mocks } = await loadDbModule({ POSTGRES_URL: connStr })
 
     const callArgs = mocks.neonPoolSpy.mock.calls[0][0]
     expect(callArgs.connectionString).toBe(connStr)
@@ -223,7 +221,7 @@ describe('NeonPool configuration', () => {
 
   it('does NOT pass maxUses to NeonPool', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://user:pass@ep-xyz.us-east-2.aws.neon.tech/neondb',
+      POSTGRES_URL: 'postgres://user:pass@ep-xyz.us-east-2.aws.neon.tech/neondb',
     })
 
     const callArgs = mocks.neonPoolSpy.mock.calls[0][0]
@@ -243,7 +241,7 @@ describe('neonConfig WebSocket setup', () => {
 
   it('sets neonConfig.webSocketConstructor to ws for Neon connections', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://user:pass@ep-xyz.us-east-2.aws.neon.tech/neondb',
+      POSTGRES_URL: 'postgres://user:pass@ep-xyz.us-east-2.aws.neon.tech/neondb',
     })
 
     expect(mocks.neonConfigMock.webSocketConstructor).toBe(mocks.wsMock)
@@ -251,7 +249,7 @@ describe('neonConfig WebSocket setup', () => {
 
   it('does NOT set neonConfig.webSocketConstructor for Supabase connections', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://user:pass@db.abc.supabase.co:5432/postgres',
+      POSTGRES_URL: 'postgres://user:pass@db.abc.supabase.co:5432/postgres',
     })
 
     expect(mocks.neonConfigMock.webSocketConstructor).toBeUndefined()
@@ -259,13 +257,13 @@ describe('neonConfig WebSocket setup', () => {
 
   it('does NOT set neonConfig.webSocketConstructor for plain PG connections', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
 
     expect(mocks.neonConfigMock.webSocketConstructor).toBeUndefined()
   })
 
-  it('does NOT set neonConfig.webSocketConstructor when no DATABASE_URL', async () => {
+  it('does NOT set neonConfig.webSocketConstructor when no POSTGRES_URL', async () => {
     const { mocks } = await loadDbModule({})
 
     expect(mocks.neonConfigMock.webSocketConstructor).toBeUndefined()
@@ -284,7 +282,7 @@ describe('pg Pool SSL configuration', () => {
 
   it('passes ssl: { rejectUnauthorized: false } to Pool for Supabase connections', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://user:pass@db.abc.supabase.co:5432/postgres',
+      POSTGRES_URL: 'postgres://user:pass@db.abc.supabase.co:5432/postgres',
     })
 
     const callArgs = mocks.pgPoolSpy.mock.calls[0][0]
@@ -293,7 +291,7 @@ describe('pg Pool SSL configuration', () => {
 
   it('does NOT pass ssl option to Pool for plain PostgreSQL connections', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
 
     const callArgs = mocks.pgPoolSpy.mock.calls[0][0]
@@ -302,7 +300,7 @@ describe('pg Pool SSL configuration', () => {
 
   it('pg Pool receives maxUses option (for serverless connection management)', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
 
     const callArgs = mocks.pgPoolSpy.mock.calls[0][0]
@@ -311,7 +309,7 @@ describe('pg Pool SSL configuration', () => {
 
   it('pg Pool receives correct connection options', async () => {
     const connStr = 'postgres://user:pass@localhost:5432/mydb'
-    const { mocks } = await loadDbModule({ DATABASE_URL: connStr })
+    const { mocks } = await loadDbModule({ POSTGRES_URL: connStr })
 
     const callArgs = mocks.pgPoolSpy.mock.calls[0][0]
     expect(callArgs.connectionString).toBe(connStr)
@@ -322,10 +320,10 @@ describe('pg Pool SSL configuration', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Mock pool (no DATABASE_URL)
+// Mock pool (no POSTGRES_URL)
 // ---------------------------------------------------------------------------
 
-describe('Mock pool behaviour when no DATABASE_URL', () => {
+describe('Mock pool behaviour when no POSTGRES_URL', () => {
   afterEach(() => {
     vi.resetModules()
     vi.restoreAllMocks()
@@ -360,8 +358,6 @@ async function loadDbModuleWithCapture(envVars = {}) {
 
   const savedEnv = { ...process.env }
   delete process.env.POSTGRES_URL
-  delete process.env.SUPABASE_DATABASE_URL
-  delete process.env.DATABASE_URL
   Object.assign(process.env, envVars)
 
   const capturedQueries = []
@@ -406,7 +402,7 @@ describe('migrate() — consolidated SQL queries', () => {
 
   it('executes users CREATE TABLE and ALTER TABLE in a single query call', async () => {
     const { module, capturedQueries } = await loadDbModuleWithCapture({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
     await module.migrate()
 
@@ -420,7 +416,7 @@ describe('migrate() — consolidated SQL queries', () => {
 
   it('users CREATE TABLE query includes all new column ALTER statements', async () => {
     const { module, capturedQueries } = await loadDbModuleWithCapture({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
     await module.migrate()
 
@@ -439,7 +435,7 @@ describe('migrate() — consolidated SQL queries', () => {
 
   it('credits_cents constraint query is a single consolidated statement', async () => {
     const { module, capturedQueries } = await loadDbModuleWithCapture({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
     await module.migrate()
 
@@ -456,7 +452,7 @@ describe('migrate() — consolidated SQL queries', () => {
 
   it('credits_cents backfill uses literal value (not bind param) in consolidated query', async () => {
     const { module, capturedQueries } = await loadDbModuleWithCapture({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
     await module.migrate()
 
@@ -471,7 +467,7 @@ describe('migrate() — consolidated SQL queries', () => {
 
   it('decks CREATE TABLE and ALTER TABLE columns are in a single query call', async () => {
     const { module, capturedQueries } = await loadDbModuleWithCapture({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
     await module.migrate()
 
@@ -485,7 +481,7 @@ describe('migrate() — consolidated SQL queries', () => {
 
   it('decks CREATE TABLE query includes TIMESTAMPTZ column alterations', async () => {
     const { module, capturedQueries } = await loadDbModuleWithCapture({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
     await module.migrate()
 
@@ -517,7 +513,7 @@ describe('migratePromptHistory() — consolidated SQL', () => {
 
   it('inlines ALTER COLUMN used_at TYPE TIMESTAMPTZ in the CREATE TABLE query', async () => {
     const { module, capturedQueries } = await loadDbModuleWithCapture({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
     await module.migratePromptHistory()
 
@@ -531,7 +527,7 @@ describe('migratePromptHistory() — consolidated SQL', () => {
 
   it('does not issue a separate standalone ALTER TABLE query for used_at', async () => {
     const { module, capturedQueries } = await loadDbModuleWithCapture({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
     await module.migratePromptHistory()
 
@@ -546,7 +542,7 @@ describe('migratePromptHistory() — consolidated SQL', () => {
     }
   })
 
-  it('skips when no DATABASE_URL is set', async () => {
+  it('skips when no POSTGRES_URL is set', async () => {
     const { module } = await loadDbModuleWithCapture({})
 
     await expect(module.migratePromptHistory()).resolves.toBeUndefined()
@@ -565,7 +561,7 @@ describe('migrateAgentChats() — consolidated SQL', () => {
 
   it('inlines both ALTER COLUMN TIMESTAMPTZ statements in the CREATE TABLE query', async () => {
     const { module, capturedQueries } = await loadDbModuleWithCapture({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
     await module.migrateAgentChats()
 
@@ -580,7 +576,7 @@ describe('migrateAgentChats() — consolidated SQL', () => {
 
   it('does not issue separate ALTER TABLE queries for timestamp columns', async () => {
     const { module, capturedQueries } = await loadDbModuleWithCapture({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
     await module.migrateAgentChats()
 
@@ -595,7 +591,7 @@ describe('migrateAgentChats() — consolidated SQL', () => {
     }
   })
 
-  it('skips when no DATABASE_URL is set', async () => {
+  it('skips when no POSTGRES_URL is set', async () => {
     const { module } = await loadDbModuleWithCapture({})
 
     await expect(module.migrateAgentChats()).resolves.toBeUndefined()
@@ -614,7 +610,7 @@ describe('migrateAgentPlans() — consolidated SQL', () => {
 
   it('inlines both ALTER COLUMN TIMESTAMPTZ statements in the CREATE TABLE query', async () => {
     const { module, capturedQueries } = await loadDbModuleWithCapture({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
     await module.migrateAgentPlans()
 
@@ -629,7 +625,7 @@ describe('migrateAgentPlans() — consolidated SQL', () => {
 
   it('does not issue separate ALTER TABLE queries for timestamp columns', async () => {
     const { module, capturedQueries } = await loadDbModuleWithCapture({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
     await module.migrateAgentPlans()
 
@@ -643,7 +639,7 @@ describe('migrateAgentPlans() — consolidated SQL', () => {
     }
   })
 
-  it('skips when no DATABASE_URL is set', async () => {
+  it('skips when no POSTGRES_URL is set', async () => {
     const { module } = await loadDbModuleWithCapture({})
 
     await expect(module.migrateAgentPlans()).resolves.toBeUndefined()
@@ -662,7 +658,7 @@ describe('migrateGenerationJobs() — consolidated SQL', () => {
 
   it('inlines both ALTER COLUMN TIMESTAMPTZ statements in the CREATE TABLE query', async () => {
     const { module, capturedQueries } = await loadDbModuleWithCapture({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
     await module.migrateGenerationJobs()
 
@@ -677,7 +673,7 @@ describe('migrateGenerationJobs() — consolidated SQL', () => {
 
   it('does not issue separate ALTER TABLE queries for timestamp columns', async () => {
     const { module, capturedQueries } = await loadDbModuleWithCapture({
-      DATABASE_URL: 'postgres://user:pass@localhost:5432/mydb',
+      POSTGRES_URL: 'postgres://user:pass@localhost:5432/mydb',
     })
     await module.migrateGenerationJobs()
 
@@ -691,7 +687,7 @@ describe('migrateGenerationJobs() — consolidated SQL', () => {
     }
   })
 
-  it('skips when no DATABASE_URL is set', async () => {
+  it('skips when no POSTGRES_URL is set', async () => {
     const { module } = await loadDbModuleWithCapture({})
 
     await expect(module.migrateGenerationJobs()).resolves.toBeUndefined()
@@ -710,7 +706,7 @@ describe('Connection string detection — boundary / regression cases', () => {
 
   it('detects neon.tech regardless of subdomain depth', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://u:p@ep-some-name-12345678.ap-southeast-1.aws.neon.tech/db',
+      POSTGRES_URL: 'postgres://u:p@ep-some-name-12345678.ap-southeast-1.aws.neon.tech/db',
     })
 
     expect(mocks.neonPoolSpy.mock.calls).toHaveLength(1)
@@ -719,7 +715,7 @@ describe('Connection string detection — boundary / regression cases', () => {
 
   it('detects supabase.co with case-insensitive match', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://u:p@db.abc123.Supabase.CO:5432/postgres',
+      POSTGRES_URL: 'postgres://u:p@db.abc123.Supabase.CO:5432/postgres',
     })
 
     expect(mocks.pgPoolSpy.mock.calls).toHaveLength(1)
@@ -729,25 +725,25 @@ describe('Connection string detection — boundary / regression cases', () => {
 
   it('a URL containing "neon" but not "neon.tech" does NOT trigger NeonPool', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://u:p@neon-backup.mycompany.com:5432/mydb',
+      POSTGRES_URL: 'postgres://u:p@neon-backup.mycompany.com:5432/mydb',
     })
 
     expect(mocks.pgPoolSpy.mock.calls).toHaveLength(1)
     expect(mocks.neonPoolSpy.mock.calls).toHaveLength(0)
   })
 
-  it('prefers POSTGRES_URL over SUPABASE_DATABASE_URL when both are set', async () => {
+  it('ignores SUPABASE_DATABASE_URL and DATABASE_URL (Neon only, no fallbacks)', async () => {
     const { module } = await loadDbModule({
-      POSTGRES_URL: 'postgres://u:p@ep-xyz.us-east-2.aws.neon.tech/db',
       SUPABASE_DATABASE_URL: 'postgres://u:p@db.abc.supabase.co:5432/postgres',
+      DATABASE_URL: 'postgres://u:p@localhost:5432/mydb',
     })
 
-    expect(module.hasDb).toBe(true)
+    expect(module.hasDb).toBe(false)
   })
 
   it('detects supabase.com (not just supabase.co)', async () => {
     const { mocks } = await loadDbModule({
-      DATABASE_URL: 'postgres://u:p@db.project.supabase.com:5432/postgres',
+      POSTGRES_URL: 'postgres://u:p@db.project.supabase.com:5432/postgres',
     })
 
     expect(mocks.pgPoolSpy.mock.calls).toHaveLength(1)

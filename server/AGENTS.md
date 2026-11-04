@@ -68,7 +68,7 @@ server/
 | Pollinations | `gen.pollinations.ai/v1` (`POLLINATIONS_API_KEY`) | All text generation (`openai/gpt-6-luna`) | None (generation breaks) |
 | Fireworks (legacy) | `fireworks-endpoint--57crestcrepe.replit.app` (offline) | Agent Five image/search tools | Those tools fail; deck generation unaffected |
 | Replit Auth | `replit.com/oidc` | OIDC auth | Users can't sign in |
-| Postgres | `DATABASE_URL` | Sessions + decks | In-memory (data loss) |
+| Postgres | `POSTGRES_URL` (Neon only, no fallbacks) | Users + decks | No-op mock pool (DB routes 503) |
 
 ## PERFORMANCE NOTES
 

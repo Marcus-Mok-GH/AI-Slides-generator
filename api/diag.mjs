@@ -57,12 +57,7 @@ export default async function handler(req, res) {
     region: process.env.VERCEL_REGION || null,
     commit: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7) || null,
     env: {
-      dbUrl: Boolean(
-        process.env.POSTGRES_URL ||
-          process.env.DATABASE_URL ||
-          process.env.POSTGRES_PRISMA_URL ||
-          process.env.POSTGRES_URL_NON_POOLING,
-      ),
+      dbUrl: Boolean(process.env.POSTGRES_URL),
       jwtSecret: Boolean(process.env.JWT_SECRET),
     pollinationsKey: Boolean(process.env.POLLINATIONS_API_KEY),
     },
