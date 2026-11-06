@@ -1,194 +1,267 @@
+/* Templates page. Shared page primitives and grid cards live in index.css. */
+
 .tpl-page {
-  width: min(100%, 1100px);
+  width: 100%;
+  max-width: var(--page-max);
   margin: 0 auto;
-  padding: 16px 0 80px;
+  padding-bottom: var(--space-16);
 }
 
-/* ---- Header ---- */
 .tpl-header {
-  margin-bottom: 28px;
-}
-.tpl-title {
-  font-family: var(--font-display);
-  font-size: 32px;
-  font-weight: 600;
-  color: var(--text);
-  margin: 0 0 8px;
-  letter-spacing: -0.03em;
-}
-.tpl-sub {
-  font-size: 14px;
-  color: var(--text-muted);
-  margin: 0;
+  margin-bottom: var(--space-6);
 }
 
-/* ---- Category pills ---- */
+.tpl-title {
+  font-size: clamp(26px, 3.2vw, 34px);
+  font-weight: 600;
+  letter-spacing: -0.032em;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.tpl-sub {
+  font-size: 14.5px;
+  color: var(--text-muted);
+}
+
+/* ---- Category filter ---- */
 .tpl-cats {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 28px;
+  gap: 6px;
+  margin-bottom: var(--space-6);
 }
+
 .tpl-cat-btn {
-  padding: 8px 18px;
-  border-radius: 999px;
+  padding: 7px 15px;
   border: 1px solid var(--border);
+  border-radius: var(--radius-full);
   background: var(--surface);
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
-  cursor: pointer;
-  transition:
-    background 150ms ease,
-    color 150ms ease,
-    border-color 150ms ease,
-    box-shadow 150ms ease,
-    transform 150ms ease;
-}
-.tpl-cat-btn:hover {
-  color: var(--text);
-  border-color: var(--border-strong);
-  transform: translateY(-1px);
-}
-.tpl-cat-btn.is-active {
-  background: var(--accent-grad);
-  border-color: transparent;
-  color: var(--on-surface);
-  box-shadow: 0 4px 14px -4px var(--accent-ring);
-}
-.tpl-cat-btn.is-active:hover {
-  color: var(--on-surface);
+  white-space: nowrap;
 }
 
-/* ---- Card grid ---- */
+.tpl-cat-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.tpl-cat-btn.is-active {
+  border-color: transparent;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---- Grid ---- */
 .tpl-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+  gap: var(--space-4);
 }
 
-/* ---- Card ---- */
 .tpl-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  border-radius: var(--radius-xl);
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
   border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   background: var(--surface);
-  overflow: hidden;
-  cursor: pointer;
   text-align: left;
-  transition:
-    transform 200ms var(--ease-out-expo),
-    box-shadow 200ms ease,
-    border-color 200ms ease;
-}
-.tpl-card:hover,
-.tpl-card.is-hovered {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--border-strong);
-}
-.tpl-card:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--duration-base) var(--ease-out-expo),
+    box-shadow var(--duration-base) ease, border-color var(--duration-fast) ease;
 }
 
-/* ---- Thumbnail ---- */
+.tpl-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
 .tpl-thumb {
-  height: 120px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   position: relative;
+  height: 112px;
   overflow: hidden;
 }
 
-/* Slide mock lines */
 .tpl-mock {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
+  width: 78%;
+  height: 100%;
   padding: 16px;
-  width: 80%;
 }
+
 .tm-line,
 .tm-block {
   display: block;
-  border-radius: 4px;
-  background: rgba(255,255,255,0.35);
-  height: 8px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.34);
 }
+
 .tm-block {
-  height: 28px;
-  border-radius: 6px;
-  background: rgba(255,255,255,0.18);
+  height: 26px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.16);
 }
+
 .tm-line.w80 { width: 80%; }
 .tm-line.w65 { width: 65%; }
 .tm-line.w55 { width: 55%; }
 .tm-line.w40 { width: 40%; }
 
-/* ---- Card info ---- */
 .tpl-info {
-  padding: 14px 16px;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3) var(--space-4) var(--space-4);
 }
+
 .tpl-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 5px;
+  gap: var(--space-2);
 }
+
 .tpl-name {
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
-}
-.tpl-tag {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--accent-strong);
-  background: var(--accent-soft);
-  border: 1px solid transparent;
-  padding: 3px 9px;
-  border-radius: 999px;
   white-space: nowrap;
-}
-.tpl-desc {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  margin: 0;
-  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* ---- Hover overlay ---- */
+.tpl-tag {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.tpl-desc {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* Hover affordance, desktop only (no hover on touch). */
 .tpl-use-overlay {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--text) 62%, transparent);
+  color: var(--bg);
+  font-size: 13.5px;
   font-weight: 600;
-  color: #fff;
-  background: rgba(12, 14, 20, 0.66);
   opacity: 0;
-  transition: opacity 180ms ease;
   pointer-events: none;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-}
-.tpl-card:hover .tpl-use-overlay,
-.tpl-card.is-hovered .tpl-use-overlay {
-  opacity: 1;
+  transition: opacity 180ms ease;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
-/* ---- Responsive ---- */
-@media (max-width: 600px) {
-  .tpl-page { padding: 8px 0 60px; }
-  .tpl-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
-  .tpl-title { font-size: 22px; }
+@media (hover: hover) and (pointer: fine) {
+  .tpl-card:hover .tpl-use-overlay {
+    opacity: 1;
+  }
+}
+
+/* =========================================================================
+   Responsive
+   ========================================================================= */
+
+@media (max-width: 760px) {
+  .tpl-page {
+    padding-bottom: var(--space-10);
+  }
+
+  .tpl-header {
+    margin-bottom: var(--space-4);
+  }
+
+  .tpl-title {
+    font-size: 24px;
+  }
+
+  .tpl-sub {
+    font-size: 13.5px;
+  }
+
+  /* One swipeable row instead of wrapping pills eating half the screen. */
+  .tpl-cats {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 calc(-1 * var(--space-4)) var(--space-5);
+    padding: 0 var(--space-4);
+  }
+  .tpl-cats::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tpl-cat-btn {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 0 14px;
+  }
+
+  .tpl-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .tpl-thumb {
+    height: 84px;
+  }
+
+  .tpl-mock {
+    padding: 10px;
+    gap: 4px;
+    width: 88%;
+  }
+
+  .tm-line {
+    height: 4px;
+  }
+
+  .tm-block {
+    height: 18px;
+  }
+
+  .tpl-info {
+    padding: 10px 12px 12px;
+    gap: 3px;
+  }
+
+  .tpl-name {
+    font-size: 13px;
+  }
+
+  .tpl-desc {
+    font-size: 11.5px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .tpl-tag {
+    display: none;
+  }
 }

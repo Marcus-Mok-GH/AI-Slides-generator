@@ -107,6 +107,29 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
+      <aside className="login-aside" aria-hidden="true">
+        <div className="login-aside-inner">
+          <div className="login-aside-brand">
+            <span className="login-aside-mark">S</span>
+            slideai
+          </div>
+          <h2 className="login-aside-title">
+            From one prompt to a deck that looks designed.
+          </h2>
+          <p className="login-aside-lede">
+            SlideAI writes, designs and lays out every slide as custom HTML —
+            no templates, no blank-canvas paralysis.
+          </p>
+          <ul className="login-aside-list">
+            <li><span className="login-aside-check">✓</span> Export to PDF, PPTX or JSON</li>
+            <li><span className="login-aside-check">✓</span> Edit any slide by describing the change</li>
+            <li><span className="login-aside-check">✓</span> Every deck saved to your account</li>
+          </ul>
+        </div>
+        <div className="login-aside-foot">© {new Date().getFullYear()} SlideAI</div>
+      </aside>
+
+      <div className="login-main">
       <div className="login-card">
         <div className="login-brand">
           <span className="login-brand-mark">S</span>
@@ -223,6 +246,7 @@ export default function LoginPage() {
             </>
           )}
         </div>
+      </div>
       </div>
     </div>
   )

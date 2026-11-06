@@ -1,177 +1,148 @@
+/* My Decks. Deck card visuals are shared in index.css; this file only owns
+   the page header, toolbar and grid/list containers. */
+
 .my-decks-page {
-  width: min(100%, 1100px);
+  width: 100%;
+  max-width: var(--page-max);
   margin: 0 auto;
-  padding: 4px 0 72px;
+  padding-bottom: var(--space-16);
 }
 
-/* ---- Header ---- */
 .my-decks-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 28px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
 }
 
 .my-decks-title-group {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-}
-.my-decks-title {
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 500;
-  color: var(--text);
-  margin: 0;
-  letter-spacing: -0.03em;
-}
-.my-decks-count {
-  font-size: 14px;
-  color: var(--text-muted);
-  font-weight: 400;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
-/* ---- Controls row ---- */
+.my-decks-title {
+  font-size: clamp(26px, 3.2vw, 34px);
+  font-weight: 600;
+  letter-spacing: -0.032em;
+  color: var(--text);
+}
+
+.my-decks-count {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
+
 .my-decks-controls {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
-/* ---- Sort select ---- */
+/* ---- Sort ---- */
 .sort-select-wrap {
   position: relative;
   display: inline-flex;
   align-items: center;
 }
+
 .sort-select {
   appearance: none;
   -webkit-appearance: none;
-  padding: 7px 30px 7px 13px;
-  border-radius: 999px;
+  height: 36px;
+  padding: 0 30px 0 13px;
   border: 1px solid var(--border);
-  background: var(--surface-2);
+  border-radius: var(--radius-full);
+  background: var(--surface);
   color: var(--text);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   cursor: pointer;
   outline: none;
-  transition: border-color 150ms ease, background 150ms ease;
 }
+
 .sort-select:hover,
 .sort-select:focus {
   border-color: var(--border-strong);
 }
+
 .sort-select-caret {
   position: absolute;
-  right: 10px;
+  right: 11px;
   pointer-events: none;
-  font-size: 11px;
-  color: var(--text-muted);
+  font-size: 10px;
+  color: var(--text-soft);
 }
 
-/* ---- Grid & List layouts ---- */
+/* ---- Containers ---- */
 .my-decks-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: var(--space-5);
 }
 
 .my-decks-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
-/* ---- Card overrides for list view ---- */
-.deck-card--list {
-  flex-direction: row !important;
-  align-items: center;
-  gap: 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 8px 14px 8px 8px;
-  transition: background-color var(--duration-fast) ease,
-    border-color var(--duration-fast) ease;
-}
-.deck-card--list:hover {
-  background: var(--surface-2);
-  border-color: var(--border-strong);
-}
-.deck-card--list .deck-thumb {
-  width: 132px;
-  flex-shrink: 0;
-  aspect-ratio: 16 / 10;
-  border-radius: 10px;
-  border: none;
-  box-shadow: none;
-}
-.deck-card--list .deck-thumb-inner {
-  inset: 10px;
-  gap: 2px;
-}
-.deck-card--list .deck-headline {
-  color: var(--cover-fg, #ffffff);
-  font-size: 13px;
-}
-.deck-card--list .deck-meta {
-  flex: 1;
-  min-width: 0;
-  padding: 0;
+.my-decks-empty {
+  margin-top: var(--space-2);
 }
 
 .deck-meta-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
-.deck-slide-count {
-  font-size: 12px;
-  color: var(--text-muted);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  padding: 1px 8px;
-  border-radius: 999px;
+
+/* =========================================================================
+   Responsive
+   ========================================================================= */
+
+@media (max-width: 760px) {
+  .my-decks-page {
+    padding-bottom: var(--space-10);
+  }
+
+  .my-decks-title {
+    font-size: 24px;
+  }
+
+  .my-decks-count {
+    font-size: 12px;
+  }
+
+  .my-decks-header {
+    margin-bottom: var(--space-4);
+  }
+
+  .my-decks-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .sort-select {
+    height: 40px;
+    font-size: 16px;
+    padding: 0 32px 0 14px;
+  }
+
+  .my-decks-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
 }
 
-/* ---- Empty state ---- */
-.my-decks-empty {
-  margin-top: 8px;
-}
-.empty-cta {
-  margin-top: 18px;
-  padding: 10px 22px;
-  border-radius: 999px;
-  border: none;
-  background: var(--text);
-  color: var(--bg);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 150ms ease;
-  box-shadow: var(--shadow-md);
-}
-.empty-cta:hover {
-  opacity: 0.9;
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-}
-
-/* ---- Responsive ---- */
-@media (max-width: 720px) {
-  .my-decks-page { padding: 0 0 60px; }
-  .my-decks-title { font-size: 22px; }
-  .my-decks-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
-  .deck-card--list .deck-thumb { width: 92px; }
-  .my-decks-controls { flex-wrap: wrap; gap: 8px; }
-  .sort-select { font-size: 16px; padding: 10px 30px 10px 13px; min-height: 44px; }
-  .empty-cta { padding: 12px 22px; min-height: 44px; font-size: 14px; }
-}
-@media (max-width: 420px) {
-  .my-decks-grid { grid-template-columns: 1fr; }
-  .my-decks-header { flex-direction: column; align-items: flex-start; }
+@media (max-width: 380px) {
+  .my-decks-grid {
+    grid-template-columns: 1fr;
+  }
 }

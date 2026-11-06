@@ -1,7 +1,11 @@
+/* =========================================================================
+   App shell — sidebar + main column
+   ========================================================================= */
+
 .layout {
   display: grid;
-  grid-template-columns: 236px 1fr;
-  min-height: 100vh;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  min-height: 100dvh;
   background: var(--bg);
 }
 
@@ -9,127 +13,94 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: var(--bg);
+  min-height: 100dvh;
 }
 
 .content {
   flex: 1;
-  padding: 28px 40px 72px;
-  max-width: 1200px;
   width: 100%;
+  max-width: var(--content-max);
   margin: 0 auto;
+  padding: var(--space-8) var(--space-10) var(--space-16);
 }
 
-.content :where(.af-btn-primary, .cta-button, .primary-button, button[data-variant='primary']) {
+.content.stagger-children > * {
+  animation: fadeInUp 420ms var(--ease-out-expo) both;
+}
+.content.stagger-children > *:nth-child(2) { animation-delay: 40ms; }
+.content.stagger-children > *:nth-child(3) { animation-delay: 80ms; }
+
+/* Primary buttons rendered by child pages keep the brand treatment. */
+.content :where(.af-btn-primary, .cta-button, .primary-button, button[data-variant="primary"]) {
   background: var(--accent);
-  color: var(--on-surface);
-  box-shadow: var(--shadow-sm);
+  color: var(--on-accent);
   font-weight: 600;
 }
-
-.content :where(.af-btn-primary, .cta-button, .primary-button, button[data-variant='primary']):hover {
+.content :where(.af-btn-primary, .cta-button, .primary-button, button[data-variant="primary"]):hover {
   background: var(--accent-hover);
-  color: var(--on-surface);
+  color: var(--on-accent);
 }
 
-@media (max-width: 1024px) {
-  .layout {
-    grid-template-columns: 72px 1fr;
-  }
-  .content {
-    padding: 24px 32px 64px;
-  }
-}
+/* =========================================================================
+   Route loading
+   ========================================================================= */
 
-@media (max-width: 720px) {
-  .layout {
-    grid-template-columns: 1fr;
-  }
-  .content {
-    padding: 16px 16px 120px;
-  }
-}
-
-/* ---------- route loading ---------- */
 .route-loading {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  color: var(--text-muted);
+  gap: var(--space-4);
   background: var(--bg);
-  animation: fadeIn 400ms ease;
+  background-image: var(--ambient);
+  background-repeat: no-repeat;
+  color: var(--text-muted);
+  animation: fadeIn 300ms ease;
 }
 
 .route-loading-spinner {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   border: 2.5px solid var(--border-strong);
-  border-top-color: var(--text);
-  animation: route-loading-spin 0.9s linear infinite;
+  border-top-color: var(--accent);
+  animation: spin 0.85s linear infinite;
 }
 
 .route-loading-text {
-  font-size: 14px;
+  font-size: 13.5px;
+  font-weight: 500;
   letter-spacing: -0.01em;
   color: var(--text-soft);
 }
 
-@keyframes route-loading-spin {
-  to { transform: rotate(360deg); }
-}
+/* =========================================================================
+   Responsive shell
+   ========================================================================= */
 
-/* ---------- page transitions ---------- */
-.page-enter {
-  animation: pageEnter var(--duration-slow) var(--ease-out-expo) forwards;
-}
-
-.page-enter-delay-1 { animation-delay: 20ms; }
-.page-enter-delay-2 { animation-delay: 40ms; }
-.page-enter-delay-3 { animation-delay: 60ms; }
-.page-enter-delay-4 { animation-delay: 80ms; }
-.page-enter-delay-5 { animation-delay: 100ms; }
-.page-enter-delay-6 { animation-delay: 120ms; }
-
-@keyframes pageEnter {
-  from {
-    opacity: 0;
-    transform: translateY(18px) scale(0.995);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+@media (max-width: 1180px) {
+  .content {
+    padding: var(--space-6) var(--space-6) var(--space-16);
   }
 }
 
-.slide-enter {
-  animation: slideEnter var(--duration-slow) var(--ease-out-expo) forwards;
-}
-
-@keyframes slideEnter {
-  from {
-    opacity: 0;
-    transform: translateX(30px);
+@media (max-width: 1024px) {
+  .layout {
+    grid-template-columns: var(--sidebar-w-rail) minmax(0, 1fr);
   }
-  to {
-    opacity: 1;
-    transform: translateX(0);
+  .content {
+    padding: var(--space-6) var(--space-5) var(--space-12);
   }
 }
 
-/* ---------- content stagger children ---------- */
-.stagger-children > * {
-  opacity: 0;
-  animation: fadeInUp 360ms ease forwards;
+@media (max-width: 760px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .content {
+    padding: var(--space-4) var(--space-4)
+      calc(var(--space-12) + 88px + env(safe-area-inset-bottom, 0px));
+  }
 }
-.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-children > *:nth-child(2) { animation-delay: 25ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 50ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 75ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 100ms; }
-.stagger-children > *:nth-child(6) { animation-delay: 125ms; }
-.stagger-children > *:nth-child(7) { animation-delay: 150ms; }
-.stagger-children > *:nth-child(8) { animation-delay: 175ms; }
