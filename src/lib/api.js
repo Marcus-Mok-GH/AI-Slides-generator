@@ -10,7 +10,7 @@ export class UnauthorizedError extends Error {
   }
 }
 
-function getAuthHeaders() {
+export function getAuthHeaders() {
   const token = localStorage.getItem('slideai:token')
   return token ? { Authorization: `Bearer ${token}` } : {}
 }

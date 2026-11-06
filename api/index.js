@@ -2231,33 +2231,252 @@ var AGENT_TOOL_NAMES = Object.keys(TOOL_RUNNERS);
 
 // server/exportPptx.js
 var import_pptxgenjs = __toESM(require("pptxgenjs"), 1);
-var PX_W = 1280;
-var PX_H = 720;
-var W = 13.333;
-var H = 7.5;
-var M = 0.67;
-function escapeHtml(value) {
-  return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+// src/lib/charts.js
+var PIE_COLORS = (primary, accent) => [
+  primary,
+  accent,
+  mix(primary, "#ffffff", 0.35),
+  mix(accent, "#ffffff", 0.35),
+  mix(primary, accent, 0.5),
+  mix(primary, "#000000", 0.25)
+];
+function mix(a, b, t) {
+  const pa = hexToRgb(a);
+  const pb = hexToRgb(b);
+  if (!pa || !pb) return a;
+  const r = Math.round(pa.r + (pb.r - pa.r) * t);
+  const g = Math.round(pa.g + (pb.g - pa.g) * t);
+  const bl = Math.round(pa.b + (pb.b - pa.b) * t);
+  return `rgb(${r}, ${g}, ${bl})`;
 }
-function stripUnsafeTags(html) {
-  return String(html || "").replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<\/?(?:html|head|body|link|style|iframe|img)\b[^>]*>/gi, "");
+function hexToRgb(hex) {
+  const m = /^#?([a-f\d]{6})$/i.exec(hex || "");
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return { r: n >> 16 & 255, g: n >> 8 & 255, b: n & 255 };
 }
-function textFallbackHtml(slide) {
-  const bullets = Array.isArray(slide?.bullets) ? slide.bullets : [];
-  return `<div class="slide">
-    <h1>${escapeHtml(slide?.title || "Untitled slide")}</h1>
-    ${slide?.body ? `<p>${escapeHtml(slide.body)}</p>` : ""}
-    ${bullets.length ? `<ul>${bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>` : ""}
-  </div>`;
+function fmt(v) {
+  if (Math.abs(v) >= 1e3) return `${Math.round(v)}`;
+  return String(v);
 }
-function slideDocument({ slide, theme, index, total, deckTitle }) {
+function renderChartSvg(chart, theme = {}) {
+  const primary = theme.primary || "#7c5cff";
+  const accent = theme.accent || "#ff6ea0";
+  if (!chart || !Array.isArray(chart.data) || chart.data.length === 0) return "";
+  if (chart.type === "pie") return renderPie(chart, primary, accent);
+  if (chart.type === "line") return renderLine(chart, primary, accent);
+  return renderBar(chart, primary, accent);
+}
+function chartTitle(title) {
+  if (!title) return "";
+  return `<text x="20" y="28" font-family="Inter, system-ui, sans-serif" font-size="20" font-weight="700" fill="currentColor">${escapeXml(title)}</text>`;
+}
+function renderBar(chart, primary, accent) {
+  const W3 = 640;
+  const H3 = 360;
+  const padL = 56;
+  const padR = 24;
+  const padT = chart.title ? 56 : 24;
+  const padB = 56;
+  const innerW = W3 - padL - padR;
+  const innerH = H3 - padT - padB;
+  const max = Math.max(...chart.data.map((d) => d.value), 1);
+  const n = chart.data.length;
+  const gap = 14;
+  const barW = (innerW - gap * (n - 1)) / n;
+  const yTicks = 4;
+  const tickStep = max / yTicks;
+  let bars = "";
+  let labels = "";
+  chart.data.forEach((d, i) => {
+    const h = d.value / max * innerH;
+    const x = padL + i * (barW + gap);
+    const y = padT + innerH - h;
+    const fill = i % 2 === 0 ? primary : accent;
+    bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="6" fill="${fill}" />`;
+    bars += `<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 8).toFixed(1)}" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="14" font-weight="600" fill="currentColor">${fmt(d.value)}</text>`;
+    labels += `<text x="${(x + barW / 2).toFixed(1)}" y="${(padT + innerH + 22).toFixed(1)}" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="13" fill="currentColor" opacity="0.8">${escapeXml(d.label)}</text>`;
+  });
+  let grid = "";
+  for (let i = 0; i <= yTicks; i++) {
+    const y = padT + innerH / yTicks * i;
+    const v = max - tickStep * i;
+    grid += `<line x1="${padL}" x2="${W3 - padR}" y1="${y}" y2="${y}" stroke="currentColor" stroke-opacity="0.12" />`;
+    grid += `<text x="${padL - 8}" y="${y + 4}" text-anchor="end" font-family="Inter, system-ui, sans-serif" font-size="11" fill="currentColor" opacity="0.55">${fmt(v)}</text>`;
+  }
+  return `<svg viewBox="0 0 ${W3} ${H3}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bar chart" style="width:100%;height:auto;color:var(--fg,#fff)">${chartTitle(chart.title)}${grid}${bars}${labels}</svg>`;
+}
+function renderLine(chart, primary, accent) {
+  const W3 = 640;
+  const H3 = 360;
+  const padL = 56;
+  const padR = 24;
+  const padT = chart.title ? 56 : 24;
+  const padB = 56;
+  const innerW = W3 - padL - padR;
+  const innerH = H3 - padT - padB;
+  const max = Math.max(...chart.data.map((d) => d.value), 1);
+  const min = Math.min(...chart.data.map((d) => d.value), 0);
+  const range = max - min || 1;
+  const n = chart.data.length;
+  const points = chart.data.map((d, i) => {
+    const x = padL + i / Math.max(n - 1, 1) * innerW;
+    const y = padT + innerH - (d.value - min) / range * innerH;
+    return [x, y];
+  });
+  const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const area = `M${points[0][0].toFixed(1)},${(padT + innerH).toFixed(1)} ` + points.map((p) => `L${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ") + ` L${points[points.length - 1][0].toFixed(1)},${(padT + innerH).toFixed(1)} Z`;
+  const yTicks = 4;
+  let grid = "";
+  for (let i = 0; i <= yTicks; i++) {
+    const y = padT + innerH / yTicks * i;
+    const v = max - range / yTicks * i;
+    grid += `<line x1="${padL}" x2="${W3 - padR}" y1="${y}" y2="${y}" stroke="currentColor" stroke-opacity="0.12" />`;
+    grid += `<text x="${padL - 8}" y="${y + 4}" text-anchor="end" font-family="Inter, system-ui, sans-serif" font-size="11" fill="currentColor" opacity="0.55">${fmt(v)}</text>`;
+  }
+  let dots = "";
+  let labels = "";
+  points.forEach((p, i) => {
+    dots += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="5" fill="${accent}" stroke="${primary}" stroke-width="2" />`;
+    labels += `<text x="${p[0].toFixed(1)}" y="${(padT + innerH + 22).toFixed(1)}" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="13" fill="currentColor" opacity="0.8">${escapeXml(chart.data[i].label)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W3} ${H3}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Line chart" style="width:100%;height:auto;color:var(--fg,#fff)">
+${chartTitle(chart.title)}
+${grid}
+<path d="${area}" fill="${primary}" fill-opacity="0.18" />
+<path d="${path}" fill="none" stroke="${primary}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+${dots}
+${labels}
+</svg>`;
+}
+function renderPie(chart, primary, accent) {
+  const W3 = 640;
+  const H3 = 360;
+  const cx = 200;
+  const cy = chart.title ? 200 : 180;
+  const r = 130;
+  const total = chart.data.reduce((s, d) => s + Math.max(d.value, 0), 0) || 1;
+  const colors = PIE_COLORS(primary, accent);
+  let angle = -Math.PI / 2;
+  let slices = "";
+  let legend = "";
+  chart.data.forEach((d, i) => {
+    const frac = Math.max(d.value, 0) / total;
+    const next = angle + frac * Math.PI * 2;
+    const large = frac > 0.5 ? 1 : 0;
+    const x1 = cx + r * Math.cos(angle);
+    const y1 = cy + r * Math.sin(angle);
+    const x2 = cx + r * Math.cos(next);
+    const y2 = cy + r * Math.sin(next);
+    const path = `M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${large} 1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`;
+    slices += `<path d="${path}" fill="${colors[i % colors.length]}" stroke="var(--bg,#0f0f1a)" stroke-width="2" />`;
+    const ly = chart.title ? 64 + i * 30 : 32 + i * 30;
+    legend += `<rect x="380" y="${ly}" width="14" height="14" rx="3" fill="${colors[i % colors.length]}" />`;
+    legend += `<text x="404" y="${ly + 12}" font-family="Inter, system-ui, sans-serif" font-size="14" fill="currentColor">${escapeXml(d.label)} <tspan opacity="0.6">${Math.round(frac * 100)}%</tspan></text>`;
+    angle = next;
+  });
+  return `<svg viewBox="0 0 ${W3} ${H3}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pie chart" style="width:100%;height:auto;color:var(--fg,#fff)">${chartTitle(chart.title)}${slices}${legend}</svg>`;
+}
+function escapeXml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+// src/lib/slideDocument.js
+var SLIDE_W = 1280;
+var SLIDE_H = 720;
+function escapeText(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function normalizeSlideHtml(html) {
+  const raw = String(html || "").trim();
+  if (!raw) return "";
+  const bodyMatch = raw.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  const core = (bodyMatch ? bodyMatch[1] : raw).trim();
+  if (/^\s*<\w+[^>]*\bclass\s*=\s*["'][^"']*\bslide\b[^"']*["'][^>]*>/i.test(core)) {
+    return core;
+  }
+  return `<div class="slide">${core}</div>`;
+}
+function injectCharts(html, charts, theme) {
+  if (!html) return "";
+  if (!Array.isArray(charts) || charts.length === 0) return html;
+  return html.replace(
+    /<div\s+data-chart\s*=\s*["']?(\d+)["']?\s*>\s*<\/div>/gi,
+    (_m, idx) => {
+      const i = parseInt(idx, 10);
+      const c = charts[i];
+      if (!c) return "";
+      return `<div class="slide-chart">${renderChartSvg(c, theme)}</div>`;
+    }
+  );
+}
+var ICON_SPRITE = `
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1L3.2 9.4l6.1-.9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0112 6a5.5 5.5 0 019.5 6c-2.5 4.5-9.5 9-9.5 9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M14 4s5 0 6 6c-6 1-6 6-6 6s-3-1-5-3-3-5-3-5 4-1 8-4z M9 13l-3 3M14 4l6 6M5 19s1-2 3-2M19 19s-2 1-2 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-4 10.5c1 1 1.5 1.5 1.5 3h5c0-1.5.5-2 1.5-3A6 6 0 0012 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V8a4 4 0 018 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19 12c0 .5 0 1-.1 1.5l2 1.6-2 3.4-2.4-1a7 7 0 01-2.6 1.5l-.4 2.5h-4l-.4-2.5a7 7 0 01-2.6-1.5l-2.4 1-2-3.4 2-1.6c-.1-.5-.1-1-.1-1.5s0-1 .1-1.5l-2-1.6 2-3.4 2.4 1a7 7 0 012.6-1.5L10 3h4l.4 2.5a7 7 0 012.6 1.5l2.4-1 2 3.4-2 1.6c.1.5.1 1 .1 1.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2 20c0-3.3 3.1-6 7-6s7 2.7 7 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="17" cy="9" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 14c3.3.4 6 2.6 6 5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V8M10 20V4M16 20v-8M22 20H2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-trend" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v6h-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-dollar" viewBox="0 0 24 24"><path d="M12 3v18M17 7H9.5a3 3 0 100 6h5a3 3 0 110 6H6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 12h18M12 3c3 3.5 3 14 0 18M12 3c-3 3.5-3 14 0 18" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18a4 4 0 010-8 6 6 0 0111-2 4 4 0 01.5 8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6M14 4l-4 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z M3 13l9 5 9-5 M3 17l9 5 9-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-document" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z M14 3v4h4 M9 13h6 M9 17h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 7l9 6 9-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-7 7-12a7 7 0 10-14 0c0 5 7 12 7 12z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M21 21l-5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-quote" viewBox="0 0 24 24"><path d="M7 7h4v4H7c0 3 0 4 4 5v2c-6-1-7-4-7-7V7zM15 7h4v4h-4c0 3 0 4 4 5v2c-6-1-7-4-7-7V7z" fill="currentColor"/></symbol>
+  </defs>
+</svg>`.trim();
+function buildDocument({
+  html,
+  css,
+  charts,
+  theme,
+  index,
+  total,
+  deckTitle
+}) {
   const bg = theme?.background || "#0f0f1a";
   const primary = theme?.primary || "#7c5cff";
   const accent = theme?.accent || "#ff6ea0";
+  const safeHtml = injectCharts(normalizeSlideHtml(html), charts, theme);
+  const userCss = String(css || "");
+  const showFooter = typeof index === "number" && typeof total === "number";
+  const footerLeft = deckTitle ? escapeText(deckTitle) : "";
+  const footer = showFooter ? `<div class="__page-footer" aria-hidden>
+         ${footerLeft ? `<span class="__footer-title">${footerLeft}</span>` : ""}
+         <span class="__footer-num">${index + 1} <span class="__footer-sep">/</span> ${total}</span>
+       </div>` : "";
   return `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=${SLIDE_W}" />
+<base target="_blank" />
 <style>
   :root {
     --bg: ${bg};
@@ -2271,67 +2490,512 @@ function slideDocument({ slide, theme, index, total, deckTitle }) {
   }
   html, body {
     margin: 0;
-    width: ${PX_W}px;
-    height: ${PX_H}px;
+    padding: 0;
+    width: ${SLIDE_W}px;
+    height: ${SLIDE_H}px;
     overflow: hidden;
     background: var(--bg);
     color: var(--fg);
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: geometricPrecision;
   }
+  body { position: relative; }
+
+  /* Decorative ambient gradient blobs that pick up the theme.
+     Keeps every slide from feeling like a flat block of color. */
   body::before, body::after {
     content: '';
-    position: absolute;
-    width: 720px;
-    height: 720px;
-    border-radius: 50%;
-    filter: blur(120px);
-    opacity: 0.45;
-    pointer-events: none;
+    position: absolute; pointer-events: none; z-index: 0;
+    width: 720px; height: 720px; border-radius: 50%;
+    filter: blur(120px); opacity: 0.55;
   }
   body::before {
-    top: -260px;
-    left: -240px;
-    background: radial-gradient(circle, color-mix(in oklab, var(--primary) 70%, transparent), transparent 60%);
+    top: -260px; left: -240px;
+    background: radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--primary) 70%, transparent) 0%, transparent 60%);
   }
   body::after {
-    right: -220px;
-    bottom: -280px;
-    background: radial-gradient(circle, color-mix(in oklab, var(--accent) 60%, transparent), transparent 60%);
+    bottom: -280px; right: -200px;
+    background: radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--accent) 60%, transparent) 0%, transparent 60%);
   }
+
+  /* Page footer (slide # / total \xB7 deck title) \u2014 Gamma-style */
+  .__page-footer {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 32px; z-index: 5;
+    font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: rgba(255,255,255,0.45); pointer-events: none;
+    font-feature-settings: "tnum" 1;
+  }
+  .__footer-title {
+    max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .__footer-num { font-weight: 600; color: rgba(255,255,255,0.65); }
+  .__footer-sep { opacity: 0.4; margin: 0 4px; }
+
+  /* Default .slide layer sits above hero image and decorations */
   .slide {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    height: 100%;
+    position: relative; z-index: 1;
+    width: 100%; height: 100%;
     box-sizing: border-box;
     padding: 64px 80px 72px;
+    display: flex; flex-direction: column;
   }
-  .__page-footer {
-    position: absolute;
-    left: 32px;
-    right: 32px;
-    bottom: 16px;
-    z-index: 5;
-    display: flex;
-    justify-content: space-between;
-    color: rgba(255,255,255,0.5);
-    font-size: 13px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+  .slide h1 { font-size: 84px; line-height: 1.05; margin: 0 0 16px; letter-spacing: -0.02em; font-weight: 700; }
+  .slide h2 { font-size: 56px; line-height: 1.1;  margin: 0 0 16px; letter-spacing: -0.015em; font-weight: 700; }
+  .slide h3 { font-size: 28px; line-height: 1.2;  margin: 0 0 8px; font-weight: 600; }
+  .slide h4 { font-size: 20px; line-height: 1.25; margin: 0 0 6px; font-weight: 600; }
+  .slide p  { font-size: 22px; line-height: 1.45; margin: 0 0 12px; color: var(--muted); }
+  .slide ul, .slide ol { margin: 0; padding-left: 1.4em; }
+  .slide li { font-size: 22px; line-height: 1.5; margin: 8px 0; }
+  .slide blockquote { font-size: 36px; line-height: 1.3; margin: 0; font-weight: 600; }
+  .slide a { color: var(--accent); }
+  .slide-chart { width: 100%; max-width: 720px; }
+
+  /* ----------------------------------------------------------------
+     Gamma-style utility primitives. Slides are encouraged to use
+     these instead of inventing new names \u2014 gives the deck a
+     consistent feel even when the AI emits modest CSS.
+     ---------------------------------------------------------------- */
+
+  /* Eyebrow tag \u2014 uppercase letter-spaced label above headlines */
+  .slide .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin: 0 0 18px;
+  }
+  .slide .eyebrow::before {
+    content: ''; display: inline-block; width: 24px; height: 2px;
+    background: var(--accent); border-radius: 2px;
+  }
+
+  /* Pills \u2014 small rounded labels */
+  .slide .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 999px;
+    background: color-mix(in oklab, var(--primary) 18%, transparent);
+    border: 1px solid color-mix(in oklab, var(--primary) 30%, transparent);
+    color: var(--fg); font-size: 14px; font-weight: 500; letter-spacing: 0.02em;
+  }
+  .slide .pill.accent {
+    background: color-mix(in oklab, var(--accent) 18%, transparent);
+    border-color: color-mix(in oklab, var(--accent) 30%, transparent);
+  }
+
+  /* Accent vertical bar \u2014 drop next to a headline */
+  .slide .accent-bar {
+    width: 4px; height: 56px; border-radius: 4px;
+    background: linear-gradient(180deg, var(--primary), var(--accent));
+  }
+
+  /* Big numeric badge "01" \u2014 for sections, steps, hero numbers */
+  .slide .number-badge {
+    font-feature-settings: "tnum" 1;
+    font-size: 96px; line-height: 1; font-weight: 800;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent; letter-spacing: -0.04em;
+  }
+  .slide .number-badge.sm { font-size: 56px; }
+
+  /* Glass card \u2014 the workhorse Gamma card */
+  .slide .card {
+    background: var(--softer);
+    border: 1px solid var(--hairline);
+    border-radius: 20px;
+    padding: 24px 26px;
+    backdrop-filter: blur(12px);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .slide .card.featured {
+    background: linear-gradient(140deg,
+      color-mix(in oklab, var(--primary) 22%, transparent),
+      color-mix(in oklab, var(--accent) 14%, transparent));
+    border-color: color-mix(in oklab, var(--primary) 35%, transparent);
+  }
+  .slide .card .card-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: color-mix(in oklab, var(--primary) 22%, transparent);
+    color: var(--accent);
+  }
+  .slide .card h3 { font-size: 22px; margin: 4px 0 4px; color: var(--fg); }
+  .slide .card p  { font-size: 16px; line-height: 1.5; color: var(--muted); margin: 0; }
+
+  /* Card grid \u2014 responsive Gamma tiles */
+  .slide .card-grid {
+    display: grid; gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+  .slide .card-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .slide .card-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .slide .card-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  /* Callout block \u2014 highlight with accent left border */
+  .slide .callout {
+    border-left: 4px solid var(--accent);
+    background: color-mix(in oklab, var(--accent) 10%, transparent);
+    padding: 22px 26px; border-radius: 0 16px 16px 0;
+    font-size: 22px; line-height: 1.45; color: var(--fg);
+  }
+  .slide .callout .callout-label {
+    display: block; font-size: 12px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--accent);
+    font-weight: 700; margin-bottom: 8px;
+  }
+
+  /* Divider rule with optional inline label */
+  .slide .divider {
+    height: 1px; background: var(--hairline); margin: 16px 0;
+  }
+  .slide .divider.with-label {
+    display: flex; align-items: center; gap: 14px;
+    background: transparent; height: auto;
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.18em;
+    color: var(--muted);
+  }
+  .slide .divider.with-label::before,
+  .slide .divider.with-label::after {
+    content: ''; flex: 1; height: 1px; background: var(--hairline);
+  }
+
+  /* Dot grid texture \u2014 subtle decorative background */
+  .slide .dot-grid {
+    background-image: radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1.5px);
+    background-size: 16px 16px;
+  }
+
+  /* Stat block \u2014 big number + caption */
+  .slide .stat {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .slide .stat .stat-value {
+    font-size: 72px; line-height: 1; font-weight: 800;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent; letter-spacing: -0.03em;
+    font-feature-settings: "tnum" 1;
+  }
+  .slide .stat .stat-label {
+    font-size: 14px; color: var(--muted); letter-spacing: 0.04em;
+  }
+
+  /* Process / timeline node row */
+  .slide .process {
+    display: grid; gap: 16px;
+    grid-auto-flow: column; grid-auto-columns: 1fr;
+    align-items: stretch;
+  }
+  .slide .process .node {
+    background: var(--softer); border: 1px solid var(--hairline);
+    border-radius: 18px; padding: 22px;
+    display: flex; flex-direction: column; gap: 8px;
+    position: relative;
+  }
+  .slide .process .node + .node::before {
+    content: '\u2192'; position: absolute; left: -22px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent); font-size: 24px; font-weight: 700;
+  }
+  .slide .process .node .node-num {
+    font-size: 14px; font-weight: 700; color: var(--accent);
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .slide .process .node h3 { font-size: 20px; margin: 0; }
+  .slide .process .node p { font-size: 15px; margin: 0; color: var(--muted); }
+
+  /* Timeline (vertical) */
+  .slide .timeline { display: flex; flex-direction: column; gap: 18px; }
+  .slide .timeline .event {
+    display: grid; grid-template-columns: 110px 1fr; gap: 24px;
+    align-items: start; padding-left: 18px;
+    border-left: 2px solid var(--hairline); position: relative;
+  }
+  .slide .timeline .event::before {
+    content: ''; position: absolute; left: -8px; top: 8px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 25%, transparent);
+  }
+  .slide .timeline .event .when {
+    font-size: 16px; font-weight: 700; color: var(--accent);
+    letter-spacing: 0.04em;
+  }
+  .slide .timeline .event .what h3 { margin: 0 0 4px; font-size: 22px; }
+  .slide .timeline .event .what p { font-size: 16px; margin: 0; color: var(--muted); }
+
+  /* Inline icons \u2014 referenced via <svg class="icon"><use href="#i-..."/></svg> */
+  .slide .icon {
+    width: 1em; height: 1em;
+    display: inline-block; vertical-align: -0.125em;
+    color: currentColor; flex-shrink: 0;
+  }
+  .slide .icon.lg { width: 1.5em; height: 1.5em; }
+  .slide .icon.xl { width: 2em; height: 2em; }
+
+  /* Headline gradient text \u2014 opt-in via .gradient-text */
+  .slide .gradient-text {
+    background: linear-gradient(120deg, var(--fg), var(--accent) 70%);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+  }
+
+  /* ----------------------------------------------------------------
+     Layout-specific semantic helpers.
+     Using these means the AI only needs to emit the scaffold HTML \u2014
+     the visual treatment is already wired in.
+     ---------------------------------------------------------------- */
+
+  /* Title / hero slide */
+  .title-slide {
+    display: flex; flex-direction: column; justify-content: flex-end;
+    gap: 0;
+  }
+  .title-slide .eyebrow { margin-bottom: 24px; }
+  .title-slide h1 {
+    font-size: 92px; line-height: 1.02; letter-spacing: -0.03em;
+    font-weight: 800; margin: 0 0 20px;
+    max-width: 18ch;
+  }
+  .slide .lede {
+    font-size: 26px; line-height: 1.5; color: var(--muted);
+    margin: 0 0 32px; max-width: 52ch;
+  }
+  .slide .meta-row {
+    display: flex; align-items: center; gap: 14px;
+    font-size: 15px; color: rgba(255,255,255,0.45);
+    letter-spacing: 0.06em;
+  }
+  .slide .meta-row span { white-space: nowrap; }
+
+  /* Section divider slide */
+  .section-slide {
+    display: flex; flex-direction: column; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .slide .section-index {
+    font-size: 200px; font-weight: 900; line-height: 1; letter-spacing: -0.04em;
+    position: absolute; right: 60px; top: 50%; transform: translateY(-50%);
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    opacity: 0.15; pointer-events: none; user-select: none;
+    font-feature-settings: "tnum" 1;
+  }
+  .slide .section-eyebrow {
+    font-size: 14px; font-weight: 700; letter-spacing: 0.24em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 18px; display: block;
+  }
+  .section-slide h1 {
+    font-size: 96px; line-height: 1; letter-spacing: -0.035em;
+    font-weight: 800; margin: 0; max-width: 14ch;
+  }
+  .section-slide .accent-bar { margin-top: 28px; height: 6px; width: 80px; }
+
+  /* Statement slide */
+  .statement-slide {
+    display: flex; flex-direction: column; justify-content: center;
+    padding-top: 80px;
+  }
+  .slide .quote-mark {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 160px; line-height: 0.6; color: var(--accent);
+    opacity: 0.7; margin-bottom: -24px; display: block;
+    font-weight: 400;
+  }
+  .slide .statement {
+    font-size: 72px; line-height: 1.06; letter-spacing: -0.025em;
+    font-weight: 800; margin: 0 0 24px; max-width: 20ch; color: var(--fg);
+  }
+  .slide .elaboration {
+    font-size: 24px; line-height: 1.55; color: var(--muted);
+    max-width: 56ch; margin: 0;
+  }
+
+  /* Bullets slide */
+  .bullets-slide header { margin-bottom: 28px; }
+  .bullets-slide header h2 { margin: 0; }
+  .slide .bullets {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .slide .bullets li {
+    display: flex; align-items: flex-start; gap: 16px;
+    font-size: 22px; line-height: 1.45; color: rgba(255,255,255,0.9);
+    margin: 0;
+  }
+  .slide .bullets .dot {
+    flex-shrink: 0; width: 10px; height: 10px; margin-top: 8px;
+    border-radius: 3px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+  }
+  .slide .bullets .text { flex: 1; }
+
+  /* Steps slide */
+  .steps-slide h2 { margin-bottom: 28px; }
+  .slide .steps {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .slide .steps li {
+    display: flex; align-items: flex-start; gap: 20px;
+    padding: 16px 20px; border-radius: 14px;
+    background: var(--softer); border: 1px solid var(--hairline);
+    margin: 0;
+  }
+  .slide .step-num {
+    flex-shrink: 0; width: 36px; height: 36px; border-radius: 999px;
+    display: grid; place-items: center; font-weight: 700; font-size: 15px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: #fff;
+  }
+  .slide .step-body h3 { font-size: 20px; margin: 0 0 4px; color: var(--fg); }
+  .slide .step-body p { font-size: 16px; margin: 0; color: var(--muted); }
+
+  /* Comparison slide */
+  .comparison-slide h2 { margin-bottom: 24px; }
+  .slide .cmp-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    flex: 1;
+  }
+  .slide .cmp-col {
+    padding: 22px 24px; border-radius: 18px; display: flex;
+    flex-direction: column; gap: 14px;
+    background: var(--softer); border: 1px solid var(--hairline);
+  }
+  .slide .cmp-col.cmp-left { border-left: 3px solid rgba(255,255,255,0.2); }
+  .slide .cmp-col.cmp-right { border-left: 3px solid var(--accent); }
+  .slide .cmp-label {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: rgba(255,255,255,0.6);
+  }
+  .slide .cmp-col.cmp-right .cmp-label { color: var(--accent); }
+  .slide .cmp-col ul {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .slide .cmp-col li {
+    padding-left: 18px; position: relative;
+    font-size: 18px; line-height: 1.45; color: rgba(255,255,255,0.88); margin: 0;
+  }
+  .slide .cmp-col li::before {
+    content: ''; position: absolute; left: 0; top: 9px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(255,255,255,0.45);
+  }
+  .slide .cmp-col.cmp-right li::before { background: var(--accent); }
+
+  /* Stats slide */
+  .stats-slide header { margin-bottom: 28px; }
+  .stats-slide header h2 { margin: 0; }
+  .slide .stat-grid {
+    display: grid; gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    flex: 1; align-content: start;
+  }
+  .slide .stat-card {
+    padding: 26px 24px; border-radius: 18px;
+    background: var(--softer); border: 1px solid var(--hairline);
+    display: flex; flex-direction: column; gap: 8px;
+    transition: background 0.2s;
+  }
+  .slide .stat-card .stat-value {
+    font-size: 56px; line-height: 1; font-weight: 800;
+    letter-spacing: -0.025em; font-feature-settings: "tnum" 1;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .slide .stat-card .stat-label {
+    font-size: 15px; color: var(--muted); letter-spacing: 0.02em;
+    line-height: 1.4;
+  }
+
+  /* Quote slide */
+  .quote-slide {
+    display: flex; flex-direction: column; justify-content: center;
+    gap: 0; padding-top: 60px;
+  }
+  .quote-slide .quote-mark {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 120px; line-height: 0.6; color: var(--accent);
+    opacity: 0.65; display: block; margin-bottom: -20px;
+  }
+  .quote-slide blockquote {
+    font-size: 42px; line-height: 1.28; font-weight: 600;
+    margin: 0 0 28px; letter-spacing: -0.012em;
+    max-width: 22ch; color: var(--fg);
+  }
+  .quote-slide footer {
+    display: flex; align-items: center; gap: 20px;
+    font-size: 16px; color: var(--muted);
+  }
+  .slide .rule {
+    display: inline-block; width: 32px; height: 2px;
+    background: var(--accent); border-radius: 2px; flex-shrink: 0;
+  }
+
+  /* Two-column slide */
+  .two-col-slide header { margin-bottom: 24px; }
+  .two-col-slide header h2 { margin: 0; }
+  .two-col-slide .cols {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 36px;
+    flex: 1; align-items: start;
+  }
+  .two-col-slide .prose p {
+    font-size: 22px; line-height: 1.6; color: var(--muted);
+  }
+
+  /* Content slide */
+  .content-slide .body {
+    font-size: 24px; line-height: 1.6; color: var(--muted);
+    max-width: 60ch;
+  }
+
+  /* Feature cards slide */
+  .feature-cards-slide header { margin-bottom: 28px; }
+  .feature-cards-slide header h2 { margin: 0; }
+
+  /* Grid texture overlay \u2014 add class="grid-bg" to .slide wrapper */
+  .slide.grid-bg::before {
+    content: '';
+    position: absolute; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
     pointer-events: none;
   }
-  ${String(slide?.css || "")}
+
+  /* Author CSS comes last so it can override defaults */
+  ${userCss}
 </style>
 </head>
 <body>
-${stripUnsafeTags(slide?.html) || textFallbackHtml(slide)}
-<div class="__page-footer">
-  <span>${escapeHtml(deckTitle)}</span>
-  <span>${index + 1} / ${total}</span>
-</div>
+${ICON_SPRITE}
+${safeHtml}
+${footer}
 </body>
 </html>`;
 }
+function buildSlideDocument(slide, theme, opts = {}) {
+  return buildDocument({
+    html: slide?.html,
+    css: slide?.css,
+    charts: slide?.charts,
+    theme,
+    index: opts.index,
+    total: opts.total,
+    deckTitle: opts.deckTitle
+  });
+}
+
+// server/exportPptx.js
+var PX_W = 1280;
+var PX_H = 720;
+var W = 13.333;
+var H = 7.5;
+var M = 0.67;
 async function launchBrowser() {
   let puppeteer;
   try {
@@ -2355,6 +3019,13 @@ async function launchBrowser() {
     throw e;
   }
 }
+function exportDocument(deck, slide, index, total) {
+  return buildSlideDocument(slide, deck?.theme || {}, {
+    index,
+    total,
+    deckTitle: deck?.title || ""
+  }).replace(/<script[\s\S]*?<\/script>/gi, "");
+}
 async function renderSlideImages(deck) {
   const browser2 = await launchBrowser();
   try {
@@ -2363,13 +3034,9 @@ async function renderSlideImages(deck) {
     const slides = Array.isArray(deck?.slides) ? deck.slides : [];
     const images = [];
     for (let i = 0; i < slides.length; i++) {
-      await page2.setContent(slideDocument({
-        slide: slides[i],
-        theme: deck.theme || {},
-        index: i,
-        total: slides.length,
-        deckTitle: deck.title || ""
-      }), { waitUntil: "networkidle0" });
+      await page2.setContent(exportDocument(deck, slides[i], i, slides.length), {
+        waitUntil: "load"
+      });
       const buffer = await page2.screenshot({ type: "png" });
       images.push(buffer.toString("base64"));
     }
@@ -2449,6 +3116,7 @@ async function buildPptxBuffer(deck) {
   pptx.title = deck?.title || "Deck";
   pptx.company = "AI Slides Generator";
   pptx.lang = "en-US";
+  let mode = "raster";
   try {
     const images = await renderSlideImages(deck);
     images.forEach((base64, index) => {
@@ -2464,11 +3132,12 @@ async function buildPptxBuffer(deck) {
       if (slides[index]?.speakerNotes) pSlide.addNotes(slides[index].speakerNotes);
     });
   } catch (err) {
+    mode = "text";
     console.warn(`[export/pptx] html render failed, using text fallback: ${err.message}`);
     slides.forEach((slide, index) => addTextFallbackSlide(pptx, deck, slide, index, slides.length));
   }
   const arrayBuffer = await pptx.write({ outputType: "arraybuffer" });
-  return Buffer.from(arrayBuffer);
+  return { buffer: Buffer.from(arrayBuffer), mode };
 }
 
 // server/exportPdf.js
@@ -2476,104 +3145,6 @@ var import_jspdf = require("jspdf");
 var W2 = 1280;
 var H2 = 720;
 var M2 = 64;
-function escapeHtml2(value) {
-  return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-function stripUnsafeTags2(html) {
-  return String(html || "").replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<\/?(?:html|head|body|link|style|iframe|img)\b[^>]*>/gi, "");
-}
-function slideDocument2({ slide, theme, index, total, deckTitle }) {
-  const bg = theme?.background || "#0f0f1a";
-  const primary = theme?.primary || "#7c5cff";
-  const accent = theme?.accent || "#ff6ea0";
-  const html = stripUnsafeTags2(slide.html);
-  const css = String(slide.css || "");
-  return `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<style>
-  :root {
-    --bg: ${bg};
-    --primary: ${primary};
-    --accent: ${accent};
-    --fg: #ffffff;
-    --muted: rgba(255,255,255,0.65);
-    --soft: rgba(255,255,255,0.08);
-    --softer: rgba(255,255,255,0.04);
-    --hairline: rgba(255,255,255,0.12);
-  }
-  html, body {
-    margin: 0;
-    width: ${W2}px;
-    height: ${H2}px;
-    overflow: hidden;
-    background: var(--bg);
-    color: var(--fg);
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
-  }
-  body::before, body::after {
-    content: '';
-    position: absolute;
-    width: 720px;
-    height: 720px;
-    border-radius: 50%;
-    filter: blur(120px);
-    opacity: 0.45;
-    pointer-events: none;
-  }
-  body::before {
-    top: -260px;
-    left: -240px;
-    background: radial-gradient(circle, color-mix(in oklab, var(--primary) 70%, transparent), transparent 60%);
-  }
-  body::after {
-    right: -220px;
-    bottom: -280px;
-    background: radial-gradient(circle, color-mix(in oklab, var(--accent) 60%, transparent), transparent 60%);
-  }
-  .slide {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    height: 100%;
-    box-sizing: border-box;
-    padding: 64px 80px 72px;
-  }
-  .__page-footer {
-    position: absolute;
-    left: 32px;
-    right: 32px;
-    bottom: 16px;
-    z-index: 5;
-    display: flex;
-    justify-content: space-between;
-    color: rgba(255,255,255,0.5);
-    font-size: 13px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    pointer-events: none;
-  }
-  ${css}
-</style>
-</head>
-<body>
-${html || textFallbackHtml2(slide)}
-<div class="__page-footer">
-  <span>${escapeHtml2(deckTitle)}</span>
-  <span>${index + 1} / ${total}</span>
-</div>
-</body>
-</html>`;
-}
-function textFallbackHtml2(slide) {
-  const bullets = Array.isArray(slide?.bullets) ? slide.bullets : [];
-  return `<div class="slide">
-    <h1>${escapeHtml2(slide?.title || "Untitled slide")}</h1>
-    ${slide?.body ? `<p>${escapeHtml2(slide.body)}</p>` : ""}
-    ${bullets.length ? `<ul>${bullets.map((b) => `<li>${escapeHtml2(b)}</li>`).join("")}</ul>` : ""}
-  </div>`;
-}
 function addTextFallbackPage(pdf, slide, theme, index, total, deckTitle) {
   const bg = theme?.background || "#0f0f1a";
   pdf.setFillColor(bg);
@@ -2628,6 +3199,13 @@ async function launchBrowser2() {
     throw e;
   }
 }
+function exportDocument2(deck, slide, index, total) {
+  return buildSlideDocument(slide, deck?.theme || {}, {
+    index,
+    total,
+    deckTitle: deck?.title || ""
+  }).replace(/<script[\s\S]*?<\/script>/gi, "");
+}
 async function renderSlideImages2(deck) {
   const browser2 = await launchBrowser2();
   try {
@@ -2636,13 +3214,9 @@ async function renderSlideImages2(deck) {
     const slides = Array.isArray(deck?.slides) ? deck.slides : [];
     const images = [];
     for (let i = 0; i < slides.length; i++) {
-      await page2.setContent(slideDocument2({
-        slide: slides[i],
-        theme: deck.theme || {},
-        index: i,
-        total: slides.length,
-        deckTitle: deck.title || ""
-      }), { waitUntil: "networkidle0" });
+      await page2.setContent(exportDocument2(deck, slides[i], i, slides.length), {
+        waitUntil: "load"
+      });
       const buffer = await page2.screenshot({ type: "png" });
       images.push(buffer.toString("base64"));
     }
@@ -2660,6 +3234,7 @@ async function buildPdfBuffer(deck) {
     format: [W2, H2],
     compress: true
   });
+  let mode = "raster";
   try {
     const images = await renderSlideImages2(deck);
     images.forEach((base64, index) => {
@@ -2667,13 +3242,14 @@ async function buildPdfBuffer(deck) {
       pdf.addImage(`data:image/png;base64,${base64}`, "PNG", 0, 0, W2, H2);
     });
   } catch (err) {
+    mode = "text";
     console.warn(`[export/pdf] html render failed, using text fallback: ${err.message}`);
     slides.forEach((slide, index) => {
       if (index > 0) pdf.addPage([W2, H2], "landscape");
       addTextFallbackPage(pdf, slide, deck.theme || {}, index, slides.length, deck.title || "");
     });
   }
-  return Buffer.from(pdf.output("arraybuffer"));
+  return { buffer: Buffer.from(pdf.output("arraybuffer")), mode };
 }
 
 // server/jobRunner.js
@@ -3121,7 +3697,7 @@ app.post("/api/export/pptx", async (req, res) => {
     if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
       return res.status(400).json({ error: "deck.slides is required" });
     }
-    const buf = await buildPptxBuffer(deck);
+    const { buffer: buf, mode } = await buildPptxBuffer(deck);
     const safeName = (deck.title || "deck").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "deck";
     res.setHeader(
       "Content-Type",
@@ -3129,6 +3705,7 @@ app.post("/api/export/pptx", async (req, res) => {
     );
     res.setHeader("Content-Disposition", `attachment; filename="${safeName}.pptx"`);
     res.setHeader("Content-Length", buf.length);
+    res.setHeader("X-Export-Mode", mode);
     res.send(buf);
   } catch (err) {
     console.error("[export/pptx] error:", err);
@@ -3144,11 +3721,12 @@ app.post("/api/export/pdf", async (req, res) => {
     if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
       return res.status(400).json({ error: "deck.slides is required" });
     }
-    const buf = await buildPdfBuffer(deck);
+    const { buffer: buf, mode } = await buildPdfBuffer(deck);
     const safeName = (deck.title || "deck").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "deck";
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${safeName}.pdf"`);
     res.setHeader("Content-Length", buf.length);
+    res.setHeader("X-Export-Mode", mode);
     res.send(buf);
   } catch (err) {
     console.error("[export/pdf] error:", err);

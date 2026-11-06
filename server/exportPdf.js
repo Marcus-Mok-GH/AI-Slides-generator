@@ -1,116 +1,9 @@
 import { jsPDF } from 'jspdf'
+import { buildSlideDocument } from '../src/lib/slideDocument.js'
 
 const W = 1280
 const H = 720
 const M = 64
-
-function escapeHtml(value) {
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function stripUnsafeTags(html) {
-  return String(html || '')
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<\/?(?:html|head|body|link|style|iframe|img)\b[^>]*>/gi, '')
-}
-
-function slideDocument({ slide, theme, index, total, deckTitle }) {
-  const bg = theme?.background || '#0f0f1a'
-  const primary = theme?.primary || '#7c5cff'
-  const accent = theme?.accent || '#ff6ea0'
-  const html = stripUnsafeTags(slide.html)
-  const css = String(slide.css || '')
-  return `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<style>
-  :root {
-    --bg: ${bg};
-    --primary: ${primary};
-    --accent: ${accent};
-    --fg: #ffffff;
-    --muted: rgba(255,255,255,0.65);
-    --soft: rgba(255,255,255,0.08);
-    --softer: rgba(255,255,255,0.04);
-    --hairline: rgba(255,255,255,0.12);
-  }
-  html, body {
-    margin: 0;
-    width: ${W}px;
-    height: ${H}px;
-    overflow: hidden;
-    background: var(--bg);
-    color: var(--fg);
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
-  }
-  body::before, body::after {
-    content: '';
-    position: absolute;
-    width: 720px;
-    height: 720px;
-    border-radius: 50%;
-    filter: blur(120px);
-    opacity: 0.45;
-    pointer-events: none;
-  }
-  body::before {
-    top: -260px;
-    left: -240px;
-    background: radial-gradient(circle, color-mix(in oklab, var(--primary) 70%, transparent), transparent 60%);
-  }
-  body::after {
-    right: -220px;
-    bottom: -280px;
-    background: radial-gradient(circle, color-mix(in oklab, var(--accent) 60%, transparent), transparent 60%);
-  }
-  .slide {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    height: 100%;
-    box-sizing: border-box;
-    padding: 64px 80px 72px;
-  }
-  .__page-footer {
-    position: absolute;
-    left: 32px;
-    right: 32px;
-    bottom: 16px;
-    z-index: 5;
-    display: flex;
-    justify-content: space-between;
-    color: rgba(255,255,255,0.5);
-    font-size: 13px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    pointer-events: none;
-  }
-  ${css}
-</style>
-</head>
-<body>
-${html || textFallbackHtml(slide)}
-<div class="__page-footer">
-  <span>${escapeHtml(deckTitle)}</span>
-  <span>${index + 1} / ${total}</span>
-</div>
-</body>
-</html>`
-}
-
-function textFallbackHtml(slide) {
-  const bullets = Array.isArray(slide?.bullets) ? slide.bullets : []
-  return `<div class="slide">
-    <h1>${escapeHtml(slide?.title || 'Untitled slide')}</h1>
-    ${slide?.body ? `<p>${escapeHtml(slide.body)}</p>` : ''}
-    ${bullets.length ? `<ul>${bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}</ul>` : ''}
-  </div>`
-}
 
 function addTextFallbackPage(pdf, slide, theme, index, total, deckTitle) {
   const bg = theme?.background || '#0f0f1a'
@@ -176,6 +69,19 @@ async function launchBrowser() {
   }
 }
 
+/**
+ * The exact document the viewer renders, minus scripts: the on-screen iframe is
+ * sandboxed without `allow-scripts`, but a headless browser would happily run
+ * anything the model emitted.
+ */
+function exportDocument(deck, slide, index, total) {
+  return buildSlideDocument(slide, deck?.theme || {}, {
+    index,
+    total,
+    deckTitle: deck?.title || '',
+  }).replace(/<script[\s\S]*?<\/script>/gi, '')
+}
+
 async function renderSlideImages(deck) {
   const browser = await launchBrowser()
   try {
@@ -184,13 +90,9 @@ async function renderSlideImages(deck) {
     const slides = Array.isArray(deck?.slides) ? deck.slides : []
     const images = []
     for (let i = 0; i < slides.length; i++) {
-      await page.setContent(slideDocument({
-        slide: slides[i],
-        theme: deck.theme || {},
-        index: i,
-        total: slides.length,
-        deckTitle: deck.title || '',
-      }), { waitUntil: 'networkidle0' })
+      await page.setContent(exportDocument(deck, slides[i], i, slides.length), {
+        waitUntil: 'load',
+      })
       const buffer = await page.screenshot({ type: 'png' })
       images.push(buffer.toString('base64'))
     }
@@ -211,6 +113,7 @@ export async function buildPdfBuffer(deck) {
     compress: true,
   })
 
+  let mode = 'raster'
   try {
     const images = await renderSlideImages(deck)
     images.forEach((base64, index) => {
@@ -218,6 +121,7 @@ export async function buildPdfBuffer(deck) {
       pdf.addImage(`data:image/png;base64,${base64}`, 'PNG', 0, 0, W, H)
     })
   } catch (err) {
+    mode = 'text'
     console.warn(`[export/pdf] html render failed, using text fallback: ${err.message}`)
     slides.forEach((slide, index) => {
       if (index > 0) pdf.addPage([W, H], 'landscape')
@@ -225,5 +129,6 @@ export async function buildPdfBuffer(deck) {
     })
   }
 
-  return Buffer.from(pdf.output('arraybuffer'))
+  // `mode` lets the client say *why* a download looks unlike the deck.
+  return { buffer: Buffer.from(pdf.output('arraybuffer')), mode }
 }

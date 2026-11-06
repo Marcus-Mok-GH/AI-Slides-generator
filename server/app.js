@@ -134,16 +134,14 @@ app.get('/api/credits', async (req, res) => {
 /**
  * Server-side PPTX export.
  *
- * The browser sends the deck JSON; we use pptxgenjs to build a proper
- * .pptx file and stream it back as an attachment. This avoids all the
- * html2canvas / iframe / browser-sandbox issues that plague client-side
- * export in Replit's nested-iframe preview environment.
+ * The browser sends the deck JSON; each slide is rendered from the same
+ * document the viewer shows and screenshotted with headless Chrome, then
+ * assembled with pptxgenjs and streamed back as an attachment.
  *
- * Each slide gets:
- *   - A full-bleed background image (the data-URL already stored in the
- *     deck — no extra network call needed).
- *   - A fallback solid-colour background for slides without an image.
- *   - Speaker notes when present.
+ * When the host has no browser binary the slides are laid out as native
+ * PPTX text instead, and the response carries `X-Export-Mode: text` so the
+ * viewer can render the deck in the browser rather than hand over a file
+ * that looks nothing like it.
  */
 app.post('/api/export/pptx', async (req, res) => {
   try {
@@ -152,7 +150,7 @@ app.post('/api/export/pptx', async (req, res) => {
       return res.status(400).json({ error: 'deck.slides is required' })
     }
 
-    const buf = await buildPptxBuffer(deck)
+    const { buffer: buf, mode } = await buildPptxBuffer(deck)
 
     const safeName = (deck.title || 'deck')
       .toLowerCase()
@@ -163,6 +161,7 @@ app.post('/api/export/pptx', async (req, res) => {
       'application/vnd.openxmlformats-officedocument.presentationml.presentation')
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}.pptx"`)
     res.setHeader('Content-Length', buf.length)
+    res.setHeader('X-Export-Mode', mode)
     res.send(buf)
   } catch (err) {
     console.error('[export/pptx] error:', err)
@@ -180,7 +179,7 @@ app.post('/api/export/pdf', async (req, res) => {
       return res.status(400).json({ error: 'deck.slides is required' })
     }
 
-    const buf = await buildPdfBuffer(deck)
+    const { buffer: buf, mode } = await buildPdfBuffer(deck)
 
     const safeName = (deck.title || 'deck')
       .toLowerCase()
@@ -190,6 +189,7 @@ app.post('/api/export/pdf', async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}.pdf"`)
     res.setHeader('Content-Length', buf.length)
+    res.setHeader('X-Export-Mode', mode)
     res.send(buf)
   } catch (err) {
     console.error('[export/pdf] error:', err)

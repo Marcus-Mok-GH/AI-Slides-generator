@@ -2,6 +2,8 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 
 import SlideEditor from './SlideEditor.jsx'
 import HtmlSlide from './HtmlSlide.jsx'
 import ThumbPreview from './ThumbPreview.jsx'
+import { getAuthHeaders } from '../lib/api.js'
+import { exportDeckToPdf, exportDeckToPptx } from '../lib/exportDeck.js'
 import './SlideViewer.css'
 
 /* ----------------------------------------------------------------
@@ -13,6 +15,20 @@ import './SlideViewer.css'
    ---------------------------------------------------------------- */
 const SLIDE_WIDTH = 1280
 const SLIDE_HEIGHT = 720
+
+/** Trigger a browser download and clean the anchor/URL up afterwards. */
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  setTimeout(() => {
+    URL.revokeObjectURL(url)
+    a.remove()
+  }, 200)
+}
 
 /**
  * Observes a stage container and returns the largest scale factor at
@@ -499,6 +515,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
 
   const [exportOpen, setExportOpen] = useState(false)
   const [exportBusy, setExportBusy] = useState('') // '' | 'pdf' | 'pptx' | 'json'
+  const [exportNote, setExportNote] = useState('')
   const exportMenuRef = useRef(null)
 
   useEffect(() => {
@@ -553,7 +570,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     try {
       const res = await fetch('/api/export/pdf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ deck }),
       })
       if (!res.ok) {
@@ -562,23 +579,38 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
         throw new Error(msg)
       }
       const blob = await res.blob()
+      const degraded = res.headers.get('X-Export-Mode') === 'text'
       const safeName = (deck.title || 'deck')
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '') || 'deck'
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${safeName}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a) }, 200)
-      showToast('PDF downloaded')
+
+      // No browser on the server: render the deck here instead, so the file
+      // still looks like the stage. The plain-text response stays as a
+      // last resort if this browser cannot rasterize the slide document.
+      if (degraded) {
+        try {
+          await exportDeckToPdf(deck, {
+            onProgress: ({ index, total }) =>
+              setExportNote(`Rendering ${index + 1}/${total}…`),
+          })
+          showToast('PDF downloaded — rendered in your browser')
+          return
+        } catch (err) {
+          console.warn('[export pdf] browser render failed, using server file', err)
+        }
+      }
+
+      downloadBlob(blob, `${safeName}.pdf`)
+      showToast(degraded
+        ? 'PDF downloaded as plain text — this browser could not render it'
+        : 'PDF downloaded')
     } catch (err) {
       console.error('[export pdf]', err)
       showToast(`PDF export failed: ${err?.message || 'unknown error'}`)
     } finally {
       setExportBusy('')
+      setExportNote('')
     }
   }
 
@@ -589,7 +621,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     try {
       const res = await fetch('/api/export/pptx', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ deck }),
       })
       if (!res.ok) {
@@ -598,23 +630,35 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
         throw new Error(msg)
       }
       const blob = await res.blob()
+      const degraded = res.headers.get('X-Export-Mode') === 'text'
       const safeName = (deck.title || 'deck')
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '') || 'deck'
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${safeName}.pptx`
-      document.body.appendChild(a)
-      a.click()
-      setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a) }, 200)
-      showToast('PPTX downloaded — open in Google Slides or PowerPoint')
+
+      if (degraded) {
+        try {
+          await exportDeckToPptx(deck, {
+            onProgress: ({ index, total }) =>
+              setExportNote(`Rendering ${index + 1}/${total}…`),
+          })
+          showToast('PPTX downloaded — rendered in your browser')
+          return
+        } catch (err) {
+          console.warn('[export pptx] browser render failed, using server file', err)
+        }
+      }
+
+      downloadBlob(blob, `${safeName}.pptx`)
+      showToast(degraded
+        ? 'PPTX downloaded as plain slides — this browser could not render it'
+        : 'PPTX downloaded — open in Google Slides or PowerPoint')
     } catch (err) {
       console.error('[export pptx]', err)
       showToast(`PPTX export failed: ${err?.message || 'unknown error'}`)
     } finally {
       setExportBusy('')
+      setExportNote('')
     }
   }
 
@@ -884,9 +928,9 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
               aria-expanded={exportOpen}
             >
               {exportBusy === 'pdf'
-                ? <><span className="vbar-export-full">Building PDF…</span><span className="vbar-export-icon" aria-hidden>⏳</span></>
+                ? <><span className="vbar-export-full">{exportNote || 'Building PDF…'}</span><span className="vbar-export-icon" aria-hidden>⏳</span></>
                 : exportBusy === 'pptx'
-                  ? <><span className="vbar-export-full">Building PPTX…</span><span className="vbar-export-icon" aria-hidden>⏳</span></>
+                  ? <><span className="vbar-export-full">{exportNote || 'Building PPTX…'}</span><span className="vbar-export-icon" aria-hidden>⏳</span></>
                   : <><span className="vbar-export-full">Export ▾</span><span className="vbar-export-icon" aria-hidden>↓</span></>}
             </button>
             {exportOpen && !isStreaming && !exportBusy && (

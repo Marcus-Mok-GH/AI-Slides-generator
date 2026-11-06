@@ -219,7 +219,7 @@ SELECT id, email, created_at FROM users ORDER BY created_at DESC;
 - No custom fonts (system fonts + CSS only)
 - No batch operations (one deck at a time)
 - No version history (auto-save overwrites)
-- PDF/PPTX export depends on Puppeteer + headless Chrome, so it needs the Chrome binary at runtime
+- PDF/PPTX export prefers server-side headless Chrome (Puppeteer). Without a browser binary the server returns `X-Export-Mode: text` and the viewer rasterizes the same slide document in the browser instead, so a host without Chrome still produces a deck-accurate file
 - Mobile editing is a bottom sheet that stops part-way up the screen; the live
   slide preview above it is small on short phones (~300px wide) and the edit
   prompt box is correspondingly short

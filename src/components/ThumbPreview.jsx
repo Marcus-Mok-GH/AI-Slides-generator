@@ -1,5 +1,5 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { buildSlideDocument } from './HtmlSlide.jsx'
+import { buildSlideDocument } from '../lib/slideDocument.js'
 
 /**
  * Lightweight live thumbnail of a slide.
