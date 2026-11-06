@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import SlideEditor from './SlideEditor.jsx'
 import HtmlSlide from './HtmlSlide.jsx'
 import ThumbPreview from './ThumbPreview.jsx'
@@ -68,16 +68,22 @@ function Slide({ slide, theme, index, total, deckTitle }) {
     )
   }
 
+  // A slide that is still being written gets a calm placeholder: its title as
+  // soon as we have one, plus layout-shaped skeletons. Never raw markup.
   return (
-    <div className="slide partial-slide is-typing" style={style}>
+    <div className="slide partial-slide" style={style}>
       <div className="partial-slide-inner">
-        <span className="partial-eyebrow">Drafting HTML canvas</span>
+        <span className="partial-eyebrow">
+          <span className="partial-dot" aria-hidden />
+          Composing slide
+        </span>
         <h2>{slide.title || `Slide ${index + 1}`}</h2>
-        {slide.body ? <p>{slide.body}</p> : null}
-        {slide.html ? (
-          <pre className="partial-code">{slide.html.slice(0, 700)}</pre>
-        ) : null}
-        <span className="typing-caret" aria-hidden>▌</span>
+        <div className="partial-lines" aria-hidden>
+          <span className="shimmer-line" />
+          <span className="shimmer-line" />
+          <span className="shimmer-line short" />
+        </div>
+        <span className="partial-hint">Designing layout and typography…</span>
       </div>
       <div className="slide-footer">
         <span>{index + 1} / {total}</span>
@@ -388,7 +394,7 @@ function PresentMode({ slides, theme, active, total, deckTitle, onNext, onPrev, 
 
 /* One rail entry, shared by the desktop rail and the mobile strip. Both show
    a live 16:9 thumbnail of the actual slide, a number chip, and the title. */
-function RailItem({ slide, index, total, theme, deckTitle, active, compact, onClick }) {
+function RailItemBase({ slide, index, total, theme, deckTitle, active, compact, onClick }) {
   const isPartial = slide?.partial
   const cls = [
     'rail-item',
@@ -405,7 +411,7 @@ function RailItem({ slide, index, total, theme, deckTitle, active, compact, onCl
       role={compact ? 'tab' : undefined}
       aria-selected={compact ? active : undefined}
       className={cls}
-      onClick={onClick}
+      onClick={() => onClick?.(index)}
       disabled={!slide}
       aria-current={!compact && active ? 'true' : undefined}
       aria-label={slide?.title ? `Slide ${index + 1}: ${slide.title}` : `Slide ${index + 1}, loading`}
@@ -442,6 +448,10 @@ function RailItem({ slide, index, total, theme, deckTitle, active, compact, onCl
   )
 }
 
+/* Rail entries re-render only when their own slide or selection changes;
+   during streaming the deck object is replaced on every event. */
+const RailItem = memo(RailItemBase)
+
 export default function SlideViewer({ deck, savingState, onDeckChange, onBack }) {
   const [active, setActive] = useState(0)
   const [editing, setEditing] = useState(false)
@@ -449,7 +459,8 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
   const [presenting, setPresenting] = useState(false)
   const [toast, setToast] = useState('')
   const userNavigatedRef = useRef(false)
-  const prevSlideCountRef = useRef(deck.slides.length)
+  const prevCompletedRef = useRef(-1)
+  const deckIdRef = useRef(deck.id)
   const stageRef = useRef(null)
   const stageScale = useFitScale(stageRef)
 
@@ -610,24 +621,59 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
   const isStreaming = !!deck.streaming
   const slideCount = deck.slides.length
   const expectedCount = deck.expectedCount || slideCount
+  const completedCount = deck.slides.reduce(
+    (n, s) => n + (s && !s.partial ? 1 : 0),
+    0,
+  )
 
+  // Follow the stream: whenever a slide finishes, show it — unless the user has
+  // taken over navigation. Finishing a deck no longer snaps back to slide 1.
   useEffect(() => {
-    const prev = prevSlideCountRef.current
-    if (slideCount > prev) {
-      if (isStreaming && !userNavigatedRef.current) {
-        setActive(slideCount - 1)
-      }
+    const lastCompleted = deck.slides.reduce(
+      (last, s, i) => (s && !s.partial ? i : last),
+      -1,
+    )
+    if (
+      isStreaming &&
+      lastCompleted > prevCompletedRef.current &&
+      !userNavigatedRef.current
+    ) {
+      setActive(lastCompleted)
     }
+    prevCompletedRef.current = lastCompleted
     if (!isStreaming) {
-      if (!userNavigatedRef.current) setActive(0)
+      setActive((a) => Math.min(a, Math.max(deck.slides.length - 1, 0)))
     }
-    prevSlideCountRef.current = slideCount
-  }, [slideCount, isStreaming])
+  }, [deck.slides, isStreaming])
 
-  const userJump = (i) => {
+  // A fresh generation follows from its first slide; a different saved deck
+  // starts at slide 1; finishing a stream keeps the slide you were on.
+  const wasStreamingRef = useRef(false)
+  useEffect(() => {
+    const wasStreaming = wasStreamingRef.current
+    wasStreamingRef.current = isStreaming
+
+    if (isStreaming) {
+      if (deck.slides.length === 0) {
+        userNavigatedRef.current = false
+        prevCompletedRef.current = -1
+        setActive(0)
+      }
+      return
+    }
+    if (wasStreaming) return
+    if (deckIdRef.current !== deck.id) {
+      deckIdRef.current = deck.id
+      userNavigatedRef.current = false
+      prevCompletedRef.current = -1
+      setActive(0)
+    }
+  }, [deck.id, deck.slides.length, isStreaming])
+
+  const userJump = useCallback((i) => {
     userNavigatedRef.current = true
     setActive(i)
-  }
+  }, [])
 
   /* Swipe left/right on the stage to move between slides (touch devices). */
   const stageTouchRef = useRef(null)
@@ -680,11 +726,6 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     onDeckChange?.({ ...deck, slides: nextSlides })
   }
 
-  // Count of slides that are fully complete (not partials).
-  const completedCount = deck.slides.reduce(
-    (n, s) => n + (s && !s.partial ? 1 : 0),
-    0,
-  )
   const progressPct = isStreaming
     ? Math.min(100, Math.round((completedCount / Math.max(expectedCount, 1)) * 100))
     : 100
@@ -708,14 +749,40 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     thumbItems.push(deck.slides[i] || null)
   }
 
-  // Keep the active slide's rail entry in view (desktop rail scrolls
-  // vertically, the mobile strip horizontally).
+  // Keep the active slide's rail entry in view without ever scrolling the
+  // page: the desktop rail scrolls vertically, the mobile strip horizontally.
   useEffect(() => {
-    const el = document.querySelector('.rail-item.is-active')
-    el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
-  }, [active])
+    const item = document.querySelector('.rail-item.is-active')
+    if (!item) return
+    let container = item.parentElement
+    while (container) {
+      const cs = getComputedStyle(container)
+      if (/(auto|scroll)/.test(cs.overflowY) || /(auto|scroll)/.test(cs.overflowX)) break
+      container = container.parentElement
+    }
+    if (!container) return
+    const ir = item.getBoundingClientRect()
+    const cr = container.getBoundingClientRect()
+    const pad = 8
+    const dy =
+      ir.top < cr.top ? ir.top - cr.top - pad
+        : ir.bottom > cr.bottom ? ir.bottom - cr.bottom + pad
+          : 0
+    const dx =
+      ir.left < cr.left ? ir.left - cr.left - pad
+        : ir.right > cr.right ? ir.right - cr.right + pad
+          : 0
+    if (dy || dx) {
+      container.scrollBy({
+        top: dy,
+        left: dx,
+        behavior: isStreaming ? 'auto' : 'smooth',
+      })
+    }
+  }, [active, isStreaming])
 
-  const showGenerating = !slide || (slide.partial && !slide.title)
+  const hasCompletedSlides = completedCount > 0
+  const showGenerating = !hasCompletedSlides || !slide
   const hasNotes = !!slide?.speakerNotes
 
   return (
@@ -736,7 +803,11 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
             {deck.theme?.name || 'Aurora'} theme
           </span>
           {statusText ? (
-            <span className={`vbar-status ${isStreaming ? 'is-streaming' : ''}`}>
+            <span
+              className={`vbar-status ${isStreaming ? 'is-streaming' : ''}`}
+              role="status"
+              aria-live="polite"
+            >
               {isStreaming ? <span className="dot-pulse" /> : null}
               {statusText}
             </span>
@@ -866,7 +937,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
                   theme={deck.theme}
                   deckTitle={deck.title}
                   active={i === active}
-                  onClick={() => userJump(i)}
+                  onClick={userJump}
                 />
               </li>
             ))}
@@ -885,7 +956,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
               deckTitle={deck.title}
               active={i === active}
               compact
-              onClick={() => userJump(i)}
+              onClick={userJump}
             />
           ))}
         </div>

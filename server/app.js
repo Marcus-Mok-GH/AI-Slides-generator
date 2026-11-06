@@ -385,10 +385,10 @@ app.get('/api/generate-deck/job/:jobId', async (req, res) => {
       console.error('[job-sse] poll error:', e?.message)
     }
 
-    if (!closed) setTimeout(poll, 500)
+    if (!closed) setTimeout(poll, 350)
   }
 
-  setTimeout(poll, 500)
+  setTimeout(poll, 350)
 })
 
 /* ─────────────────────────────────────────────────────────── */

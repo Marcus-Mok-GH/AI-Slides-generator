@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { buildSlideDocument } from './HtmlSlide.jsx'
 
 /**
@@ -16,7 +16,7 @@ const CANVAS_H = 720
 const THUMB_W = 320
 const SCALE = THUMB_W / CANVAS_W
 
-export default function ThumbPreview({
+function ThumbPreview({
   slide,
   theme,
   index,
@@ -29,14 +29,17 @@ export default function ThumbPreview({
   const [nearViewport, setNearViewport] = useState(false)
   const [scale, setScale] = useState(SCALE)
 
+  // A slide that is still streaming has no usable HTML yet. Keep the painted
+  // skeleton and skip the document build entirely until it is complete — this
+  // is what stops every token from rebuilding every thumbnail.
+  const isRenderable = !!slide && !slide.partial && !!slide.html
+
   const docHtml = useMemo(
     () =>
-      buildSlideDocument(slide, theme, {
-        index,
-        total,
-        deckTitle,
-      }),
-    [slide, theme, index, total, deckTitle],
+      isRenderable
+        ? buildSlideDocument(slide, theme, { index, total, deckTitle })
+        : '',
+    [isRenderable, slide, theme, index, total, deckTitle],
   )
 
   useEffect(() => {
@@ -77,14 +80,14 @@ export default function ThumbPreview({
   }, [])
 
   useEffect(() => {
-    if (nearViewport && ready && iframeRef.current) {
+    if (nearViewport && ready && docHtml && iframeRef.current) {
       iframeRef.current.srcdoc = docHtml
     }
   }, [nearViewport, ready, docHtml])
 
   return (
     <div ref={hostRef} className="thumb-frame" aria-hidden>
-      {nearViewport && ready ? (
+      {nearViewport && ready && docHtml ? (
         <iframe
           ref={iframeRef}
           title=""
@@ -107,3 +110,5 @@ export default function ThumbPreview({
     </div>
   )
 }
+
+export default memo(ThumbPreview)

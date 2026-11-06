@@ -249,7 +249,16 @@ export default function App() {
     }
     return {
       onThinking: ({ text }) => {
-        setDeck((prev) => prev ? { ...prev, thinkingText: (prev.thinkingText || '') + text } : prev)
+        // Keep only the tail of the reasoning stream. The panel shows a few
+        // lines at a time, and unbounded growth makes every render expensive.
+        setDeck((prev) => {
+          if (!prev || !text) return prev
+          const next = (prev.thinkingText || '') + text
+          return {
+            ...prev,
+            thinkingText: next.length > 2400 ? next.slice(-2400) : next,
+          }
+        })
       },
       onMeta: ({ title, subtitle, theme }) => {
         setDeck((prev) => {

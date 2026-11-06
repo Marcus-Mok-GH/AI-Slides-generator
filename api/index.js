@@ -2678,18 +2678,65 @@ async function buildPdfBuffer(deck) {
 
 // server/jobRunner.js
 var DECK_GENERATION_CENTS2 = 50;
+var FLUSH_MS = 120;
 async function runGenerationJob(jobId, ctx, userId, startBalance) {
-  const write = (event, data) => appendJobEvent(jobId, event, data).catch(
-    (e) => console.warn(`[jobRunner] failed to append ${event}:`, e?.message)
-  );
+  let chain = Promise.resolve();
+  let thinkingBuf = "";
+  let thinkingType = "reasoning";
+  let flushTimer = null;
+  const pendingPartials = /* @__PURE__ */ new Map();
+  const append = (event, data) => {
+    chain = chain.then(() => appendJobEvent(jobId, event, data)).catch(
+      (e) => console.warn(`[jobRunner] failed to append ${event}:`, e?.message)
+    );
+    return chain;
+  };
+  const flushBuffered = () => {
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    if (thinkingBuf) {
+      append("thinking", { text: thinkingBuf, type: thinkingType });
+      thinkingBuf = "";
+    }
+    for (const [index, partial] of pendingPartials) {
+      append("partial", { index, partial });
+    }
+    pendingPartials.clear();
+  };
+  const scheduleFlush = () => {
+    if (flushTimer) return;
+    flushTimer = setTimeout(() => {
+      flushTimer = null;
+      flushBuffered();
+    }, FLUSH_MS);
+  };
   try {
     await updateJobStatus(jobId, "running");
     const deck = await streamGenerateDeck(ctx, {
-      onThinking: (data) => write("thinking", data),
-      onMeta: (data) => write("meta", data),
-      onPartial: (data) => write("partial", data),
-      onSlide: (data) => write("slide", data)
+      onThinking: ({ text, type }) => {
+        if (!text) return;
+        if (!thinkingBuf) thinkingType = type || "reasoning";
+        thinkingBuf += text;
+        scheduleFlush();
+      },
+      onMeta: (data) => {
+        flushBuffered();
+        append("meta", data);
+      },
+      onPartial: ({ index, partial }) => {
+        pendingPartials.set(index, partial);
+        scheduleFlush();
+      },
+      onSlide: (data) => {
+        pendingPartials.delete(data.index);
+        flushBuffered();
+        append("slide", data);
+      }
     });
+    flushBuffered();
+    await chain;
     if (ctx.userTheme?.primary) {
       deck.theme = { ...deck.theme, ...ctx.userTheme };
     }
@@ -2708,13 +2755,16 @@ async function runGenerationJob(jobId, ctx, userId, startBalance) {
     } catch (e) {
       console.warn("[jobRunner] credit deduction failed:", e?.message);
     }
-    await write("credits", { balanceCents, deckCostCents: DECK_GENERATION_CENTS2 });
-    await write("done", { deck: savedDeck });
+    append("credits", { balanceCents, deckCostCents: DECK_GENERATION_CENTS2 });
+    append("done", { deck: savedDeck });
+    await chain;
     await updateJobStatus(jobId, "completed");
   } catch (err) {
     console.error("[jobRunner] generation failed:", err);
     try {
-      await write("error", { error: err?.message || "Generation failed" });
+      flushBuffered();
+      append("error", { error: err?.message || "Generation failed" });
+      await chain;
       await updateJobStatus(jobId, "failed");
     } catch {
     }
@@ -3267,9 +3317,9 @@ data: ${JSON.stringify(data)}
       }
       console.error("[job-sse] poll error:", e?.message);
     }
-    if (!closed) setTimeout(poll, 500);
+    if (!closed) setTimeout(poll, 350);
   };
-  setTimeout(poll, 500);
+  setTimeout(poll, 350);
 });
 app.post("/api/generate-deck/stream", async (req, res) => {
   const {
