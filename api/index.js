@@ -2273,14 +2273,14 @@ function chartTitle(title) {
   return `<text x="20" y="28" font-family="Inter, system-ui, sans-serif" font-size="20" font-weight="700" fill="currentColor">${escapeXml(title)}</text>`;
 }
 function renderBar(chart, primary, accent) {
-  const W3 = 640;
-  const H3 = 360;
+  const W2 = 640;
+  const H2 = 360;
   const padL = 56;
   const padR = 24;
   const padT = chart.title ? 56 : 24;
   const padB = 56;
-  const innerW = W3 - padL - padR;
-  const innerH = H3 - padT - padB;
+  const innerW = W2 - padL - padR;
+  const innerH = H2 - padT - padB;
   const max = Math.max(...chart.data.map((d) => d.value), 1);
   const n = chart.data.length;
   const gap = 14;
@@ -2302,20 +2302,20 @@ function renderBar(chart, primary, accent) {
   for (let i = 0; i <= yTicks; i++) {
     const y = padT + innerH / yTicks * i;
     const v = max - tickStep * i;
-    grid += `<line x1="${padL}" x2="${W3 - padR}" y1="${y}" y2="${y}" stroke="currentColor" stroke-opacity="0.12" />`;
+    grid += `<line x1="${padL}" x2="${W2 - padR}" y1="${y}" y2="${y}" stroke="currentColor" stroke-opacity="0.12" />`;
     grid += `<text x="${padL - 8}" y="${y + 4}" text-anchor="end" font-family="Inter, system-ui, sans-serif" font-size="11" fill="currentColor" opacity="0.55">${fmt(v)}</text>`;
   }
-  return `<svg viewBox="0 0 ${W3} ${H3}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bar chart" style="width:100%;height:auto;color:var(--fg,#fff)">${chartTitle(chart.title)}${grid}${bars}${labels}</svg>`;
+  return `<svg viewBox="0 0 ${W2} ${H2}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bar chart" style="width:100%;height:auto;color:var(--fg,#fff)">${chartTitle(chart.title)}${grid}${bars}${labels}</svg>`;
 }
 function renderLine(chart, primary, accent) {
-  const W3 = 640;
-  const H3 = 360;
+  const W2 = 640;
+  const H2 = 360;
   const padL = 56;
   const padR = 24;
   const padT = chart.title ? 56 : 24;
   const padB = 56;
-  const innerW = W3 - padL - padR;
-  const innerH = H3 - padT - padB;
+  const innerW = W2 - padL - padR;
+  const innerH = H2 - padT - padB;
   const max = Math.max(...chart.data.map((d) => d.value), 1);
   const min = Math.min(...chart.data.map((d) => d.value), 0);
   const range = max - min || 1;
@@ -2332,7 +2332,7 @@ function renderLine(chart, primary, accent) {
   for (let i = 0; i <= yTicks; i++) {
     const y = padT + innerH / yTicks * i;
     const v = max - range / yTicks * i;
-    grid += `<line x1="${padL}" x2="${W3 - padR}" y1="${y}" y2="${y}" stroke="currentColor" stroke-opacity="0.12" />`;
+    grid += `<line x1="${padL}" x2="${W2 - padR}" y1="${y}" y2="${y}" stroke="currentColor" stroke-opacity="0.12" />`;
     grid += `<text x="${padL - 8}" y="${y + 4}" text-anchor="end" font-family="Inter, system-ui, sans-serif" font-size="11" fill="currentColor" opacity="0.55">${fmt(v)}</text>`;
   }
   let dots = "";
@@ -2341,7 +2341,7 @@ function renderLine(chart, primary, accent) {
     dots += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="5" fill="${accent}" stroke="${primary}" stroke-width="2" />`;
     labels += `<text x="${p[0].toFixed(1)}" y="${(padT + innerH + 22).toFixed(1)}" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="13" fill="currentColor" opacity="0.8">${escapeXml(chart.data[i].label)}</text>`;
   });
-  return `<svg viewBox="0 0 ${W3} ${H3}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Line chart" style="width:100%;height:auto;color:var(--fg,#fff)">
+  return `<svg viewBox="0 0 ${W2} ${H2}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Line chart" style="width:100%;height:auto;color:var(--fg,#fff)">
 ${chartTitle(chart.title)}
 ${grid}
 <path d="${area}" fill="${primary}" fill-opacity="0.18" />
@@ -2351,8 +2351,8 @@ ${labels}
 </svg>`;
 }
 function renderPie(chart, primary, accent) {
-  const W3 = 640;
-  const H3 = 360;
+  const W2 = 640;
+  const H2 = 360;
   const cx = 200;
   const cy = chart.title ? 200 : 180;
   const r = 130;
@@ -2376,7 +2376,7 @@ function renderPie(chart, primary, accent) {
     legend += `<text x="404" y="${ly + 12}" font-family="Inter, system-ui, sans-serif" font-size="14" fill="currentColor">${escapeXml(d.label)} <tspan opacity="0.6">${Math.round(frac * 100)}%</tspan></text>`;
     angle = next;
   });
-  return `<svg viewBox="0 0 ${W3} ${H3}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pie chart" style="width:100%;height:auto;color:var(--fg,#fff)">${chartTitle(chart.title)}${slices}${legend}</svg>`;
+  return `<svg viewBox="0 0 ${W2} ${H2}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pie chart" style="width:100%;height:auto;color:var(--fg,#fff)">${chartTitle(chart.title)}${slices}${legend}</svg>`;
 }
 function escapeXml(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
@@ -2990,12 +2990,9 @@ function buildSlideDocument(slide, theme, opts = {}) {
   });
 }
 
-// server/exportPptx.js
-var PX_W = 1280;
-var PX_H = 720;
-var W = 13.333;
-var H = 7.5;
-var M = 0.67;
+// server/slideRender.js
+var SLIDE_W2 = 1280;
+var SLIDE_H2 = 720;
 async function launchBrowser() {
   let puppeteer;
   try {
@@ -3030,7 +3027,7 @@ async function renderSlideImages(deck) {
   const browser2 = await launchBrowser();
   try {
     const page2 = await browser2.newPage();
-    await page2.setViewport({ width: PX_W, height: PX_H, deviceScaleFactor: 1 });
+    await page2.setViewport({ width: SLIDE_W2, height: SLIDE_H2, deviceScaleFactor: 1 });
     const slides = Array.isArray(deck?.slides) ? deck.slides : [];
     const images = [];
     for (let i = 0; i < slides.length; i++) {
@@ -3045,6 +3042,11 @@ async function renderSlideImages(deck) {
     await browser2.close();
   }
 }
+
+// server/exportPptx.js
+var W = 13.333;
+var H = 7.5;
+var M = 0.67;
 function addTextFallbackSlide(pptx, deck, slide, index, total) {
   const pSlide = pptx.addSlide();
   const bg = String(deck?.theme?.background || "0f0f1a").replace(/^#/, "");
@@ -3142,23 +3144,21 @@ async function buildPptxBuffer(deck) {
 
 // server/exportPdf.js
 var import_jspdf = require("jspdf");
-var W2 = 1280;
-var H2 = 720;
 var M2 = 64;
 function addTextFallbackPage(pdf, slide, theme, index, total, deckTitle) {
   const bg = theme?.background || "#0f0f1a";
   pdf.setFillColor(bg);
-  pdf.rect(0, 0, W2, H2, "F");
+  pdf.rect(0, 0, SLIDE_W2, SLIDE_H2, "F");
   pdf.setTextColor("#FFFFFF");
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(42);
-  pdf.text(pdf.splitTextToSize(String(slide?.title || `Slide ${index + 1}`), W2 - M2 * 2), M2, 96);
+  pdf.text(pdf.splitTextToSize(String(slide?.title || `Slide ${index + 1}`), SLIDE_W2 - M2 * 2), M2, 96);
   let y = 190;
   if (slide?.body) {
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(18);
     pdf.setTextColor("#D8D8E0");
-    const lines = pdf.splitTextToSize(String(slide.body), W2 - M2 * 2);
+    const lines = pdf.splitTextToSize(String(slide.body), SLIDE_W2 - M2 * 2);
     pdf.text(lines, M2, y);
     y += lines.length * 26 + 24;
   }
@@ -3166,64 +3166,15 @@ function addTextFallbackPage(pdf, slide, theme, index, total, deckTitle) {
   pdf.setFontSize(16);
   pdf.setTextColor("#FFFFFF");
   for (const bullet of bullets) {
-    const lines = pdf.splitTextToSize(`\u2022 ${bullet}`, W2 - M2 * 2);
+    const lines = pdf.splitTextToSize(`\u2022 ${bullet}`, SLIDE_W2 - M2 * 2);
     pdf.text(lines, M2, y);
     y += lines.length * 22 + 10;
-    if (y > H2 - 80) break;
+    if (y > SLIDE_H2 - 80) break;
   }
   pdf.setFontSize(10);
   pdf.setTextColor("#A0A0AA");
-  if (deckTitle) pdf.text(String(deckTitle), M2, H2 - 24);
-  pdf.text(`${index + 1} / ${total}`, W2 - M2, H2 - 24, { align: "right" });
-}
-async function launchBrowser2() {
-  let puppeteer;
-  try {
-    const mod = await import("puppeteer");
-    puppeteer = mod.default || mod;
-  } catch (err) {
-    const e = new Error("Headless browser unavailable on this host (Puppeteer could not be loaded)");
-    e.code = "NO_BROWSER";
-    e.cause = err;
-    throw e;
-  }
-  try {
-    return await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
-    });
-  } catch (err) {
-    const e = new Error("Headless browser unavailable on this host: " + (err?.message || "launch failed"));
-    e.code = "NO_BROWSER";
-    e.cause = err;
-    throw e;
-  }
-}
-function exportDocument2(deck, slide, index, total) {
-  return buildSlideDocument(slide, deck?.theme || {}, {
-    index,
-    total,
-    deckTitle: deck?.title || ""
-  }).replace(/<script[\s\S]*?<\/script>/gi, "");
-}
-async function renderSlideImages2(deck) {
-  const browser2 = await launchBrowser2();
-  try {
-    const page2 = await browser2.newPage();
-    await page2.setViewport({ width: W2, height: H2, deviceScaleFactor: 1 });
-    const slides = Array.isArray(deck?.slides) ? deck.slides : [];
-    const images = [];
-    for (let i = 0; i < slides.length; i++) {
-      await page2.setContent(exportDocument2(deck, slides[i], i, slides.length), {
-        waitUntil: "load"
-      });
-      const buffer = await page2.screenshot({ type: "png" });
-      images.push(buffer.toString("base64"));
-    }
-    return images;
-  } finally {
-    await browser2.close();
-  }
+  if (deckTitle) pdf.text(String(deckTitle), M2, SLIDE_H2 - 24);
+  pdf.text(`${index + 1} / ${total}`, SLIDE_W2 - M2, SLIDE_H2 - 24, { align: "right" });
 }
 async function buildPdfBuffer(deck) {
   const slides = Array.isArray(deck?.slides) ? deck.slides : [];
@@ -3231,25 +3182,30 @@ async function buildPdfBuffer(deck) {
   const pdf = new import_jspdf.jsPDF({
     orientation: "landscape",
     unit: "pt",
-    format: [W2, H2],
+    format: [SLIDE_W2, SLIDE_H2],
     compress: true
   });
   let mode = "raster";
   try {
-    const images = await renderSlideImages2(deck);
+    const images = await renderSlideImages(deck);
     images.forEach((base64, index) => {
-      if (index > 0) pdf.addPage([W2, H2], "landscape");
-      pdf.addImage(`data:image/png;base64,${base64}`, "PNG", 0, 0, W2, H2);
+      if (index > 0) pdf.addPage([SLIDE_W2, SLIDE_H2], "landscape");
+      pdf.addImage(`data:image/png;base64,${base64}`, "PNG", 0, 0, SLIDE_W2, SLIDE_H2);
     });
   } catch (err) {
     mode = "text";
     console.warn(`[export/pdf] html render failed, using text fallback: ${err.message}`);
     slides.forEach((slide, index) => {
-      if (index > 0) pdf.addPage([W2, H2], "landscape");
+      if (index > 0) pdf.addPage([SLIDE_W2, SLIDE_H2], "landscape");
       addTextFallbackPage(pdf, slide, deck.theme || {}, index, slides.length, deck.title || "");
     });
   }
   return { buffer: Buffer.from(pdf.output("arraybuffer")), mode };
+}
+
+// src/lib/deckName.js
+function slugify(title) {
+  return String(title || "deck").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "deck";
 }
 
 // server/jobRunner.js
@@ -3691,51 +3647,42 @@ app.get("/api/credits", async (req, res) => {
     res.status(500).json({ error: "Failed to load credits" });
   }
 });
-app.post("/api/export/pptx", async (req, res) => {
-  try {
-    const { deck } = req.body || {};
-    if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
-      return res.status(400).json({ error: "deck.slides is required" });
-    }
-    const { buffer: buf, mode } = await buildPptxBuffer(deck);
-    const safeName = (deck.title || "deck").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "deck";
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    );
-    res.setHeader("Content-Disposition", `attachment; filename="${safeName}.pptx"`);
-    res.setHeader("Content-Length", buf.length);
-    res.setHeader("X-Export-Mode", mode);
-    res.send(buf);
-  } catch (err) {
-    console.error("[export/pptx] error:", err);
-    if (err?.code === "NO_BROWSER") {
-      return res.status(503).json({ error: err.message, code: "NO_BROWSER" });
-    }
-    res.status(500).json({ error: err?.message || "PPTX export failed" });
+var EXPORT_FORMATS = [
+  {
+    ext: "pptx",
+    label: "PPTX",
+    mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    build: buildPptxBuffer
+  },
+  {
+    ext: "pdf",
+    label: "PDF",
+    mime: "application/pdf",
+    build: buildPdfBuffer
   }
-});
-app.post("/api/export/pdf", async (req, res) => {
-  try {
-    const { deck } = req.body || {};
-    if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
-      return res.status(400).json({ error: "deck.slides is required" });
+];
+for (const { ext, label, mime, build } of EXPORT_FORMATS) {
+  app.post(`/api/export/${ext}`, async (req, res) => {
+    try {
+      const { deck } = req.body || {};
+      if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
+        return res.status(400).json({ error: "deck.slides is required" });
+      }
+      const { buffer, mode } = await build(deck);
+      res.setHeader("Content-Type", mime);
+      res.setHeader("Content-Disposition", `attachment; filename="${slugify(deck.title)}.${ext}"`);
+      res.setHeader("Content-Length", buffer.length);
+      res.setHeader("X-Export-Mode", mode);
+      res.send(buffer);
+    } catch (err) {
+      console.error(`[export/${ext}] error:`, err);
+      if (err?.code === "NO_BROWSER") {
+        return res.status(503).json({ error: err.message, code: "NO_BROWSER" });
+      }
+      res.status(500).json({ error: err?.message || `${label} export failed` });
     }
-    const { buffer: buf, mode } = await buildPdfBuffer(deck);
-    const safeName = (deck.title || "deck").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "deck";
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${safeName}.pdf"`);
-    res.setHeader("Content-Length", buf.length);
-    res.setHeader("X-Export-Mode", mode);
-    res.send(buf);
-  } catch (err) {
-    console.error("[export/pdf] error:", err);
-    if (err?.code === "NO_BROWSER") {
-      return res.status(503).json({ error: err.message, code: "NO_BROWSER" });
-    }
-    res.status(500).json({ error: err?.message || "PDF export failed" });
-  }
-});
+  });
+}
 app.post("/api/generate-deck", async (req, res) => {
   try {
     const {

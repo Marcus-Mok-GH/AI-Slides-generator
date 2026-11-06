@@ -12,6 +12,7 @@ import {
 import { agentFiveTurn, agentFiveStream } from './agentFive.js'
 import { buildPptxBuffer } from './exportPptx.js'
 import { buildPdfBuffer } from './exportPdf.js'
+import { slugify } from '../src/lib/deckName.js'
 import { runGenerationJob } from './jobRunner.js'
 import { authMiddleware, optionalAuthMiddleware } from './middleware/auth.js'
 import authRouter from './routes/auth.js'
@@ -132,73 +133,52 @@ app.get('/api/credits', async (req, res) => {
 })
 
 /**
- * Server-side PPTX export.
+ * Deck export endpoints.
  *
- * The browser sends the deck JSON; each slide is rendered from the same
- * document the viewer shows and screenshotted with headless Chrome, then
- * assembled with pptxgenjs and streamed back as an attachment.
- *
- * When the host has no browser binary the slides are laid out as native
- * PPTX text instead, and the response carries `X-Export-Mode: text` so the
- * viewer can render the deck in the browser rather than hand over a file
- * that looks nothing like it.
+ * The browser sends the deck JSON; the builders render each slide from the
+ * same document the viewer shows and return `{ buffer, mode }`. When the host
+ * has no headless browser they fall back to native text slides and report
+ * `X-Export-Mode: text`, which tells the viewer to render the deck itself.
  */
-app.post('/api/export/pptx', async (req, res) => {
-  try {
-    const { deck } = req.body || {}
-    if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
-      return res.status(400).json({ error: 'deck.slides is required' })
+const EXPORT_FORMATS = [
+  {
+    ext: 'pptx',
+    label: 'PPTX',
+    mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    build: buildPptxBuffer,
+  },
+  {
+    ext: 'pdf',
+    label: 'PDF',
+    mime: 'application/pdf',
+    build: buildPdfBuffer,
+  },
+]
+
+for (const { ext, label, mime, build } of EXPORT_FORMATS) {
+  app.post(`/api/export/${ext}`, async (req, res) => {
+    try {
+      const { deck } = req.body || {}
+      if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
+        return res.status(400).json({ error: 'deck.slides is required' })
+      }
+
+      const { buffer, mode } = await build(deck)
+
+      res.setHeader('Content-Type', mime)
+      res.setHeader('Content-Disposition', `attachment; filename="${slugify(deck.title)}.${ext}"`)
+      res.setHeader('Content-Length', buffer.length)
+      res.setHeader('X-Export-Mode', mode)
+      res.send(buffer)
+    } catch (err) {
+      console.error(`[export/${ext}] error:`, err)
+      if (err?.code === 'NO_BROWSER') {
+        return res.status(503).json({ error: err.message, code: 'NO_BROWSER' })
+      }
+      res.status(500).json({ error: err?.message || `${label} export failed` })
     }
-
-    const { buffer: buf, mode } = await buildPptxBuffer(deck)
-
-    const safeName = (deck.title || 'deck')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '') || 'deck'
-
-    res.setHeader('Content-Type',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation')
-    res.setHeader('Content-Disposition', `attachment; filename="${safeName}.pptx"`)
-    res.setHeader('Content-Length', buf.length)
-    res.setHeader('X-Export-Mode', mode)
-    res.send(buf)
-  } catch (err) {
-    console.error('[export/pptx] error:', err)
-    if (err?.code === 'NO_BROWSER') {
-      return res.status(503).json({ error: err.message, code: 'NO_BROWSER' })
-    }
-    res.status(500).json({ error: err?.message || 'PPTX export failed' })
-  }
-})
-
-app.post('/api/export/pdf', async (req, res) => {
-  try {
-    const { deck } = req.body || {}
-    if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
-      return res.status(400).json({ error: 'deck.slides is required' })
-    }
-
-    const { buffer: buf, mode } = await buildPdfBuffer(deck)
-
-    const safeName = (deck.title || 'deck')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '') || 'deck'
-
-    res.setHeader('Content-Type', 'application/pdf')
-    res.setHeader('Content-Disposition', `attachment; filename="${safeName}.pdf"`)
-    res.setHeader('Content-Length', buf.length)
-    res.setHeader('X-Export-Mode', mode)
-    res.send(buf)
-  } catch (err) {
-    console.error('[export/pdf] error:', err)
-    if (err?.code === 'NO_BROWSER') {
-      return res.status(503).json({ error: err.message, code: 'NO_BROWSER' })
-    }
-    res.status(500).json({ error: err?.message || 'PDF export failed' })
-  }
-})
+  })
+}
 
 app.post('/api/generate-deck', async (req, res) => {
   try {

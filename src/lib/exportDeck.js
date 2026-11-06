@@ -13,6 +13,7 @@
  */
 
 import { buildSlideDocument } from './slideDocument.js'
+import { slugify } from './deckName.js'
 
 const SLIDE_W = 1280
 const SLIDE_H = 720
@@ -115,7 +116,7 @@ export async function exportDeckToPdf(deck, { onProgress } = {}) {
     pdf.addImage(png, 'PNG', 0, 0, SLIDE_W, SLIDE_H)
   }
 
-  pdf.save(`${safeName(deck.title)}.pdf`)
+  pdf.save(`${slugify(deck.title)}.pdf`)
 }
 
 export async function exportDeckToPptx(deck, { onProgress } = {}) {
@@ -142,7 +143,7 @@ export async function exportDeckToPptx(deck, { onProgress } = {}) {
     }
   }
 
-  await pptx.writeFile({ fileName: `${safeName(deck.title)}.pptx` })
+  await pptx.writeFile({ fileName: `${slugify(deck.title)}.pptx` })
 }
 
 function hexBare(hex) {
@@ -150,11 +151,3 @@ function hexBare(hex) {
   return String(hex || '').replace(/^#/, '') || '0f0f1a'
 }
 
-function safeName(title) {
-  return (
-    String(title || 'deck')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '') || 'deck'
-  )
-}

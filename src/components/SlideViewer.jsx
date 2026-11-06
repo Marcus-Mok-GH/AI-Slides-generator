@@ -4,6 +4,7 @@ import HtmlSlide from './HtmlSlide.jsx'
 import ThumbPreview from './ThumbPreview.jsx'
 import { getAuthHeaders } from '../lib/api.js'
 import { exportDeckToPdf, exportDeckToPptx } from '../lib/exportDeck.js'
+import { slugify } from '../lib/deckName.js'
 import './SlideViewer.css'
 
 /* ----------------------------------------------------------------
@@ -528,12 +529,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
   }, [exportOpen])
 
   function safeFileName() {
-    return (
-      (deck.title || 'deck')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '') || 'deck'
-    )
+    return slugify(deck.title)
   }
 
   function handleExportJson() {
@@ -563,12 +559,13 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     showToast(`Exported ${name}.json`)
   }
 
-  async function handleExportPdf() {
+  async function handleExport(format) {
     setExportOpen(false)
     if (isStreaming || exportBusy) return
-    setExportBusy('pdf')
+    setExportBusy(format)
+    const label = format.toUpperCase()
     try {
-      const res = await fetch('/api/export/pdf', {
+      const res = await fetch(`/api/export/${format}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ deck }),
@@ -580,82 +577,33 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
       }
       const blob = await res.blob()
       const degraded = res.headers.get('X-Export-Mode') === 'text'
-      const safeName = (deck.title || 'deck')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '') || 'deck'
 
       // No browser on the server: render the deck here instead, so the file
       // still looks like the stage. The plain-text response stays as a
       // last resort if this browser cannot rasterize the slide document.
       if (degraded) {
         try {
-          await exportDeckToPdf(deck, {
+          const render = format === 'pdf' ? exportDeckToPdf : exportDeckToPptx
+          await render(deck, {
             onProgress: ({ index, total }) =>
               setExportNote(`Rendering ${index + 1}/${total}…`),
           })
-          showToast('PDF downloaded — rendered in your browser')
+          showToast(`${label} downloaded — rendered in your browser`)
           return
         } catch (err) {
-          console.warn('[export pdf] browser render failed, using server file', err)
+          console.warn(`[export ${format}] browser render failed, using server file`, err)
         }
       }
 
-      downloadBlob(blob, `${safeName}.pdf`)
+      downloadBlob(blob, `${safeFileName()}.${format}`)
       showToast(degraded
-        ? 'PDF downloaded as plain text — this browser could not render it'
-        : 'PDF downloaded')
+        ? `${label} downloaded as plain ${format === 'pdf' ? 'text' : 'slides'} — this browser could not render it`
+        : format === 'pdf'
+          ? 'PDF downloaded'
+          : 'PPTX downloaded — open in Google Slides or PowerPoint')
     } catch (err) {
-      console.error('[export pdf]', err)
-      showToast(`PDF export failed: ${err?.message || 'unknown error'}`)
-    } finally {
-      setExportBusy('')
-      setExportNote('')
-    }
-  }
-
-  async function handleExportPptx() {
-    setExportOpen(false)
-    if (isStreaming || exportBusy) return
-    setExportBusy('pptx')
-    try {
-      const res = await fetch('/api/export/pptx', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ deck }),
-      })
-      if (!res.ok) {
-        let msg = `Server error ${res.status}`
-        try { msg = (await res.json()).error || msg } catch { /* ignore */ }
-        throw new Error(msg)
-      }
-      const blob = await res.blob()
-      const degraded = res.headers.get('X-Export-Mode') === 'text'
-      const safeName = (deck.title || 'deck')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '') || 'deck'
-
-      if (degraded) {
-        try {
-          await exportDeckToPptx(deck, {
-            onProgress: ({ index, total }) =>
-              setExportNote(`Rendering ${index + 1}/${total}…`),
-          })
-          showToast('PPTX downloaded — rendered in your browser')
-          return
-        } catch (err) {
-          console.warn('[export pptx] browser render failed, using server file', err)
-        }
-      }
-
-      downloadBlob(blob, `${safeName}.pptx`)
-      showToast(degraded
-        ? 'PPTX downloaded as plain slides — this browser could not render it'
-        : 'PPTX downloaded — open in Google Slides or PowerPoint')
-    } catch (err) {
-      console.error('[export pptx]', err)
-      showToast(`PPTX export failed: ${err?.message || 'unknown error'}`)
+      console.error(`[export ${format}]`, err)
+      showToast(`${label} export failed: ${err?.message || 'unknown error'}`)
     } finally {
       setExportBusy('')
       setExportNote('')
@@ -939,7 +887,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
                   type="button"
                   role="menuitem"
                   className="export-menu-item"
-                  onClick={handleExportPdf}
+                  onClick={() => handleExport('pdf')}
                 >
                   <span className="emi-title">PDF</span>
                   <span className="emi-sub">Print or share, page-per-slide</span>
@@ -948,7 +896,7 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
                   type="button"
                   role="menuitem"
                   className="export-menu-item"
-                  onClick={handleExportPptx}
+                  onClick={() => handleExport('pptx')}
                 >
                   <span className="emi-title">PPTX</span>
                   <span className="emi-sub">Open in Google Slides or PowerPoint</span>

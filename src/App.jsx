@@ -12,7 +12,6 @@ import AgentFive from './components/AgentFive.jsx'
 import {
   startBackgroundDeck,
   connectToJob,
-  streamGenerateDeck,
   saveDeck as saveDeckApi,
   loadDeck,
   deleteDeck as deleteDeckApi,
