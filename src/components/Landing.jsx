@@ -514,16 +514,8 @@ function ProductsBand() {
 
 function PromptShowcase({ onSignIn }) {
   const [prompt, setPrompt] = useState('')
-  const [format, setFormat] = useState('presentation')
   const [length, setLength] = useState('8 cards')
   const ref = useRef(null)
-
-  const formats = [
-    { id: 'presentation', label: 'Presentation', icon: '▭' },
-    { id: 'document', label: 'Document', icon: '☰' },
-    { id: 'webpage', label: 'Webpage', icon: '◫' },
-    { id: 'social', label: 'Social', icon: '◉' },
-  ]
 
   const ideas = [
     'A 10-slide investor pitch for an AI legal-research startup',
@@ -539,7 +531,6 @@ function PromptShowcase({ onSignIn }) {
         // top-level navigation that the sign-in flow performs.
         localStorage.setItem('slideai:pendingPrompt', JSON.stringify({
           prompt: prompt.trim(),
-          format,
           length,
         }))
       } catch { /* ignore */ }
@@ -556,19 +547,6 @@ function PromptShowcase({ onSignIn }) {
       </div>
 
       <div className="g-prompt-card">
-        <div className="g-prompt-tabs" role="tablist">
-          {formats.map((f) => (
-            <button
-              key={f.id}
-              role="tab"
-              aria-selected={format === f.id}
-              className={`g-prompt-tab ${format === f.id ? 'is-on' : ''}`}
-              onClick={() => setFormat(f.id)}
-            >
-              <span aria-hidden>{f.icon}</span> {f.label}
-            </button>
-          ))}
-        </div>
         <textarea
           ref={ref}
           className="g-prompt-input"

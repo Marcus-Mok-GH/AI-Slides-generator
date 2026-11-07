@@ -27,7 +27,7 @@ src/components/
 | View slide thumbnails | `ThumbPreview.jsx` | Lazy 16:9 iframe thumbs used by the viewer rail + mobile strip |
 | Edit deck | `SlideViewer.jsx` | Grid/full-screen modes, drag-to-reorder |
 | Change layout | `SlideEditor.jsx` | Right sidebar, layout picker, AI edit prompt box |
-| Create new deck | `HomePage.jsx` | Prompt composer, format picker, URL/file import |
+| Create new deck | `HomePage.jsx` | Prompt composer, URL/file import, prompt starters |
 | Browse recent decks | `HomePage.jsx` | Recent-deck grid with search, open, rename, delete |
 | Top navigation | `TopBar.jsx` | Logo, search bar, theme toggle, user menu |
 | Side navigation | `Sidebar.jsx` | New deck, My Decks, Trash, etc. |

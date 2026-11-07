@@ -184,7 +184,6 @@ app.post('/api/generate-deck', async (req, res) => {
   try {
     const {
       prompt,
-      format = 'presentation',
       length = '8 cards',
       tone = 'Professional',
       language = 'English',
@@ -207,7 +206,6 @@ app.post('/api/generate-deck', async (req, res) => {
 
     const deck = await generateDeck({
       prompt: prompt.trim(),
-      format,
       length,
       tone,
       language,
@@ -241,7 +239,6 @@ app.post('/api/generate-deck', async (req, res) => {
 app.post('/api/generate-deck/background', async (req, res) => {
   const {
     prompt,
-    format    = 'presentation',
     length    = '8 cards',
     tone      = 'Professional',
     language  = 'English',
@@ -267,7 +264,7 @@ app.post('/api/generate-deck/background', async (req, res) => {
     }
 
     await createGenerationJob(jobId, req.user.id)
-    await savePromptHistory(req.user.id, prompt.trim(), format)
+    await savePromptHistory(req.user.id, prompt.trim())
   } catch (err) {
     if (isDbError(err)) {
       return res.status(503).json({ error: 'Database unavailable. Generation jobs require a database.' })
@@ -277,7 +274,7 @@ app.post('/api/generate-deck/background', async (req, res) => {
 
   const ctx = {
     prompt: prompt.trim(),
-    format, length, tone, language, mode,
+    length, tone, language, mode,
     userTheme: userTheme?.primary ? userTheme : null,
     deckId: jobId,
   }
@@ -376,7 +373,6 @@ app.get('/api/generate-deck/job/:jobId', async (req, res) => {
 app.post('/api/generate-deck/stream', async (req, res) => {
   const {
     prompt,
-    format = 'presentation',
     length = '8 cards',
     tone = 'Professional',
     language = 'English',
@@ -418,7 +414,6 @@ app.post('/api/generate-deck/stream', async (req, res) => {
 
     const ctx = {
       prompt: prompt.trim(),
-      format,
       length,
       tone,
       language,
@@ -467,7 +462,7 @@ app.post('/api/generate-deck/stream', async (req, res) => {
     let balanceCents = balance
     try {
       balanceCents = await deductCredits(req.user.id, DECK_GENERATION_CENTS)
-      await savePromptHistory(req.user.id, prompt.trim(), format)
+      await savePromptHistory(req.user.id, prompt.trim())
       send('credits', { balanceCents, deckCostCents: DECK_GENERATION_CENTS })
     } catch (e) {
       console.warn('[stream] credit deduction failed:', e?.message)

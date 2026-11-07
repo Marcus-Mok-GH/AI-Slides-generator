@@ -429,7 +429,6 @@ export async function migratePromptHistory() {
       id        SERIAL PRIMARY KEY,
       user_id   VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       prompt    TEXT    NOT NULL,
-      format    VARCHAR,
       used_at   TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE prompt_history ALTER COLUMN used_at TYPE TIMESTAMPTZ;
@@ -451,20 +450,20 @@ export async function migratePromptHistory() {
   )
 }
 
-export async function savePromptHistory(userId, prompt, format = null) {
+export async function savePromptHistory(userId, prompt) {
   if (!userId || !prompt?.trim()) return
   dbRequired()
   const trimmed = prompt.trim()
   await pool.query(
-    `INSERT INTO prompt_history (user_id, prompt, format, used_at)
-     VALUES ($1, $2, $3, NOW())
+    `INSERT INTO prompt_history (user_id, prompt, used_at)
+     VALUES ($1, $2, NOW())
      ON CONFLICT DO NOTHING`,
-    [userId, trimmed, format],
+    [userId, trimmed],
   )
   await pool.query(
-    `UPDATE prompt_history SET used_at = NOW(), format = $3
+    `UPDATE prompt_history SET used_at = NOW()
      WHERE user_id = $1 AND prompt = $2`,
-    [userId, trimmed, format],
+    [userId, trimmed],
   )
   await pool.query(
     `DELETE FROM prompt_history
@@ -483,7 +482,7 @@ export async function getPromptHistory(userId, limit = 15) {
   if (!userId) return []
   dbRequired()
   const { rows } = await pool.query(
-    `SELECT id, prompt, format, used_at
+    `SELECT id, prompt, used_at
      FROM prompt_history
      WHERE user_id = $1
      ORDER BY used_at DESC
@@ -493,7 +492,6 @@ export async function getPromptHistory(userId, limit = 15) {
   return rows.map((r) => ({
     id: r.id,
     prompt: r.prompt,
-    format: r.format,
     usedAt: r.used_at,
   }))
 }

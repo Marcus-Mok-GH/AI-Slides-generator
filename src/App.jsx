@@ -65,7 +65,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeNav, setActiveNav] = useState('new')
   const [createStep, setCreateStep] = useState('prompt') // 'prompt' | 'options'
-  const [promptPayload, setPromptPayload] = useState(null) // { prompt, format }
+  const [promptPayload, setPromptPayload] = useState(null) // { prompt }
   // True on first paint if the URL points at a specific deck — keeps us from
   // flashing the create page while we fetch it.
   const [routeLoading, setRouteLoading] = useState(
@@ -347,7 +347,6 @@ export default function App() {
       slides: [],
       meta: {
         prompt: payload.prompt,
-        format: payload.format,
         length: payload.length,
         tone: payload.tone,
         language: payload.language,
@@ -525,7 +524,6 @@ export default function App() {
         ) : createStep === 'options' && promptPayload ? (
           <div className="content">
             <OptionsPage
-              initialFormat={promptPayload.format}
               onBack={() => setCreateStep('prompt')}
               onGenerate={(opts) =>
                 handleGenerate({ ...promptPayload, ...opts })
@@ -543,8 +541,8 @@ export default function App() {
               decks={filteredDecks}
               totalCount={savedDecks.length}
               query={searchQuery}
-              onContinue={({ prompt, format }) => {
-                setPromptPayload({ prompt, format })
+              onContinue={({ prompt }) => {
+                setPromptPayload({ prompt })
                 setCreateStep('options')
               }}
               onOpen={handleOpenDeck}

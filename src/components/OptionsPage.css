@@ -199,45 +199,6 @@
   filter: brightness(0.99);
 }
 
-/* ---- Format ---- */
-.opts-format-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.opts-format-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 38px;
-  padding: 0 15px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  background: var(--surface);
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.opts-format-tab:hover {
-  border-color: var(--border-strong);
-  color: var(--text);
-}
-
-.opts-format-tab.is-active {
-  border-color: transparent;
-  background: var(--text);
-  color: var(--bg);
-  font-weight: 600;
-}
-
-.opts-format-icon {
-  font-size: 12px;
-  line-height: 1;
-  opacity: 0.8;
-}
-
 /* ---- Segmented control ---- */
 .seg {
   display: flex;
@@ -400,12 +361,6 @@
 
   .theme-card {
     padding: 7px;
-  }
-
-  .opts-format-tab {
-    min-height: 40px;
-    padding: 0 13px;
-    font-size: 12.5px;
   }
 
   .seg-btn {

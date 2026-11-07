@@ -1,13 +1,6 @@
 import { useState } from 'react'
 import './OptionsPage.css'
 
-const formats = [
-  { id: 'presentation', icon: '▭', label: 'Presentation' },
-  { id: 'document', icon: '☰', label: 'Document' },
-  { id: 'webpage', icon: '◫', label: 'Webpage' },
-  { id: 'social', icon: '◉', label: 'Social' },
-]
-
 const lengths = ['4 cards', '8 cards', '12 cards', '16 cards']
 const tones = ['Professional', 'Casual', 'Playful', 'Bold']
 
@@ -28,8 +21,7 @@ const PRESET_THEMES = [
   { id: 'gold',     name: 'Gold',     primary: '#ffca28', accent: '#ffa000', background: '#120d00' },
 ]
 
-export default function OptionsPage({ initialFormat = 'presentation', onBack, onGenerate, status = 'idle', error = '' }) {
-  const [format, setFormat] = useState(initialFormat)
+export default function OptionsPage({ onBack, onGenerate, status = 'idle', error = '' }) {
   const [length, setLength] = useState('8 cards')
   const [tone, setTone] = useState('Professional')
   const [language, setLanguage] = useState('English')
@@ -47,11 +39,10 @@ export default function OptionsPage({ initialFormat = 'presentation', onBack, on
     if (isLoading) return
     const chosen = PRESET_THEMES.find((t) => t.id === themeId) || null
     onGenerate?.({
-      format,
       length,
       tone,
       language,
-      mode: format === 'presentation' ? mode : 'default',
+      mode,
       userTheme: chosen
         ? { name: chosen.name, primary: chosen.primary, accent: chosen.accent, background: chosen.background }
         : null,
@@ -113,41 +104,22 @@ export default function OptionsPage({ initialFormat = 'presentation', onBack, on
         </section>
 
         <section className="opts-section">
-          <span className="opts-section-label">Format</span>
-          <div className="opts-format-tabs">
-            {formats.map((f) => (
+          <span className="opts-section-label">Depth</span>
+          <div className="seg">
+            {MODES.map((m) => (
               <button
-                key={f.id}
+                key={m.id}
                 type="button"
-                className={`opts-format-tab ${format === f.id ? 'is-active' : ''}`}
-                onClick={() => setFormat(f.id)}
+                className={`seg-btn ${mode === m.id ? 'is-on' : ''}`}
+                onClick={() => setMode(m.id)}
+                title={m.hint}
               >
-                <span className="opts-format-icon" aria-hidden>{f.icon}</span>
-                {f.label}
+                {m.label}
+                <span className="seg-hint">{m.hint}</span>
               </button>
             ))}
           </div>
         </section>
-
-        {format === 'presentation' && (
-          <section className="opts-section">
-            <span className="opts-section-label">Depth</span>
-            <div className="seg">
-              {MODES.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  className={`seg-btn ${mode === m.id ? 'is-on' : ''}`}
-                  onClick={() => setMode(m.id)}
-                  title={m.hint}
-                >
-                  {m.label}
-                  <span className="seg-hint">{m.hint}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
 
         <section className="opts-section">
           <span className="opts-section-label">Length</span>

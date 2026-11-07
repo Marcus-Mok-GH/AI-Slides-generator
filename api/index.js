@@ -316,12 +316,6 @@ function llmError(status, body) {
 }
 
 // server/generateDeck.js
-var FORMAT_DESCRIPTIONS = {
-  presentation: "a slide-based presentation deck",
-  document: "a long-form document broken into sections",
-  webpage: "a single shareable webpage broken into sections",
-  social: "a social-media carousel with short, punchy cards"
-};
 var MODE_RULES = {
   concise: `MODE: CONCISE \u2014 every slide is a punchy headline. Brevity is the goal.
    - On-screen content is short, sharp, and visual-first.
@@ -355,8 +349,7 @@ function parseLength(length) {
   if (m) return Math.max(3, Math.min(20, parseInt(m[1], 10)));
   return 8;
 }
-function buildDeckSystemPrompt({ format, length, tone, language, mode = "default", userTheme = null }) {
-  const formatDesc = FORMAT_DESCRIPTIONS[format] || FORMAT_DESCRIPTIONS.presentation;
+function buildDeckSystemPrompt({ length, tone, language, mode = "default", userTheme = null }) {
   const cardCount = parseLength(length);
   const modeBlock = MODE_RULES[mode] || MODE_RULES.default;
   const themeBlock = userTheme && userTheme.primary ? `THEME \u2014 USER HAS SELECTED A SPECIFIC THEME. You MUST use exactly these colors:
@@ -369,7 +362,7 @@ All CSS must use var(--bg), var(--primary), var(--accent), var(--fg), and var(--
 - "background" should be a deep, low-saturation color.
 - "primary" and "accent" should be vivid and harmonize with each other.
 - All CSS must use var(--bg), var(--primary), var(--accent), var(--fg), and var(--muted) for theme colors.`;
-  return `You are a senior presentation designer drafting ${formatDesc}.
+  return `You are a senior presentation designer drafting a slide-based presentation deck.
 You have a blank 1280x720 canvas for every slide. There are no predefined
 layouts, templates, layout names, or host-rendered slide components. Each
 slide is self-contained HTML/CSS that you design from scratch with full
@@ -547,7 +540,6 @@ function normalizeDeck(raw, ctx) {
     meta: {
       model: DECK_MODEL,
       prompt: ctx.prompt,
-      format: ctx.format,
       length: ctx.length,
       tone: ctx.tone,
       language: ctx.language,
@@ -673,7 +665,6 @@ async function streamGenerateDeck(ctx, handlers = {}) {
       meta: {
         model: DECK_MODEL,
         prompt: ctx.prompt,
-        format: ctx.format,
         length: ctx.length,
         tone: ctx.tone,
         language: ctx.language,
@@ -1285,7 +1276,6 @@ async function migratePromptHistory() {
       id        SERIAL PRIMARY KEY,
       user_id   VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       prompt    TEXT    NOT NULL,
-      format    VARCHAR,
       used_at   TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE prompt_history ALTER COLUMN used_at TYPE TIMESTAMPTZ;
@@ -1306,20 +1296,20 @@ async function migratePromptHistory() {
     `CREATE INDEX IF NOT EXISTS idx_ph_user_used ON prompt_history (user_id, used_at DESC);`
   );
 }
-async function savePromptHistory(userId, prompt, format = null) {
+async function savePromptHistory(userId, prompt) {
   if (!userId || !prompt?.trim()) return;
   dbRequired();
   const trimmed = prompt.trim();
   await pool.query(
-    `INSERT INTO prompt_history (user_id, prompt, format, used_at)
-     VALUES ($1, $2, $3, NOW())
+    `INSERT INTO prompt_history (user_id, prompt, used_at)
+     VALUES ($1, $2, NOW())
      ON CONFLICT DO NOTHING`,
-    [userId, trimmed, format]
+    [userId, trimmed]
   );
   await pool.query(
-    `UPDATE prompt_history SET used_at = NOW(), format = $3
+    `UPDATE prompt_history SET used_at = NOW()
      WHERE user_id = $1 AND prompt = $2`,
-    [userId, trimmed, format]
+    [userId, trimmed]
   );
   await pool.query(
     `DELETE FROM prompt_history
@@ -1337,7 +1327,7 @@ async function getPromptHistory(userId, limit = 15) {
   if (!userId) return [];
   dbRequired();
   const { rows } = await pool.query(
-    `SELECT id, prompt, format, used_at
+    `SELECT id, prompt, used_at
      FROM prompt_history
      WHERE user_id = $1
      ORDER BY used_at DESC
@@ -1347,7 +1337,6 @@ async function getPromptHistory(userId, limit = 15) {
   return rows.map((r) => ({
     id: r.id,
     prompt: r.prompt,
-    format: r.format,
     usedAt: r.used_at
   }));
 }
@@ -3687,7 +3676,6 @@ app.post("/api/generate-deck", async (req, res) => {
   try {
     const {
       prompt,
-      format = "presentation",
       length = "8 cards",
       tone = "Professional",
       language = "English",
@@ -3707,7 +3695,6 @@ app.post("/api/generate-deck", async (req, res) => {
     }
     const deck = await generateDeck({
       prompt: prompt.trim(),
-      format,
       length,
       tone,
       language,
@@ -3729,7 +3716,6 @@ app.post("/api/generate-deck", async (req, res) => {
 app.post("/api/generate-deck/background", async (req, res) => {
   const {
     prompt,
-    format = "presentation",
     length = "8 cards",
     tone = "Professional",
     language = "English",
@@ -3752,7 +3738,7 @@ app.post("/api/generate-deck/background", async (req, res) => {
       });
     }
     await createGenerationJob(jobId, req.user.id);
-    await savePromptHistory(req.user.id, prompt.trim(), format);
+    await savePromptHistory(req.user.id, prompt.trim());
   } catch (err) {
     if (isDbError(err)) {
       return res.status(503).json({ error: "Database unavailable. Generation jobs require a database." });
@@ -3761,7 +3747,6 @@ app.post("/api/generate-deck/background", async (req, res) => {
   }
   const ctx = {
     prompt: prompt.trim(),
-    format,
     length,
     tone,
     language,
@@ -3849,7 +3834,6 @@ data: ${JSON.stringify(data)}
 app.post("/api/generate-deck/stream", async (req, res) => {
   const {
     prompt,
-    format = "presentation",
     length = "8 cards",
     tone = "Professional",
     language = "English",
@@ -3887,7 +3871,6 @@ data: ${JSON.stringify(data)}
     }
     const ctx = {
       prompt: prompt.trim(),
-      format,
       length,
       tone,
       language,
@@ -3926,7 +3909,7 @@ data: ${JSON.stringify(data)}
     let balanceCents = balance;
     try {
       balanceCents = await deductCredits(req.user.id, DECK_GENERATION_CENTS);
-      await savePromptHistory(req.user.id, prompt.trim(), format);
+      await savePromptHistory(req.user.id, prompt.trim());
       send("credits", { balanceCents, deckCostCents: DECK_GENERATION_CENTS });
     } catch (e) {
       console.warn("[stream] credit deduction failed:", e?.message);

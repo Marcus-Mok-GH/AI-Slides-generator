@@ -3,13 +3,6 @@ import { repairJson } from './jsonRepair.js'
 
 import { DECK_MODEL, SLIDE_MODEL, llmHeaders, llmUrl, llmError, assertLlmKey } from './llm.js'
 
-const FORMAT_DESCRIPTIONS = {
-  presentation: 'a slide-based presentation deck',
-  document: 'a long-form document broken into sections',
-  webpage: 'a single shareable webpage broken into sections',
-  social: 'a social-media carousel with short, punchy cards',
-}
-
 /**
  * Content-depth modes for presentations. Each mode tweaks the word budgets
  * and per-slide richness so the same prompt can produce a punchy keynote
@@ -52,8 +45,7 @@ function parseLength(length) {
   return 8
 }
 
-function buildDeckSystemPrompt({ format, length, tone, language, mode = 'default', userTheme = null }) {
-  const formatDesc = FORMAT_DESCRIPTIONS[format] || FORMAT_DESCRIPTIONS.presentation
+function buildDeckSystemPrompt({ length, tone, language, mode = 'default', userTheme = null }) {
   const cardCount = parseLength(length)
   const modeBlock = MODE_RULES[mode] || MODE_RULES.default
 
@@ -70,7 +62,7 @@ All CSS must use var(--bg), var(--primary), var(--accent), var(--fg), and var(--
 - "primary" and "accent" should be vivid and harmonize with each other.
 - All CSS must use var(--bg), var(--primary), var(--accent), var(--fg), and var(--muted) for theme colors.`
 
-  return `You are a senior presentation designer drafting ${formatDesc}.
+  return `You are a senior presentation designer drafting a slide-based presentation deck.
 You have a blank 1280x720 canvas for every slide. There are no predefined
 layouts, templates, layout names, or host-rendered slide components. Each
 slide is self-contained HTML/CSS that you design from scratch with full
@@ -258,7 +250,6 @@ function normalizeDeck(raw, ctx) {
     meta: {
       model: DECK_MODEL,
       prompt: ctx.prompt,
-      format: ctx.format,
       length: ctx.length,
       tone: ctx.tone,
       language: ctx.language,
@@ -417,7 +408,6 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
       meta: {
         model: DECK_MODEL,
         prompt: ctx.prompt,
-        format: ctx.format,
         length: ctx.length,
         tone: ctx.tone,
         language: ctx.language,

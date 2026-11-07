@@ -12,13 +12,6 @@ import './HomePage.css'
    Static content
    ------------------------------------------------------------------------- */
 
-const FORMATS = [
-  { id: 'presentation', label: 'Presentation' },
-  { id: 'document', label: 'Document' },
-  { id: 'webpage', label: 'Webpage' },
-  { id: 'social', label: 'Social' },
-]
-
 const STARTERS = [
   {
     label: 'Investor pitch',
@@ -106,33 +99,6 @@ const iconProps = {
   focusable: false,
 }
 
-const FORMAT_ICONS = {
-  presentation: (
-    <svg {...iconProps}>
-      <rect x="2.75" y="3.5" width="14.5" height="9.5" rx="2" />
-      <path d="M10 13v3.5M6.5 16.5h7" />
-    </svg>
-  ),
-  document: (
-    <svg {...iconProps}>
-      <rect x="4" y="2.5" width="12" height="15" rx="2" />
-      <path d="M7 7h6M7 10h6M7 13h4" />
-    </svg>
-  ),
-  webpage: (
-    <svg {...iconProps}>
-      <rect x="2.5" y="3.5" width="15" height="13" rx="2" />
-      <path d="M2.5 7h15M5.2 5.3h.01M7.6 5.3h.01" />
-    </svg>
-  ),
-  social: (
-    <svg {...iconProps}>
-      <rect x="5.5" y="2.5" width="9" height="15" rx="2.5" />
-      <path d="M9 15.2h2" />
-    </svg>
-  ),
-}
-
 const TOOL_ICONS = {
   paste: (
     <svg {...iconProps}>
@@ -179,7 +145,6 @@ const Composer = forwardRef(function Composer(
   { onContinue, status = 'idle', error = '' },
   ref,
 ) {
-  const [format, setFormat] = useState('presentation')
   const [prompt, setPrompt] = useState('')
   const [chipBusy, setChipBusy] = useState('')
   const [chipError, setChipError] = useState('')
@@ -242,7 +207,7 @@ const Composer = forwardRef(function Composer(
 
   function submit() {
     if (!prompt.trim() || isLoading) return
-    onContinue?.({ prompt: prompt.trim(), format })
+    onContinue?.({ prompt: prompt.trim() })
   }
 
   async function handlePaste() {
@@ -325,22 +290,6 @@ const Composer = forwardRef(function Composer(
           <h2 className="composer-title">What are we presenting?</h2>
         </div>
         <span className="composer-step">Step 1 / 2</span>
-      </div>
-
-      <div className="composer-formats" role="tablist" aria-label="Deck format">
-        {FORMATS.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            role="tab"
-            aria-selected={format === f.id}
-            className={`composer-format ${format === f.id ? 'is-on' : ''}`}
-            onClick={() => setFormat(f.id)}
-          >
-            <span className="composer-format-icon">{FORMAT_ICONS[f.id]}</span>
-            <span className="composer-format-label">{f.label}</span>
-          </button>
-        ))}
       </div>
 
       <div className="composer-field">

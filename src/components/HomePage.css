@@ -300,70 +300,6 @@
   white-space: nowrap;
 }
 
-/* ---- Format picker ---- */
-.composer-formats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
-}
-
-.composer-format {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-width: 0;
-  padding: 8px 3px 7px;
-  border: 1px solid transparent;
-  border-radius: calc(var(--radius-lg) - 4px);
-  background: transparent;
-  color: var(--text-muted);
-}
-
-.composer-format:hover {
-  color: var(--text);
-  background: var(--hover-overlay);
-}
-
-.composer-format.is-on {
-  border-color: var(--border);
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: var(--shadow-xs);
-}
-
-.composer-format-icon {
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  color: var(--text-soft);
-}
-
-.composer-format-icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-.composer-format.is-on .composer-format-icon {
-  color: var(--accent);
-}
-
-.composer-format-label {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
 /* ---- Prompt field ---- */
 .composer-field {
   padding: 12px 14px 10px;
@@ -1297,10 +1233,6 @@
     font-size: 16px;
   }
 
-  .composer-format-label {
-    font-size: 10px;
-  }
-
   .composer-foot {
     flex-wrap: wrap;
     gap: var(--space-2);
@@ -1375,15 +1307,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .composer-format {
-    padding: 7px 2px 6px;
-  }
-
-  .composer-format-label {
-    font-size: 9.5px;
-    letter-spacing: -0.015em;
-  }
-
   .composer-tool {
     font-size: 11px;
   }
@@ -1400,14 +1323,6 @@
 @media (max-width: 380px) {
   .home-title {
     font-size: 31px;
-  }
-
-  .composer-format-label {
-    display: none;
-  }
-
-  .composer-format {
-    padding: 9px 2px;
   }
 
   .composer-tool-label {
