@@ -433,6 +433,9 @@ export async function migratePromptHistory() {
     );
     ALTER TABLE prompt_history ALTER COLUMN used_at TYPE TIMESTAMPTZ;
   `)
+  // Legacy cleanup: the deck format picker was removed, so older databases
+  // still carry a nullable format column that nothing reads or writes now.
+  await pool.query(`ALTER TABLE prompt_history DROP COLUMN IF EXISTS format;`)
   try {
     await pool.query(`
       ALTER TABLE prompt_history

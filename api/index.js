@@ -1280,6 +1280,7 @@ async function migratePromptHistory() {
     );
     ALTER TABLE prompt_history ALTER COLUMN used_at TYPE TIMESTAMPTZ;
   `);
+  await pool.query(`ALTER TABLE prompt_history DROP COLUMN IF EXISTS format;`);
   try {
     await pool.query(`
       ALTER TABLE prompt_history
