@@ -33,7 +33,7 @@
   position: absolute;
   z-index: 0;
   top: -80px;
-  right: -40px;
+  right: 0;
   width: min(660px, 70%);
   height: 520px;
   border-radius: 50%;
@@ -1157,8 +1157,8 @@
 
   .home-hero::before {
     top: -60px;
-    right: -80px;
-    width: 480px;
+    right: 0;
+    width: min(480px, 100%);
     height: 400px;
     opacity: 0.16;
   }
@@ -1239,10 +1239,9 @@
     padding-top: var(--space-1);
   }
 
+  /* No physical keyboard on phones — the Continue button is the affordance. */
   .composer-hint {
-    order: 2;
-    flex: 1 0 100%;
-    justify-content: center;
+    display: none;
   }
 
   .composer-submit {
@@ -1254,8 +1253,8 @@
   }
 
   .composer-tool {
-    min-height: 34px;
-    padding: 0 8px;
+    min-height: 38px;
+    padding: 0 10px 0 8px;
   }
 
   .composer-history {
@@ -1273,7 +1272,7 @@
   }
 
   .home-link {
-    min-height: 36px;
+    min-height: 40px;
   }
 
   .home-empty {
@@ -1330,7 +1329,8 @@
   }
 
   .composer-tool {
-    width: 34px;
+    width: 38px;
+    height: 38px;
     justify-content: center;
     padding: 0;
   }
@@ -1342,5 +1342,14 @@
 
   .home-deck-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Touch devices cannot hover, so controls that reveal on hover must stay on. */
+@media (hover: none) {
+  .composer-history-delete {
+    width: 28px;
+    height: 28px;
+    opacity: 1;
   }
 }

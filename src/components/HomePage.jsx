@@ -317,6 +317,7 @@ const Composer = forwardRef(function Composer(
           className="composer-tool"
           onClick={handlePaste}
           disabled={chipBusy === 'paste'}
+          aria-label="Paste text from clipboard"
         >
           <span className="composer-tool-icon">{TOOL_ICONS.paste}</span>
           <span className="composer-tool-label">
@@ -328,6 +329,7 @@ const Composer = forwardRef(function Composer(
           className="composer-tool"
           onClick={() => fileInputRef.current?.click()}
           disabled={chipBusy === 'file'}
+          aria-label="Import a text file"
         >
           <span className="composer-tool-icon">{TOOL_ICONS.upload}</span>
           <span className="composer-tool-label">
@@ -339,6 +341,7 @@ const Composer = forwardRef(function Composer(
           className="composer-tool"
           onClick={handleFromUrl}
           disabled={chipBusy === 'url'}
+          aria-label="Import from a URL"
         >
           <span className="composer-tool-icon">{TOOL_ICONS.link}</span>
           <span className="composer-tool-label">
@@ -360,6 +363,7 @@ const Composer = forwardRef(function Composer(
               className={`composer-tool composer-tool--recent ${showHistory ? 'is-open' : ''}`}
               onClick={() => setShowHistory((v) => !v)}
               aria-expanded={showHistory}
+              aria-label="Recent prompts"
             >
               <span className="composer-tool-icon">{TOOL_ICONS.clock}</span>
               <span className="composer-tool-label">Recent</span>

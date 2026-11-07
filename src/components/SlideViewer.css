@@ -23,8 +23,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 56px;
-  padding: 8px var(--space-4);
+  min-height: calc(56px + env(safe-area-inset-top, 0px));
+  padding: calc(8px + env(safe-area-inset-top, 0px)) var(--space-4) 8px;
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: saturate(180%) blur(14px);
@@ -1247,8 +1247,33 @@
     padding-bottom: calc(var(--editor-sheet-h) + env(safe-area-inset-bottom, 0px));
     overflow: hidden;
   }
+  /* Fill whatever height is left instead of keeping the width-bound 16:9 box,
+     which would push the lower part of the slide under the sheet on short
+     phones. The frame scales itself to the resulting box. */
   .viewer-body.with-editor .stage-slide-area:not(.is-generating) {
+    flex: 1 1 auto;
+    align-self: stretch;
+    width: 100%;
+    height: auto;
+    aspect-ratio: auto;
     padding: 8px 12px;
+  }
+
+  /* Compact the slide strip while editing so the live preview keeps a useful
+     size on short screens; titles are redundant next to the thumbnails. */
+  .viewer-body.with-editor .thumb-strip {
+    gap: 4px;
+    padding: 6px var(--space-3);
+  }
+  .viewer-body.with-editor .rail-item-compact {
+    width: 84px;
+  }
+  .viewer-body.with-editor .rail-item {
+    padding: 3px;
+    border-radius: var(--radius-sm);
+  }
+  .viewer-body.with-editor .rail-item-compact .rail-title {
+    display: none;
   }
   .viewer-body.with-editor .stage-nav,
   .viewer-body.with-editor .stage-footer {
@@ -1257,8 +1282,9 @@
 
   /* Compact deck bar */
   .viewer-bar {
-    min-height: 52px;
-    padding: 7px max(var(--space-4), env(safe-area-inset-right)) 7px
+    min-height: calc(52px + env(safe-area-inset-top, 0px));
+    padding: calc(7px + env(safe-area-inset-top, 0px))
+      max(var(--space-4), env(safe-area-inset-right)) 7px
       max(var(--space-4), env(safe-area-inset-left));
     gap: var(--space-2);
   }
@@ -1352,11 +1378,27 @@
   }
 }
 
+/* Short phones (mostly landscape, and 568px-tall portrait): smaller thumbnails
+   leave more of the height to the slide. */
+@media (max-width: 900px) and (max-height: 700px) {
+  .thumb-strip {
+    padding: 6px var(--space-3);
+  }
+  .rail-item-compact {
+    width: 96px;
+  }
+  .rail-item-compact .rail-title {
+    font-size: 10.5px;
+  }
+}
+
 /* Landscape phones: maximise the slide, dock the editor to the right. */
 @media (max-width: 900px) and (orientation: landscape) {
   .stage {
     align-items: stretch;
-    padding: 0 0 46px;
+    /* Arrows sit at the sides and the counter moves to the top corner, so no
+       bottom gutter is needed here. */
+    padding: 0;
     overflow: hidden;
   }
   .stage-slide-area:not(.is-generating) {

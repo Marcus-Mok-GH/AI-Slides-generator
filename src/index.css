@@ -805,6 +805,8 @@ a {
 @media (max-width: 720px) {
   body {
     font-size: 15px;
+    /* Fixed backgrounds repaint on every scroll frame on iOS. */
+    background-attachment: scroll;
   }
 
   /* Stop iOS zooming on focus for any input we have not opted up to 16px. */
