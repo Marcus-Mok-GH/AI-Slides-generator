@@ -315,6 +315,22 @@ function llmError(status, body) {
   return new Error(`pollinations ${status}: ${message.slice(0, 300)}`);
 }
 
+// src/lib/pricing.js
+var BASE_DECK_CENTS = 50;
+var BASE_SLIDES = 8;
+var MIN_SLIDES = 3;
+var MAX_SLIDES = 20;
+function parseLength(length) {
+  const m = String(length).match(/(\d+)/);
+  if (m) return Math.max(MIN_SLIDES, Math.min(MAX_SLIDES, parseInt(m[1], 10)));
+  return BASE_SLIDES;
+}
+function deckCostCents(length) {
+  return Math.max(1, Math.round(BASE_DECK_CENTS * parseLength(length) / BASE_SLIDES));
+}
+var MIN_DECK_CENTS = deckCostCents(`${MIN_SLIDES} cards`);
+var MAX_DECK_CENTS = deckCostCents(`${MAX_SLIDES} cards`);
+
 // server/generateDeck.js
 var MODE_RULES = {
   concise: `MODE: CONCISE \u2014 every slide is a punchy headline. Brevity is the goal.
@@ -344,11 +360,6 @@ var MODE_RULES = {
      Close with a clear takeaway or a bridge to the next slide.
      NEVER restate the on-screen text. Always add depth and substance behind it.`
 };
-function parseLength(length) {
-  const m = String(length).match(/(\d+)/);
-  if (m) return Math.max(3, Math.min(20, parseInt(m[1], 10)));
-  return 8;
-}
 function buildDeckSystemPrompt({ length, tone, language, mode = "default", userTheme = null }) {
   const cardCount = parseLength(length);
   const modeBlock = MODE_RULES[mode] || MODE_RULES.default;
@@ -1048,7 +1059,6 @@ async function generateId() {
 }
 var NEW_USER_CENTS = 500;
 var LEGACY_USER_CENTS = 1e4;
-var DECK_GENERATION_CENTS = 50;
 async function migrate() {
   if (!hasDb) {
     console.warn("[db] migrate() skipped \u2014 no POSTGRES_URL configured");
@@ -3199,9 +3209,9 @@ function slugify(title) {
 }
 
 // server/jobRunner.js
-var DECK_GENERATION_CENTS2 = 50;
 var FLUSH_MS = 120;
 async function runGenerationJob(jobId, ctx, userId, startBalance) {
+  const costCents = ctx.costCents ?? deckCostCents(ctx.length);
   let chain = Promise.resolve();
   let thinkingBuf = "";
   let thinkingType = "reasoning";
@@ -3272,12 +3282,12 @@ async function runGenerationJob(jobId, ctx, userId, startBalance) {
     }
     let balanceCents = startBalance;
     try {
-      const after = await deductCredits(userId, DECK_GENERATION_CENTS2);
+      const after = await deductCredits(userId, costCents);
       balanceCents = after ?? await getCredits(userId);
     } catch (e) {
       console.warn("[jobRunner] credit deduction failed:", e?.message);
     }
-    append("credits", { balanceCents, deckCostCents: DECK_GENERATION_CENTS2 });
+    append("credits", { balanceCents, deckCostCents: costCents });
     append("done", { deck: savedDeck });
     await chain;
     await updateJobStatus(jobId, "completed");
@@ -3424,7 +3434,7 @@ router.post("/register", async (req, res) => {
       },
       credits: {
         balanceCents: user.credits_cents,
-        deckCostCents: DECK_GENERATION_CENTS
+        deckCostCents: BASE_DECK_CENTS
       }
     });
   } catch (err) {
@@ -3459,7 +3469,7 @@ router.post("/login", async (req, res) => {
       },
       credits: {
         balanceCents: user.credits_cents,
-        deckCostCents: DECK_GENERATION_CENTS
+        deckCostCents: BASE_DECK_CENTS
       }
     });
   } catch (err) {
@@ -3523,7 +3533,7 @@ router.post("/google", async (req, res) => {
       },
       credits: {
         balanceCents: user.credits_cents,
-        deckCostCents: DECK_GENERATION_CENTS
+        deckCostCents: BASE_DECK_CENTS
       }
     });
   } catch (err) {
@@ -3553,7 +3563,7 @@ router.get("/me", async (req, res) => {
     },
     credits: {
       balanceCents: creditsCents,
-      deckCostCents: DECK_GENERATION_CENTS
+      deckCostCents: BASE_DECK_CENTS
     }
   });
 });
@@ -3628,7 +3638,7 @@ app.use("/api", authMiddleware);
 app.get("/api/credits", async (req, res) => {
   try {
     const balanceCents = await getCredits(req.user.id);
-    res.json({ balanceCents, deckCostCents: DECK_GENERATION_CENTS });
+    res.json({ balanceCents, deckCostCents: BASE_DECK_CENTS });
   } catch (err) {
     console.error("[credits] error:", err);
     if (isDbError(err)) {
@@ -3685,13 +3695,14 @@ app.post("/api/generate-deck", async (req, res) => {
     if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
       return res.status(400).json({ error: 'Missing "prompt"' });
     }
+    const costCents = deckCostCents(length);
     const balance = await getCredits(req.user.id);
-    if (balance < DECK_GENERATION_CENTS) {
+    if (balance < costCents) {
       return res.status(402).json({
         error: "Insufficient credits",
         code: "insufficient_credits",
         balanceCents: balance,
-        deckCostCents: DECK_GENERATION_CENTS
+        deckCostCents: costCents
       });
     }
     const deck = await generateDeck({
@@ -3701,11 +3712,11 @@ app.post("/api/generate-deck", async (req, res) => {
       language,
       mode
     });
-    const balanceCents = await deductCredits(req.user.id, DECK_GENERATION_CENTS);
+    const balanceCents = await deductCredits(req.user.id, costCents);
     res.json({
       deck,
       balanceCents,
-      deckCostCents: DECK_GENERATION_CENTS
+      deckCostCents: costCents
     });
   } catch (err) {
     console.error("[generate-deck] error:", err);
@@ -3727,15 +3738,16 @@ app.post("/api/generate-deck/background", async (req, res) => {
   if (!prompt?.trim()) {
     return res.status(400).json({ error: "Missing prompt" });
   }
+  const costCents = deckCostCents(length);
   const jobId = typeof deckId === "string" && deckId.trim() ? deckId.trim() : await generateId();
   try {
     const balance = await getCredits(req.user.id);
-    if (balance < DECK_GENERATION_CENTS) {
+    if (balance < costCents) {
       return res.status(402).json({
         error: "Insufficient credits",
         code: "insufficient_credits",
         balanceCents: balance,
-        deckCostCents: DECK_GENERATION_CENTS
+        deckCostCents: costCents
       });
     }
     await createGenerationJob(jobId, req.user.id);
@@ -3752,6 +3764,7 @@ app.post("/api/generate-deck/background", async (req, res) => {
     tone,
     language,
     mode,
+    costCents,
     userTheme: userTheme?.primary ? userTheme : null,
     deckId: jobId
   };
@@ -3860,13 +3873,14 @@ data: ${JSON.stringify(data)}
       send("error", { error: 'Missing "prompt"' });
       return res.end();
     }
+    const costCents = deckCostCents(length);
     const balance = await getCredits(req.user.id);
-    if (balance < DECK_GENERATION_CENTS) {
+    if (balance < costCents) {
       send("error", {
         error: "Insufficient credits",
         code: "insufficient_credits",
         balanceCents: balance,
-        deckCostCents: DECK_GENERATION_CENTS
+        deckCostCents: costCents
       });
       return res.end();
     }
@@ -3909,9 +3923,9 @@ data: ${JSON.stringify(data)}
     }
     let balanceCents = balance;
     try {
-      balanceCents = await deductCredits(req.user.id, DECK_GENERATION_CENTS);
+      balanceCents = await deductCredits(req.user.id, costCents);
       await savePromptHistory(req.user.id, prompt.trim());
-      send("credits", { balanceCents, deckCostCents: DECK_GENERATION_CENTS });
+      send("credits", { balanceCents, deckCostCents: costCents });
     } catch (e) {
       console.warn("[stream] credit deduction failed:", e?.message);
     }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import './OptionsPage.css'
+import { deckCostCents } from '../lib/pricing.js'
 
 const lengths = ['4 cards', '8 cards', '12 cards', '16 cards']
 const tones = ['Professional', 'Casual', 'Playful', 'Bold']
@@ -29,6 +30,7 @@ export default function OptionsPage({ onBack, onGenerate, status = 'idle', error
   const [themeId, setThemeId] = useState(null)
 
   const isLoading = status === 'loading'
+  const costLabel = `$${(deckCostCents(length) / 100).toFixed(2)}`
 
   function pickSurprise() {
     const idx = Math.floor(Math.random() * PRESET_THEMES.length)
@@ -181,7 +183,11 @@ export default function OptionsPage({ onBack, onGenerate, status = 'idle', error
           {isLoading ? (
             <><span className="spinner" /> Generating…</>
           ) : (
-            <>Generate<span className="opts-generate-arrow" aria-hidden>→</span></>
+            <>
+              Generate
+              <span className="opts-generate-cost">{costLabel}</span>
+              <span className="opts-generate-arrow" aria-hidden>→</span>
+            </>
           )}
         </button>
       </div>

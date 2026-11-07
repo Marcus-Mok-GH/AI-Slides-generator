@@ -131,11 +131,11 @@ export async function generateId() {
  *   LEGACY_USER_CENTS — one-time backfill for users that already existed
  *     before we shipped credits. Currently $100 (= 10 000 cents).
  *
- * Per-deck price is `DECK_GENERATION_CENTS` (50¢). Tweak both as needed.
+ * Per-deck pricing lives in `src/lib/pricing.js` (50¢ for 8 slides, scaled by
+ * slide count). Tweak both as needed.
  */
 export const NEW_USER_CENTS = 500
 export const LEGACY_USER_CENTS = 10000
-export const DECK_GENERATION_CENTS = 50
 
 /**
  * Idempotent schema setup. Creates and optimizes tables for Neon/Vercel Storage.

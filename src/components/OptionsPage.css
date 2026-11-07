@@ -314,6 +314,13 @@
   box-shadow: none;
 }
 
+.opts-generate-cost {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
 .opts-generate-arrow {
   font-size: 16px;
   line-height: 1;

@@ -22,13 +22,13 @@ import {
   getCredits,
 } from './db.js'
 import { streamGenerateDeck } from './generateDeck.js'
-
-export const DECK_GENERATION_CENTS = 50
+import { deckCostCents } from '../src/lib/pricing.js'
 
 /** How long buffered reasoning/partial updates may wait before a write. */
 const FLUSH_MS = 120
 
 export async function runGenerationJob(jobId, ctx, userId, startBalance) {
+  const costCents = ctx.costCents ?? deckCostCents(ctx.length)
   let chain = Promise.resolve()
   let thinkingBuf = ''
   let thinkingType = 'reasoning'
@@ -111,13 +111,13 @@ export async function runGenerationJob(jobId, ctx, userId, startBalance) {
 
     let balanceCents = startBalance
     try {
-      const after = await deductCredits(userId, DECK_GENERATION_CENTS)
+      const after = await deductCredits(userId, costCents)
       balanceCents = after ?? (await getCredits(userId))
     } catch (e) {
       console.warn('[jobRunner] credit deduction failed:', e?.message)
     }
 
-    append('credits', { balanceCents, deckCostCents: DECK_GENERATION_CENTS })
+    append('credits', { balanceCents, deckCostCents: costCents })
     append('done', { deck: savedDeck })
     await chain
     await updateJobStatus(jobId, 'completed')

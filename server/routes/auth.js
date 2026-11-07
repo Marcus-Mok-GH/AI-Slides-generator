@@ -1,5 +1,6 @@
 import { Router } from 'express'
-import { DECK_GENERATION_CENTS, getCredits, findUserByEmail, createUser, updateUserLastLogin } from '../db.js'
+import { getCredits, findUserByEmail, createUser, updateUserLastLogin } from '../db.js'
+import { BASE_DECK_CENTS } from '../../src/lib/pricing.js'
 import { hashPassword, comparePassword, signToken } from '../middleware/auth.js'
 
 const router = Router()
@@ -58,7 +59,7 @@ router.post('/register', async (req, res) => {
       },
       credits: {
         balanceCents: user.credits_cents,
-        deckCostCents: DECK_GENERATION_CENTS,
+        deckCostCents: BASE_DECK_CENTS,
       },
     })
   } catch (err) {
@@ -99,7 +100,7 @@ router.post('/login', async (req, res) => {
       },
       credits: {
         balanceCents: user.credits_cents,
-        deckCostCents: DECK_GENERATION_CENTS,
+        deckCostCents: BASE_DECK_CENTS,
       },
     })
   } catch (err) {
@@ -179,7 +180,7 @@ router.post('/google', async (req, res) => {
       },
       credits: {
         balanceCents: user.credits_cents,
-        deckCostCents: DECK_GENERATION_CENTS,
+        deckCostCents: BASE_DECK_CENTS,
       },
     })
   } catch (err) {
@@ -212,7 +213,7 @@ router.get('/me', async (req, res) => {
     },
     credits: {
       balanceCents: creditsCents,
-      deckCostCents: DECK_GENERATION_CENTS,
+      deckCostCents: BASE_DECK_CENTS,
     },
   })
 })

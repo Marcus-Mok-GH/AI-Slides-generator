@@ -4,7 +4,7 @@ import {
   listDecks, getDeck, saveDeck, deleteDeck, renameDeck, migrate,
   migratePromptHistory, savePromptHistory, getPromptHistory, deletePromptHistoryItem,
   migrateAgentChats, listAgentChats, getAgentChat, createAgentChat, updateAgentChat, deleteAgentChat,
-  getCredits, deductCredits, DECK_GENERATION_CENTS,
+  getCredits, deductCredits,
   migrateGenerationJobs, createGenerationJob, getGenerationJob,
   getPublicStats,
   hasDb, generateId,
@@ -14,6 +14,7 @@ import { buildPptxBuffer } from './exportPptx.js'
 import { buildPdfBuffer } from './exportPdf.js'
 import { slugify } from '../src/lib/deckName.js'
 import { runGenerationJob } from './jobRunner.js'
+import { BASE_DECK_CENTS, deckCostCents } from '../src/lib/pricing.js'
 import { authMiddleware, optionalAuthMiddleware } from './middleware/auth.js'
 import authRouter from './routes/auth.js'
 
@@ -122,7 +123,7 @@ app.use('/api', authMiddleware)
 app.get('/api/credits', async (req, res) => {
   try {
     const balanceCents = await getCredits(req.user.id)
-    res.json({ balanceCents, deckCostCents: DECK_GENERATION_CENTS })
+    res.json({ balanceCents, deckCostCents: BASE_DECK_CENTS })
   } catch (err) {
     console.error('[credits] error:', err)
     if (isDbError(err)) {
@@ -194,13 +195,14 @@ app.post('/api/generate-deck', async (req, res) => {
       return res.status(400).json({ error: 'Missing "prompt"' })
     }
 
+    const costCents = deckCostCents(length)
     const balance = await getCredits(req.user.id)
-    if (balance < DECK_GENERATION_CENTS) {
+    if (balance < costCents) {
       return res.status(402).json({
         error: 'Insufficient credits',
         code: 'insufficient_credits',
         balanceCents: balance,
-        deckCostCents: DECK_GENERATION_CENTS,
+        deckCostCents: costCents,
       })
     }
 
@@ -212,12 +214,12 @@ app.post('/api/generate-deck', async (req, res) => {
       mode,
     })
 
-    const balanceCents = await deductCredits(req.user.id, DECK_GENERATION_CENTS)
+    const balanceCents = await deductCredits(req.user.id, costCents)
 
     res.json({
       deck,
       balanceCents,
-      deckCostCents: DECK_GENERATION_CENTS,
+      deckCostCents: costCents,
     })
   } catch (err) {
     console.error('[generate-deck] error:', err)
@@ -251,15 +253,16 @@ app.post('/api/generate-deck/background', async (req, res) => {
     return res.status(400).json({ error: 'Missing prompt' })
   }
 
+  const costCents = deckCostCents(length)
   const jobId = (typeof deckId === 'string' && deckId.trim()) ? deckId.trim() : (await generateId())
   try {
     const balance = await getCredits(req.user.id)
-    if (balance < DECK_GENERATION_CENTS) {
+    if (balance < costCents) {
       return res.status(402).json({
         error: 'Insufficient credits',
         code: 'insufficient_credits',
         balanceCents: balance,
-        deckCostCents: DECK_GENERATION_CENTS,
+        deckCostCents: costCents,
       })
     }
 
@@ -275,6 +278,7 @@ app.post('/api/generate-deck/background', async (req, res) => {
   const ctx = {
     prompt: prompt.trim(),
     length, tone, language, mode,
+    costCents,
     userTheme: userTheme?.primary ? userTheme : null,
     deckId: jobId,
   }
@@ -401,13 +405,14 @@ app.post('/api/generate-deck/stream', async (req, res) => {
       return res.end()
     }
 
+    const costCents = deckCostCents(length)
     const balance = await getCredits(req.user.id)
-    if (balance < DECK_GENERATION_CENTS) {
+    if (balance < costCents) {
       send('error', {
         error: 'Insufficient credits',
         code: 'insufficient_credits',
         balanceCents: balance,
-        deckCostCents: DECK_GENERATION_CENTS,
+        deckCostCents: costCents,
       })
       return res.end()
     }
@@ -461,9 +466,9 @@ app.post('/api/generate-deck/stream', async (req, res) => {
 
     let balanceCents = balance
     try {
-      balanceCents = await deductCredits(req.user.id, DECK_GENERATION_CENTS)
+      balanceCents = await deductCredits(req.user.id, costCents)
       await savePromptHistory(req.user.id, prompt.trim())
-      send('credits', { balanceCents, deckCostCents: DECK_GENERATION_CENTS })
+      send('credits', { balanceCents, deckCostCents: costCents })
     } catch (e) {
       console.warn('[stream] credit deduction failed:', e?.message)
     }

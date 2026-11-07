@@ -2,6 +2,7 @@ import { DeckStreamParser } from './streamParser.js'
 import { repairJson } from './jsonRepair.js'
 
 import { DECK_MODEL, SLIDE_MODEL, llmHeaders, llmUrl, llmError, assertLlmKey } from './llm.js'
+import { parseLength } from '../src/lib/pricing.js'
 
 /**
  * Content-depth modes for presentations. Each mode tweaks the word budgets
@@ -37,12 +38,6 @@ const MODE_RULES = {
      the substance the audience WON'T see.
      Close with a clear takeaway or a bridge to the next slide.
      NEVER restate the on-screen text. Always add depth and substance behind it.`,
-}
-
-function parseLength(length) {
-  const m = String(length).match(/(\d+)/)
-  if (m) return Math.max(3, Math.min(20, parseInt(m[1], 10)))
-  return 8
 }
 
 function buildDeckSystemPrompt({ length, tone, language, mode = 'default', userTheme = null }) {

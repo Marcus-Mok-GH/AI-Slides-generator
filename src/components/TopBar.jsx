@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import './TopBar.css'
 import logo from '../assets/slideai-logo.svg'
+import { MIN_DECK_CENTS, MAX_DECK_CENTS } from '../lib/pricing.js'
 
 function userInitials(user) {
   if (!user) return '?'
@@ -113,13 +114,15 @@ export default function TopBar({
         {(() => {
           const label = formatCredits(creditsCents)
           if (label === null) return null
-          const cost = formatCredits(deckCostCents) || '$0.50'
-          const low = (creditsCents ?? 0) < (deckCostCents ?? 50)
+          const base = formatCredits(deckCostCents) || '$0.50'
+          const min = formatCredits(MIN_DECK_CENTS) || '$0.19'
+          const max = formatCredits(MAX_DECK_CENTS) || '$1.25'
+          const low = (creditsCents ?? 0) < MIN_DECK_CENTS
           return (
             <div
               className={`credits-pill ${low ? 'is-low' : ''}`}
-              title={`Credits remaining. Each deck costs ${cost}.`}
-              aria-label={`Credits remaining: ${label}. Each deck costs ${cost}.`}
+              title={`Credits remaining. Decks cost ${min}–${max} depending on slide count (${base} for 8 slides).`}
+              aria-label={`Credits remaining: ${label}. Decks cost ${min} to ${max} depending on slide count.`}
             >
               <span className="credits-pill-spark" aria-hidden>◈</span>
               <span className="credits-pill-amount">{label}</span>

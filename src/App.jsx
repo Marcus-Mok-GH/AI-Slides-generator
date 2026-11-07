@@ -17,6 +17,7 @@ import {
   loadDecks,
 } from './lib/api.js'
 import useTheme from './lib/useTheme.js'
+import { parseLength } from './lib/pricing.js'
 import useCredits from './hooks/useCredits.js'
 import { useAuth } from './context/AuthContext.jsx'
 import MobileNav from './components/MobileNav.jsx'
@@ -27,12 +28,6 @@ const DEFAULT_THEME = {
   primary: '#7c5cff',
   accent: '#ff6ea0',
   background: '#0f0f1a',
-}
-
-function parseLength(length) {
-  const m = String(length).match(/(\d+)/)
-  if (m) return Math.max(3, Math.min(20, parseInt(m[1], 10)))
-  return 8
 }
 
 /**
