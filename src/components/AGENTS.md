@@ -13,8 +13,7 @@ src/components/
 ├── ThumbPreview.jsx    # Live 16:9 slide thumbnail (lazy iframe)
 ├── SlideViewer.jsx      # Deck editor UI (grid/full-screen)
 ├── SlideEditor.jsx      # Layout picker + inline editing
-├── CreateHero.jsx       # Prompt input + template chips
-├── RecentGallery.jsx   # Deck list with search
+├── HomePage.jsx        # /app page: composer, template rail, recent decks
 ├── TopBar.jsx           # Logo, search, theme, user menu
 ├── Sidebar.jsx          # Navigation (New, My Decks, Trash)
 └── ... (19 more components)
@@ -28,8 +27,8 @@ src/components/
 | View slide thumbnails | `ThumbPreview.jsx` | Lazy 16:9 iframe thumbs used by the viewer rail + mobile strip |
 | Edit deck | `SlideViewer.jsx` | Grid/full-screen modes, drag-to-reorder |
 | Change layout | `SlideEditor.jsx` | Right sidebar, layout picker, AI edit prompt box |
-| Create new deck | `CreateHero.jsx` | Prompt input, template chips, URL fetcher |
-| View recent decks | `RecentGallery.jsx` | Search, open, delete actions |
+| Create new deck | `HomePage.jsx` | Prompt composer, format picker, URL/file import |
+| Browse recent decks | `HomePage.jsx` | Recent-deck grid with search, open, rename, delete |
 | Top navigation | `TopBar.jsx` | Logo, search bar, theme toggle, user menu |
 | Side navigation | `Sidebar.jsx` | New deck, My Decks, Trash, etc. |
 
@@ -70,8 +69,7 @@ src/components/
 | `HtmlSlide.jsx` | Sandboxed slide renderer | ~150 |
 | `SlideViewer.jsx` | Deck editor UI | ~200 |
 | `SlideEditor.jsx` | Layout/editing panel | ~180 |
-| `CreateHero.jsx` | Prompt input | ~120 |
-| `RecentGallery.jsx` | Deck list | ~100 |
+| `HomePage.jsx` | /app page (composer + templates + decks) | ~800 |
 | `TopBar.jsx` | Top navigation | ~80 |
 | `Sidebar.jsx` | Side navigation | ~70 |
 

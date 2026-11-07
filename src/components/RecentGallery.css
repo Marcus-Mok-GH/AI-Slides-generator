@@ -1,7 +1,0 @@
-/* Recent decks on the create page.
-   The deck card, view toggle, section header and empty state are shared
-   primitives defined in index.css, so this page only needs grid defaults. */
-
-#recent-decks .deck-grid {
-  margin-top: 2px;
-}

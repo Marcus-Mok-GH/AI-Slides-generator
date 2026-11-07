@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Sidebar from './components/Sidebar.jsx'
 import TopBar from './components/TopBar.jsx'
-import CreateHero from './components/CreateHero.jsx'
+import HomePage from './components/HomePage.jsx'
 import OptionsPage from './components/OptionsPage.jsx'
-import TemplateRow from './components/TemplateRow.jsx'
 import TemplatesPage from './components/TemplatesPage.jsx'
 import MyDecksPage from './components/MyDecksPage.jsx'
-import RecentGallery from './components/RecentGallery.jsx'
 import SlideViewer from './components/SlideViewer.jsx'
 import AgentFive from './components/AgentFive.jsx'
 import {
@@ -537,29 +535,23 @@ export default function App() {
             />
           </div>
         ) : (
-          <div className="content stagger-children">
-            <CreateHero
+          <div className="content">
+            <HomePage
               ref={heroRef}
+              status={status}
+              error={error}
+              decks={filteredDecks}
+              totalCount={savedDecks.length}
+              query={searchQuery}
               onContinue={({ prompt, format }) => {
                 setPromptPayload({ prompt, format })
                 setCreateStep('options')
               }}
-              status={status}
-              error={error}
-            />
-            <TemplateRow
-              onSelect={(template) => {
-                heroRef.current?.applyTemplate?.(template)
-              }}
-              onBrowseAll={() => handleNavigate('templates')}
-            />
-            <RecentGallery
-              decks={filteredDecks}
-              totalCount={savedDecks.length}
-              query={searchQuery}
               onOpen={handleOpenDeck}
               onDelete={handleDeleteDeck}
               onRename={handleRenameDeck}
+              onBrowseTemplates={() => handleNavigate('templates')}
+              onBrowseDecks={() => handleNavigate('my-deck')}
             />
           </div>
         )}

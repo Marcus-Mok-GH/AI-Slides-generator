@@ -39,7 +39,7 @@ There are no test/lint scripts configured. `main.py` and `pyproject.toml` exist 
 src/
   App.jsx                 # Root: URL routing (/slide/{id}), auth gating, deck state
   main.jsx                # Vite entry
-  components/             # SlideViewer, SlideEditor, HtmlSlide, CreateHero, TopBar, Sidebar, RecentGallery, ...
+  components/             # SlideViewer, SlideEditor, HtmlSlide, HomePage, TopBar, Sidebar, ...
   hooks/                  # useAuth, ...
   lib/                    # api.js (fetch + SSE parser), charts.js (dep-free SVG), useTheme.js
 server/
@@ -93,7 +93,7 @@ Each slide is JSON with: `title`, `layout`, `body`, `bullets`, `steps`, `compari
 ## Common tasks
 
 - **New layout:** update `LAYOUTS` in `server/generateDeck.js`, add rules to the system prompt, add to `LAYOUTS` in `src/components/SlideEditor.jsx`, extend `HtmlSlide.jsx` if custom rendering is needed.
-- **New content mode:** add to `MODE_RULES` in `server/generateDeck.js`, add UI picker in `CreateHero.jsx`, pass `mode` in the payload.
+- **New content mode:** add to `MODE_RULES` in `server/generateDeck.js`, add UI picker in `OptionsPage.jsx`, pass `mode` in the payload.
 - **New API endpoint:** add handler in `server/app.js` (wrap with `isAuthenticated` for user-scoped routes), add fetch wrapper in `src/lib/api.js`.
 
 ## Deployment
