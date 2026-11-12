@@ -18,6 +18,7 @@ import {
 } from './lib/api.js'
 import useTheme from './lib/useTheme.js'
 import { parseLength } from './lib/pricing.js'
+import { DEFAULT_DECK_OPTIONS } from './lib/deckDefaults.js'
 import useCredits from './hooks/useCredits.js'
 import { useAuth } from './context/AuthContext.jsx'
 import MobileNav from './components/MobileNav.jsx'
@@ -562,6 +563,9 @@ export default function App() {
                 setPromptPayload({ prompt })
                 setCreateStep('options')
               }}
+              onGenerate={({ prompt }) =>
+                handleGenerate({ prompt, ...DEFAULT_DECK_OPTIONS })
+              }
               onOpen={handleOpenDeck}
               onDelete={handleDeleteDeck}
               onRename={handleRenameDeck}

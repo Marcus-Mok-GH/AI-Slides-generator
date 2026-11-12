@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import './OptionsPage.css'
 import { deckCostCents } from '../lib/pricing.js'
+import { DEFAULT_DECK_OPTIONS } from '../lib/deckDefaults.js'
 
 const lengths = ['4 cards', '8 cards', '12 cards', '16 cards']
 const tones = ['Professional', 'Casual', 'Playful', 'Bold']
@@ -23,10 +24,10 @@ const PRESET_THEMES = [
 ]
 
 export default function OptionsPage({ onBack, onGenerate, status = 'idle', error = '' }) {
-  const [length, setLength] = useState('8 cards')
-  const [tone, setTone] = useState('Professional')
-  const [language, setLanguage] = useState('English')
-  const [mode, setMode] = useState('detailed')
+  const [length, setLength] = useState(DEFAULT_DECK_OPTIONS.length)
+  const [tone, setTone] = useState(DEFAULT_DECK_OPTIONS.tone)
+  const [language, setLanguage] = useState(DEFAULT_DECK_OPTIONS.language)
+  const [mode, setMode] = useState(DEFAULT_DECK_OPTIONS.mode)
   const [themeId, setThemeId] = useState(null)
 
   const isLoading = status === 'loading'

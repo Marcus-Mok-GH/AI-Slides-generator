@@ -6,6 +6,8 @@ import {
   useRef,
   useState,
 } from 'react'
+import { deckCostCents } from '../lib/pricing.js'
+import { DEFAULT_DECK_OPTIONS } from '../lib/deckDefaults.js'
 import './HomePage.css'
 
 /* -------------------------------------------------------------------------
@@ -142,7 +144,7 @@ const TOOL_ICONS = {
    ------------------------------------------------------------------------- */
 
 const Composer = forwardRef(function Composer(
-  { onContinue, status = 'idle', error = '' },
+  { onGenerate, onContinue, status = 'idle', error = '' },
   ref,
 ) {
   const [prompt, setPrompt] = useState('')
@@ -205,7 +207,14 @@ const Composer = forwardRef(function Composer(
     } catch {}
   }
 
+  // Generate straight away with sensible defaults — the customizer is an
+  // opt-in detour, not a mandatory second step.
   function submit() {
+    if (!prompt.trim() || isLoading) return
+    onGenerate?.({ prompt: prompt.trim() })
+  }
+
+  function customize() {
     if (!prompt.trim() || isLoading) return
     onContinue?.({ prompt: prompt.trim() })
   }
@@ -275,6 +284,7 @@ const Composer = forwardRef(function Composer(
   }
 
   const wordCount = prompt.trim() ? prompt.trim().split(/\s+/).length : 0
+  const costLabel = `$${(deckCostCents(DEFAULT_DECK_OPTIONS.length) / 100).toFixed(2)}`
 
   return (
     <form
@@ -289,7 +299,6 @@ const Composer = forwardRef(function Composer(
           <span className="composer-kicker">New deck</span>
           <h2 className="composer-title">What are we presenting?</h2>
         </div>
-        <span className="composer-step">Step 1 / 2</span>
       </div>
 
       <div className="composer-field">
@@ -414,14 +423,23 @@ const Composer = forwardRef(function Composer(
         <span className="composer-hint">
           <kbd>⌘</kbd>
           <kbd>↵</kbd>
-          <span>to continue</span>
+          <span>to generate</span>
         </span>
+        <button
+          type="button"
+          className="composer-tune"
+          onClick={customize}
+          disabled={!prompt.trim() || isLoading}
+        >
+          Customize
+        </button>
         <button
           type="submit"
           className="composer-submit"
           disabled={!prompt.trim() || isLoading}
         >
-          Continue
+          Generate deck
+          <span className="composer-submit-cost">{costLabel}</span>
           <span className="composer-submit-icon">{TOOL_ICONS.arrow}</span>
         </button>
       </div>
@@ -760,6 +778,7 @@ const HomePage = forwardRef(function HomePage(
     decks = [],
     totalCount = 0,
     query = '',
+    onGenerate,
     onContinue,
     onOpen,
     onDelete,
@@ -811,6 +830,7 @@ const HomePage = forwardRef(function HomePage(
         <div className="home-panel">
           <Composer
             ref={composerRef}
+            onGenerate={onGenerate}
             onContinue={onContinue}
             status={status}
             error={error}

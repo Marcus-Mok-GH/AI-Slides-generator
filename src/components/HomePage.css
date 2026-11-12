@@ -587,6 +587,38 @@
   transform: translateX(2px);
 }
 
+.composer-submit-cost {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.72;
+}
+
+.composer-tune {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.composer-tune:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.composer-tune:disabled {
+  opacity: 0.42;
+}
+
 /* =========================================================================
    Sections
    ========================================================================= */
@@ -1250,6 +1282,12 @@
     margin-left: 0;
     min-height: 48px;
     font-size: 15px;
+  }
+
+  .composer-tune {
+    order: 2;
+    flex: 1 0 100%;
+    margin-left: 0;
   }
 
   .composer-tool {
