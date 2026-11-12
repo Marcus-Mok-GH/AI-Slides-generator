@@ -51,6 +51,17 @@ function deckIdFromLocation() {
   return legacy || null
 }
 
+// Full-page views own a URL → survive refresh, linkable, back-button safe.
+const PAGE_PATHS = { 'my-deck': '/app/decks', templates: '/app/templates' }
+
+/** Nav id for the URL's full-page view, or null on the create page. */
+function pageFromLocation() {
+  if (typeof window === 'undefined') return null
+  const match = window.location.pathname.match(/^\/(?:app\/)?(decks|templates)\/?$/)
+  if (!match) return null
+  return match[1] === 'decks' ? 'my-deck' : 'templates'
+}
+
 export default function App() {
   const [deck, setDeck] = useState(null)
   const [status, setStatus] = useState('idle') // idle | streaming | error
@@ -58,7 +69,7 @@ export default function App() {
   const [savedDecks, setSavedDecks] = useState([])
   const [savingState, setSavingState] = useState('idle') // idle | saving | saved | error
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeNav, setActiveNav] = useState('new')
+  const [activeNav, setActiveNav] = useState(() => pageFromLocation() || 'new')
   const [createStep, setCreateStep] = useState('prompt') // 'prompt' | 'options'
   const [promptPayload, setPromptPayload] = useState(null) // { prompt }
   // True on first paint if the URL points at a specific deck — keeps us from
@@ -128,7 +139,12 @@ export default function App() {
   // pushState navigations (which we accompany with a `popstate` event).
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const sync = () => setCurrentPath(window.location.pathname)
+    const sync = () => {
+      setCurrentPath(window.location.pathname)
+      // Back/forward follows the URL, sidebar included.
+      const page = pageFromLocation()
+      setActiveNav((prev) => page || (PAGE_PATHS[prev] ? 'new' : prev))
+    }
     window.addEventListener('popstate', sync)
     return () => window.removeEventListener('popstate', sync)
   }, [])
@@ -202,12 +218,13 @@ export default function App() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (routeLoading) return
+    // No deck open → URL follows the active page, full-page views included.
     const targetPath = deck?.id
       ? `/app/slide/${encodeURIComponent(deck.id)}`
-      : '/app'
+      : PAGE_PATHS[activeNav] || '/app'
     if (window.location.pathname === targetPath) return
     window.history.pushState({ deckId: deck?.id || null }, '', targetPath)
-  }, [deck?.id, routeLoading])
+  }, [deck?.id, routeLoading, activeNav])
 
   // Debounced auto-save whenever an open deck changes — but skip while the
   // deck is still streaming (the server persists it on stream completion).
@@ -422,6 +439,11 @@ export default function App() {
     }
     setActiveNav(id)
     setCreateStep('prompt') // always reset to prompt step when navigating
+    // Full-page views own a URL → refresh and back button work, not just nav state.
+    const targetPath = PAGE_PATHS[id] || '/app'
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({ nav: id }, '', targetPath)
+    }
     if (id === 'templates' || id === 'my-deck') return // full-page views
     if (id === 'home') {
       const el = document.getElementById('create-hero')

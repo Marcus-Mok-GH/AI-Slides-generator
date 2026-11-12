@@ -33,8 +33,8 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 | Database | `server/db.js` | Postgres schema, CRUD operations |
 | API client | `src/lib/api.js` | Fetch wrappers, SSE handlers |
 | Styling | `src/index.css`, `src/*.css` | Standard CSS (no Tailwind) |
-| Routing | `src/App.jsx` (lines 210-219) | URL sync + `deckIdFromLocation()` |
-| Auto-save | `src/App.jsx` (lines 222-242) | Debounced deck persistence |
+| Routing | `src/App.jsx` (lines 54–63, 214–227) | `deckIdFromLocation()`, `PAGE_PATHS`, `pageFromLocation()` |
+| Auto-save | `src/App.jsx` (lines 229–251) | Debounced deck persistence |
 
 ## CODE MAP
 
@@ -70,7 +70,7 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 - **Lazy schema setup**: `server/app.js` never awaits `migrate()` at module scope. `ensureSchema()` runs on the first request, so a slow or broken database degrades DB routes instead of killing the function at import time. Do not reintroduce top-level await.
 - **No Redux/Zustand**: Uses React `useState` + callbacks with explicit prop drilling. State flows down, callbacks up.
 - **Debounced auto-save**: 700ms delay after last edit, skips if `deck.streaming === true`.
-- **URL routing**: Supports both `/slide/{id}` (canonical) and `?deck={id}` (legacy).
+- **URL routing**: Decks at `/app/slide/{id}` (canonical), legacy `?deck={id}`, full-page views at `/app/decks` and `/app/templates` (`PAGE_PATHS` / `pageFromLocation()` in `src/App.jsx`).
 - **Auth lifecycle**: Single `fetchCurrentUser()` on mount, global `slideai:unauthorized` event listener.
 - **SSE streaming**: Custom `streamParser.js` for incremental JSON parsing (no off-the-shelf library).
 - **Image generation**: deck generation no longer produces images. Only
