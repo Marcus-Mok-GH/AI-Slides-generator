@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
+import { SampleDeckCard, SampleDeckViewer } from './SampleDeck.jsx'
 import './LoginPage.css'
 
 export default function LoginPage() {
@@ -11,6 +12,9 @@ export default function LoginPage() {
   const [lastName, setLastName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  // Visitors can page through a real example deck before creating an account.
+  const [showSample, setShowSample] = useState(false)
+  const emailRef = useRef(null)
   // Auto-focusing on touch devices pops the keyboard instantly and hides the
   // page behind it — only pre-focus on pointer-precise devices.
   const canAutoFocus =
@@ -107,7 +111,7 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
-      <aside className="login-aside" aria-hidden="true">
+      <aside className="login-aside">
         <div className="login-aside-inner">
           <div className="login-aside-brand">
             <span className="login-aside-mark">S</span>
@@ -120,6 +124,9 @@ export default function LoginPage() {
             SlideAI writes, designs and lays out every slide as custom HTML —
             no templates, no blank-canvas paralysis.
           </p>
+          <div className="login-aside-sample">
+            <SampleDeckCard onOpen={() => setShowSample(true)} />
+          </div>
           <ul className="login-aside-list">
             <li><span className="login-aside-check">✓</span> Export to PDF, PPTX or JSON</li>
             <li><span className="login-aside-check">✓</span> Edit any slide by describing the change</li>
@@ -185,6 +192,7 @@ export default function LoginPage() {
           <label className="login-field">
             <span className="login-label">Email</span>
             <input
+              ref={emailRef}
               type="email"
               inputMode="email"
               autoComplete="email"
@@ -247,7 +255,22 @@ export default function LoginPage() {
           )}
         </div>
       </div>
+
+        <div className="login-sample">
+          <p className="login-sample-eyebrow">New here? This is what a deck looks like</p>
+          <SampleDeckCard onOpen={() => setShowSample(true)} />
+        </div>
       </div>
+
+      {showSample ? (
+        <SampleDeckViewer
+          onClose={() => setShowSample(false)}
+          onSignIn={() => {
+            setShowSample(false)
+            window.requestAnimationFrame(() => emailRef.current?.focus())
+          }}
+        />
+      ) : null}
     </div>
   )
 }
