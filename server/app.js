@@ -17,6 +17,7 @@ import { runGenerationJob } from './jobRunner.js'
 import { BASE_DECK_CENTS, deckCostCents } from '../src/lib/pricing.js'
 import { authMiddleware, optionalAuthMiddleware } from './middleware/auth.js'
 import authRouter from './routes/auth.js'
+import { isEmailConfigured } from './mailer.js'
 
 const app = express()
 app.use(express.json({ limit: '50mb' }))
@@ -84,7 +85,14 @@ app.get('/api/health', (_req, res) => {
  * (OAuth client IDs are embedded in every sign-in page Google serves anyway).
  */
 app.get('/api/config', (_req, res) => {
-  res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || null })
+  // Both flows need an email channel. Until one is configured, the login page
+  // hides "Forgot password?" and signup skips the code gate.
+  const emailConfigured = isEmailConfigured()
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || null,
+    passwordResetEnabled: emailConfigured,
+    emailVerificationEnabled: emailConfigured,
+  })
 })
 
 /**

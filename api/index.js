@@ -1072,6 +1072,7 @@ async function migrate() {
       last_name          VARCHAR,
       profile_image_url  VARCHAR,
       password_hash      VARCHAR,
+      email_verified     BOOLEAN NOT NULL DEFAULT FALSE,
       credits_cents      INTEGER NOT NULL DEFAULT ${NEW_USER_CENTS},
       metadata           JSONB DEFAULT '{}',
       preferences        JSONB DEFAULT '{}',
@@ -1081,6 +1082,7 @@ async function migrate() {
     );
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS credits_cents INTEGER;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT '{}';
@@ -1096,6 +1098,11 @@ async function migrate() {
     ALTER TABLE users ALTER COLUMN credits_cents SET DEFAULT ${NEW_USER_CENTS};
     UPDATE users SET credits_cents = ${NEW_USER_CENTS} WHERE credits_cents IS NULL;
     ALTER TABLE users ALTER COLUMN credits_cents SET NOT NULL;
+  `);
+  await pool.query(`
+    UPDATE users SET email_verified = TRUE WHERE email_verified IS NULL;
+    ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT FALSE;
+    ALTER TABLE users ALTER COLUMN email_verified SET NOT NULL;
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS decks (
@@ -1134,6 +1141,7 @@ async function migrate() {
   await migrateAgentChats();
   await migrateAgentPlans();
   await migrateGenerationJobs();
+  await migrateEmailOtps();
 }
 async function updateUserLastLogin(userId) {
   if (!userId) return;
@@ -1146,26 +1154,35 @@ async function updateUserLastLogin(userId) {
 async function findUserByEmail(email) {
   dbRequired();
   const { rows } = await pool.query(
-    `SELECT id, email, first_name, last_name, profile_image_url, credits_cents, password_hash, metadata, preferences, last_login_at
+    `SELECT id, email, first_name, last_name, profile_image_url, credits_cents, password_hash, email_verified, metadata, preferences, last_login_at
      FROM users WHERE email = $1`,
     [email]
   );
   return rows[0] || null;
 }
-async function createUser({ id, email, firstName, lastName, passwordHash, profileImageUrl = null }) {
+async function createUser({
+  id,
+  email,
+  firstName,
+  lastName,
+  passwordHash,
+  profileImageUrl = null,
+  emailVerified = false
+}) {
   dbRequired();
   const { rows } = await pool.query(
-    `INSERT INTO users (id, email, first_name, last_name, password_hash, profile_image_url, credits_cents, last_login_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+    `INSERT INTO users (id, email, first_name, last_name, password_hash, email_verified, profile_image_url, credits_cents, last_login_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
      ON CONFLICT (email) DO UPDATE SET
        first_name   = EXCLUDED.first_name,
        last_name    = EXCLUDED.last_name,
        password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
+       email_verified = EXCLUDED.email_verified OR users.email_verified,
        profile_image_url = COALESCE(EXCLUDED.profile_image_url, users.profile_image_url),
        last_login_at = NOW(),
        updated_at   = NOW()
-     RETURNING id, email, first_name, last_name, profile_image_url, credits_cents, metadata, preferences, last_login_at`,
-    [id, email, firstName, lastName, passwordHash, profileImageUrl, NEW_USER_CENTS]
+     RETURNING id, email, first_name, last_name, profile_image_url, credits_cents, email_verified, metadata, preferences, last_login_at`,
+    [id, email, firstName, lastName, passwordHash, emailVerified, profileImageUrl, NEW_USER_CENTS]
   );
   return rows[0];
 }
@@ -1191,6 +1208,102 @@ async function deductCredits(userId, amountCents) {
   );
   if (!rows.length) return null;
   return rows[0].credits_cents;
+}
+async function migrateEmailOtps() {
+  if (!hasDb) {
+    console.warn("[db] migrateEmailOtps() skipped \u2014 no POSTGRES_URL configured");
+    return;
+  }
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS email_otps (
+      id         VARCHAR PRIMARY KEY,
+      user_id    VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      purpose    VARCHAR NOT NULL,
+      code_hash  VARCHAR NOT NULL,
+      attempts   INTEGER NOT NULL DEFAULT 0,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at    TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    ALTER TABLE email_otps ALTER COLUMN created_at TYPE TIMESTAMPTZ;
+  `);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_email_otps_user
+     ON email_otps (user_id, purpose, created_at DESC);`
+  );
+}
+async function createEmailOtp({ id, userId, purpose, codeHash, expiresAt }) {
+  dbRequired();
+  await pool.query(
+    `DELETE FROM email_otps WHERE user_id = $1 AND purpose = $2 AND used_at IS NULL`,
+    [userId, purpose]
+  );
+  const { rows } = await pool.query(
+    `INSERT INTO email_otps (id, user_id, purpose, code_hash, expires_at)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, expires_at`,
+    [id, userId, purpose, codeHash, expiresAt]
+  );
+  return rows[0];
+}
+async function latestEmailOtpAt(userId, purpose) {
+  dbRequired();
+  const { rows } = await pool.query(
+    `SELECT created_at FROM email_otps
+      WHERE user_id = $1 AND purpose = $2
+      ORDER BY created_at DESC LIMIT 1`,
+    [userId, purpose]
+  );
+  return rows[0]?.created_at || null;
+}
+async function getActiveEmailOtp(userId, purpose) {
+  dbRequired();
+  const { rows } = await pool.query(
+    `SELECT id, code_hash, attempts, expires_at, created_at
+       FROM email_otps
+      WHERE user_id = $1 AND purpose = $2 AND used_at IS NULL
+      ORDER BY created_at DESC LIMIT 1`,
+    [userId, purpose]
+  );
+  return rows[0] || null;
+}
+async function consumeEmailOtp(id) {
+  dbRequired();
+  const { rows } = await pool.query(
+    `UPDATE email_otps SET used_at = NOW()
+      WHERE id = $1 AND used_at IS NULL
+      RETURNING id`,
+    [id]
+  );
+  return rows.length > 0;
+}
+async function incrementEmailOtpAttempts(id) {
+  dbRequired();
+  const { rows } = await pool.query(
+    `UPDATE email_otps SET attempts = attempts + 1
+      WHERE id = $1
+      RETURNING attempts`,
+    [id]
+  );
+  return rows[0]?.attempts ?? 0;
+}
+async function markUserEmailVerified(userId) {
+  dbRequired();
+  await pool.query(
+    `UPDATE users SET email_verified = TRUE, updated_at = NOW() WHERE id = $1`,
+    [userId]
+  );
+}
+async function updateUserPassword(userId, passwordHash) {
+  dbRequired();
+  const { rows } = await pool.query(
+    `UPDATE users
+        SET password_hash = $2, updated_at = NOW()
+      WHERE id = $1
+      RETURNING id`,
+    [userId, passwordHash]
+  );
+  return rows.length > 0;
 }
 async function listDecks(userId, limit = 24) {
   if (!userId) return [];
@@ -3392,6 +3505,160 @@ async function optionalAuthMiddleware(req, _res, next) {
 
 // server/routes/auth.js
 var import_express = require("express");
+
+// server/mailer.js
+var RESEND_ENDPOINT = "https://api.resend.com/emails";
+function apiKey() {
+  return (process.env.RESEND_API_KEY || "").trim();
+}
+function isEmailConfigured() {
+  return Boolean(apiKey());
+}
+async function sendEmail({ to, subject, html, text }) {
+  const key = apiKey();
+  if (!key) throw new Error("RESEND_API_KEY is not configured");
+  const res = await fetch(RESEND_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      from: process.env.MAIL_FROM || "SlideAI <onboarding@resend.dev>",
+      to: [to],
+      subject,
+      html,
+      text
+    }),
+    signal: AbortSignal.timeout(1e4)
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(
+      `Email provider returned ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`
+    );
+  }
+  return res.json().catch(() => null);
+}
+function codeEmailHtml({ heading, intro, code, outro }) {
+  return `
+    <div style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:28px 24px;color:#111827;">
+      <p style="margin:0 0 20px;font-size:15px;font-weight:700;letter-spacing:-0.01em;">slideai</p>
+      <h1 style="margin:0 0 12px;font-size:22px;line-height:1.25;letter-spacing:-0.02em;">${heading}</h1>
+      <p style="margin:0 0 24px;font-size:14.5px;line-height:1.6;color:#4b5563;">${intro}</p>
+      <p style="margin:0 0 8px;padding:18px 0;border-radius:14px;background:#eef2ff;color:#312e81;font-size:34px;font-weight:700;letter-spacing:0.32em;text-align:center;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${code}</p>
+      <p style="margin:0 0 26px;font-size:12.5px;line-height:1.6;color:#6b7280;">This code expires in 10 minutes and works once.</p>
+      <p style="margin:0;font-size:12px;line-height:1.6;color:#9ca3af;">${outro}</p>
+    </div>
+  `.trim();
+}
+async function sendVerificationCodeEmail({ to, code }) {
+  const html = codeEmailHtml({
+    heading: "Confirm your email",
+    intro: "Enter this code to finish setting up your SlideAI account.",
+    code,
+    outro: "Didn't sign up? Ignore this email and the account will never be used."
+  });
+  const text = [
+    "Confirm your email",
+    "",
+    `Your SlideAI verification code is ${code}.`,
+    "It expires in 10 minutes and works once.",
+    "",
+    "Didn't sign up? Ignore this email and the account will never be used."
+  ].join("\n");
+  return sendEmail({ to, subject: `${code} is your SlideAI verification code`, html, text });
+}
+async function sendPasswordResetCodeEmail({ to, code }) {
+  const html = codeEmailHtml({
+    heading: "Reset your password",
+    intro: "Enter this code in SlideAI to choose a new password.",
+    code,
+    outro: "Didn't request this? Ignore this email \u2014 your password stays the same."
+  });
+  const text = [
+    "Reset your password",
+    "",
+    `Your SlideAI reset code is ${code}.`,
+    "It expires in 10 minutes and works once.",
+    "",
+    "Didn't request this? Ignore this email \u2014 your password stays the same."
+  ].join("\n");
+  return sendEmail({ to, subject: `${code} is your SlideAI reset code`, html, text });
+}
+
+// server/otp.js
+var import_node_crypto = require("node:crypto");
+var PURPOSE_VERIFY_EMAIL = "verify_email";
+var PURPOSE_RESET_PASSWORD = "reset_password";
+var OTP_TTL_MS = 10 * 60 * 1e3;
+var OTP_RESEND_COOLDOWN_MS = 30 * 1e3;
+var OTP_MAX_ATTEMPTS = 5;
+var OTP_LENGTH = 6;
+function secret() {
+  return process.env.OTP_SECRET || process.env.JWT_SECRET || "slideai-dev-secret-change-me";
+}
+function hashCode({ userId, purpose, code }) {
+  return (0, import_node_crypto.createHmac)("sha256", secret()).update(`${userId}:${purpose}:${code}`).digest("hex");
+}
+function hashMatches(a, b) {
+  const left = Buffer.from(String(a), "utf8");
+  const right = Buffer.from(String(b), "utf8");
+  return left.length === right.length && (0, import_node_crypto.timingSafeEqual)(left, right);
+}
+function generateCode() {
+  return String((0, import_node_crypto.randomInt)(0, 1e6)).padStart(OTP_LENGTH, "0");
+}
+function normalizeCode(code) {
+  return String(code ?? "").replace(/\D/g, "").slice(0, OTP_LENGTH);
+}
+async function issueOtp({ userId, purpose }) {
+  const last = await latestEmailOtpAt(userId, purpose);
+  if (last && Date.now() - new Date(last).getTime() < OTP_RESEND_COOLDOWN_MS) {
+    return null;
+  }
+  const code = generateCode();
+  await createEmailOtp({
+    id: await generateId(),
+    userId,
+    purpose,
+    codeHash: hashCode({ userId, purpose, code }),
+    expiresAt: new Date(Date.now() + OTP_TTL_MS)
+  });
+  return code;
+}
+async function checkOtp({ userId, purpose, code }) {
+  const clean = normalizeCode(code);
+  if (clean.length !== OTP_LENGTH) return { ok: false, reason: "format" };
+  const record = await getActiveEmailOtp(userId, purpose);
+  if (!record) return { ok: false, reason: "missing" };
+  if (record.attempts >= OTP_MAX_ATTEMPTS) return { ok: false, reason: "attempts" };
+  if (new Date(record.expires_at).getTime() < Date.now()) return { ok: false, reason: "expired" };
+  if (!hashMatches(record.code_hash, hashCode({ userId, purpose, code: clean }))) {
+    await incrementEmailOtpAttempts(record.id);
+    return { ok: false, reason: "mismatch" };
+  }
+  const consumed = await consumeEmailOtp(record.id);
+  if (!consumed) return { ok: false, reason: "used" };
+  return { ok: true };
+}
+function otpErrorMessage(reason) {
+  switch (reason) {
+    case "format":
+      return `Enter the ${OTP_LENGTH}-digit code from the email.`;
+    case "expired":
+      return "That code has expired. Send yourself a new one.";
+    case "attempts":
+      return "Too many wrong guesses. Send yourself a new code.";
+    case "missing":
+    case "used":
+      return "That code is no longer valid. Send yourself a new one.";
+    default:
+      return "That code is not right. Check the email and try again.";
+  }
+}
+
+// server/routes/auth.js
 var router = (0, import_express.Router)();
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -3399,48 +3666,151 @@ function isValidEmail(email) {
 function isValidPassword(password) {
   return typeof password === "string" && password.length >= 6;
 }
+function sessionPayload(user) {
+  const firstName = user.first_name ?? user.firstName ?? null;
+  const lastName = user.last_name ?? user.lastName ?? null;
+  return {
+    token: signToken({ id: user.id, email: user.email, firstName, lastName }),
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName,
+      lastName,
+      profileImageUrl: user.profile_image_url ?? null,
+      emailVerified: user.email_verified !== false
+    },
+    credits: {
+      balanceCents: user.credits_cents,
+      deckCostCents: BASE_DECK_CENTS
+    }
+  };
+}
+var THROTTLE_WINDOW_MS = 60 * 60 * 1e3;
+var THROTTLE_MAX = 10;
+var throttleHits = /* @__PURE__ */ new Map();
+function tooManyRequests(key) {
+  const now = Date.now();
+  const recent = (throttleHits.get(key) || []).filter((t) => now - t < THROTTLE_WINDOW_MS);
+  recent.push(now);
+  if (throttleHits.size > 1e3) {
+    for (const [k, times] of throttleHits) {
+      if (!times.some((t) => now - t < THROTTLE_WINDOW_MS)) throttleHits.delete(k);
+    }
+  }
+  throttleHits.set(key, recent);
+  return recent.length > THROTTLE_MAX;
+}
+function clientKey(req) {
+  return String(
+    req.get?.("x-forwarded-for")?.split(",")[0]?.trim() || req.ip || "unknown"
+  );
+}
+async function trySendCode({ to, code, purpose }) {
+  try {
+    if (purpose === PURPOSE_RESET_PASSWORD) {
+      await sendPasswordResetCodeEmail({ to, code });
+    } else {
+      await sendVerificationCodeEmail({ to, code });
+    }
+    return true;
+  } catch (err) {
+    console.error("[auth] code email failed:", err?.message || err);
+    return false;
+  }
+}
+async function sendCode(userId, email, purpose) {
+  const code = await issueOtp({ userId, purpose });
+  if (!code) return false;
+  return trySendCode({ to: email, code, purpose });
+}
 router.post("/register", async (req, res) => {
-  const { email, password, firstName, lastName } = req.body || {};
+  const { email, password } = req.body || {};
   if (!email || !isValidEmail(email)) {
     return res.status(400).json({ error: "Valid email is required" });
   }
   if (!isValidPassword(password)) {
     return res.status(400).json({ error: "Password must be at least 6 characters" });
   }
+  const normalized = email.toLowerCase().trim();
   try {
-    const existing = await findUserByEmail(email);
+    const existing = await findUserByEmail(normalized);
     if (existing) {
       return res.status(409).json({ error: "An account with this email already exists" });
     }
+    const emailConfigured = isEmailConfigured();
     const passwordHash = await hashPassword(password);
     const id = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `u_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
     const user = await createUser({
       id,
-      email: email.toLowerCase().trim(),
-      firstName: firstName?.trim() || null,
-      lastName: lastName?.trim() || null,
-      passwordHash
+      email: normalized,
+      passwordHash,
+      emailVerified: !emailConfigured
     });
-    const token = signToken(user);
+    if (emailConfigured) {
+      const emailSent = await sendCode(user.id, user.email, PURPOSE_VERIFY_EMAIL);
+      return res.status(201).json({ verificationRequired: true, email: user.email, emailSent });
+    }
     await updateUserLastLogin(user.id);
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        profileImageUrl: user.profile_image_url
-      },
-      credits: {
-        balanceCents: user.credits_cents,
-        deckCostCents: BASE_DECK_CENTS
-      }
-    });
+    res.json(sessionPayload(user));
   } catch (err) {
     console.error("[auth/register] error:", err);
     res.status(500).json({ error: "Registration failed" });
   }
+});
+router.post("/verify-email", async (req, res) => {
+  const email = typeof req.body?.email === "string" ? req.body.email.toLowerCase().trim() : "";
+  const { code } = req.body || {};
+  if (!email || !isValidEmail(email)) {
+    return res.status(400).json({ error: "Valid email is required" });
+  }
+  if (tooManyRequests(`verify:${clientKey(req)}`)) {
+    return res.status(429).json({ error: "Too many attempts \u2014 try again in an hour" });
+  }
+  try {
+    const user = await findUserByEmail(email);
+    if (!user) {
+      return res.status(400).json({ error: otpErrorMessage("mismatch") });
+    }
+    if (user.email_verified) {
+      await updateUserLastLogin(user.id);
+      return res.json(sessionPayload(user));
+    }
+    const result = await checkOtp({
+      userId: user.id,
+      purpose: PURPOSE_VERIFY_EMAIL,
+      code
+    });
+    if (!result.ok) {
+      return res.status(400).json({ error: otpErrorMessage(result.reason) });
+    }
+    await markUserEmailVerified(user.id);
+    await updateUserLastLogin(user.id);
+    res.json(sessionPayload({ ...user, email_verified: true }));
+  } catch (err) {
+    console.error("[auth/verify-email] error:", err);
+    res.status(500).json({ error: "Could not verify that code. Please try again." });
+  }
+});
+router.post("/resend-verification", async (req, res) => {
+  const email = typeof req.body?.email === "string" ? req.body.email.toLowerCase().trim() : "";
+  if (!email || !isValidEmail(email)) {
+    return res.status(400).json({ error: "Valid email is required" });
+  }
+  if (!isEmailConfigured()) {
+    return res.status(503).json({ error: "Email verification is not configured on this server" });
+  }
+  if (tooManyRequests(`resend:${clientKey(req)}`)) {
+    return res.status(429).json({ error: "Too many requests \u2014 try again in an hour" });
+  }
+  try {
+    const user = await findUserByEmail(email);
+    if (user && !user.email_verified) {
+      await sendCode(user.id, user.email, PURPOSE_VERIFY_EMAIL);
+    }
+  } catch (err) {
+    console.error("[auth/resend-verification] error:", err?.message || err);
+  }
+  res.json({ ok: true });
 });
 router.post("/login", async (req, res) => {
   const { email, password } = req.body || {};
@@ -3456,25 +3826,86 @@ router.post("/login", async (req, res) => {
     if (!valid) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
-    const token = signToken(user);
-    await updateUserLastLogin(user.id);
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        profileImageUrl: user.profile_image_url
-      },
-      credits: {
-        balanceCents: user.credits_cents,
-        deckCostCents: BASE_DECK_CENTS
+    if (!user.email_verified) {
+      if (isEmailConfigured()) {
+        const emailSent = await sendCode(user.id, user.email, PURPOSE_VERIFY_EMAIL);
+        return res.status(403).json({
+          error: emailSent ? "Confirm your email to continue. We sent a new code." : "Confirm your email to continue.",
+          code: "email_unverified",
+          email: user.email,
+          emailSent
+        });
       }
-    });
+      await markUserEmailVerified(user.id);
+      user.email_verified = true;
+    }
+    await updateUserLastLogin(user.id);
+    res.json(sessionPayload(user));
   } catch (err) {
     console.error("[auth/login] error:", err);
     res.status(500).json({ error: "Login failed" });
+  }
+});
+router.post("/forgot-password", async (req, res) => {
+  if (!isEmailConfigured()) {
+    return res.status(503).json({ error: "Password reset is not configured on this server" });
+  }
+  const email = typeof req.body?.email === "string" ? req.body.email.toLowerCase().trim() : "";
+  if (!email || !isValidEmail(email)) {
+    return res.status(400).json({ error: "Valid email is required" });
+  }
+  if (tooManyRequests(`forgot:${clientKey(req)}`)) {
+    return res.status(429).json({ error: "Too many reset requests \u2014 try again in an hour" });
+  }
+  try {
+    const user = await findUserByEmail(email);
+    if (user?.password_hash) {
+      await sendCode(user.id, user.email, PURPOSE_RESET_PASSWORD);
+    }
+  } catch (err) {
+    console.error("[auth/forgot-password] error:", err?.message || err);
+  }
+  res.json({ ok: true });
+});
+router.post("/reset-password", async (req, res) => {
+  const email = typeof req.body?.email === "string" ? req.body.email.toLowerCase().trim() : "";
+  const { code, password } = req.body || {};
+  if (!email || !isValidEmail(email)) {
+    return res.status(400).json({ error: "Valid email is required" });
+  }
+  if (!isValidPassword(password)) {
+    return res.status(400).json({ error: "Password must be at least 6 characters" });
+  }
+  if (tooManyRequests(`reset:${clientKey(req)}`)) {
+    return res.status(429).json({ error: "Too many attempts \u2014 try again in an hour" });
+  }
+  try {
+    const user = await findUserByEmail(email);
+    if (!user) {
+      return res.status(400).json({ error: otpErrorMessage("mismatch") });
+    }
+    const result = await checkOtp({
+      userId: user.id,
+      purpose: PURPOSE_RESET_PASSWORD,
+      code
+    });
+    if (!result.ok) {
+      return res.status(400).json({ error: otpErrorMessage(result.reason) });
+    }
+    await updateUserPassword(user.id, await hashPassword(password));
+    if (!user.email_verified && isEmailConfigured()) {
+      await sendCode(user.id, user.email, PURPOSE_VERIFY_EMAIL);
+      return res.json({ verificationRequired: true, email: user.email });
+    }
+    if (!user.email_verified) {
+      await markUserEmailVerified(user.id);
+      user.email_verified = true;
+    }
+    await updateUserLastLogin(user.id);
+    res.json(sessionPayload(user));
+  } catch (err) {
+    console.error("[auth/reset-password] error:", err);
+    res.status(500).json({ error: "Could not reset your password. Please try again." });
   }
 });
 var GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
@@ -3517,25 +3948,15 @@ router.post("/google", async (req, res) => {
         firstName: claims.given_name?.trim() || null,
         lastName: claims.family_name?.trim() || null,
         passwordHash: null,
-        profileImageUrl: claims.picture || null
+        profileImageUrl: claims.picture || null,
+        emailVerified: true
       });
+    } else if (!user.email_verified) {
+      await markUserEmailVerified(user.id);
+      user.email_verified = true;
     }
-    const token = signToken(user);
     await updateUserLastLogin(user.id);
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        profileImageUrl: user.profile_image_url
-      },
-      credits: {
-        balanceCents: user.credits_cents,
-        deckCostCents: BASE_DECK_CENTS
-      }
-    });
+    res.json(sessionPayload(user));
   } catch (err) {
     console.error("[auth/google] error:", err);
     res.status(401).json({ error: err?.message || "Google sign-in failed" });
@@ -3559,7 +3980,8 @@ router.get("/me", async (req, res) => {
       email: req.user.email,
       firstName: req.user.firstName,
       lastName: req.user.lastName,
-      profileImageUrl: req.user.profileImageUrl
+      profileImageUrl: req.user.profileImageUrl,
+      emailVerified: true
     },
     credits: {
       balanceCents: creditsCents,
@@ -3613,7 +4035,12 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true, dbConnected: hasDb });
 });
 app.get("/api/config", (_req, res) => {
-  res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || null });
+  const emailConfigured = isEmailConfigured();
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || null,
+    passwordResetEnabled: emailConfigured,
+    emailVerificationEnabled: emailConfigured
+  });
 });
 var _statsCache = null;
 var _statsCacheAt = 0;

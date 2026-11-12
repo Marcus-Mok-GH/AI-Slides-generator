@@ -17,6 +17,9 @@ vi.mock('../server/db.js', () => ({
   createUser: vi.fn(),
   updateUserLastLogin: vi.fn(async () => {}),
   getCredits: vi.fn(async () => 500),
+  // Google and password-reset paths mark accounts verified / change passwords.
+  markUserEmailVerified: vi.fn(async () => {}),
+  updateUserPassword: vi.fn(async () => true),
 }))
 
 import { findUserByEmail, createUser } from '../server/db.js'

@@ -217,10 +217,75 @@
   line-height: 1.45;
 }
 
+.login-notice {
+  margin-bottom: var(--space-3);
+  padding: 10px 12px;
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius-md);
+  background: var(--success-bg);
+  color: var(--success-text);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
 .login-form {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+/* Password label with its "Forgot password?" link on the same row */
+.login-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.login-forgot {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-strong);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--accent-border);
+}
+
+.login-forgot:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Six-digit one-time code */
+.login-field input.login-code {
+  height: 58px;
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  text-align: center;
+  text-indent: 0.34em;
+}
+
+.login-code-hint {
+  margin: -2px 0 var(--space-1);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-soft);
+  text-align: center;
+}
+
+.login-code-hint strong {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.login-resend {
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-soft);
 }
 
 .login-row {

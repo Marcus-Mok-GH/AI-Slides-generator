@@ -156,6 +156,7 @@ export async function migrate() {
       last_name          VARCHAR,
       profile_image_url  VARCHAR,
       password_hash      VARCHAR,
+      email_verified     BOOLEAN NOT NULL DEFAULT FALSE,
       credits_cents      INTEGER NOT NULL DEFAULT ${NEW_USER_CENTS},
       metadata           JSONB DEFAULT '{}',
       preferences        JSONB DEFAULT '{}',
@@ -165,6 +166,7 @@ export async function migrate() {
     );
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS credits_cents INTEGER;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT '{}';
@@ -184,6 +186,15 @@ export async function migrate() {
     ALTER TABLE users ALTER COLUMN credits_cents SET DEFAULT ${NEW_USER_CENTS};
     UPDATE users SET credits_cents = ${NEW_USER_CENTS} WHERE credits_cents IS NULL;
     ALTER TABLE users ALTER COLUMN credits_cents SET NOT NULL;
+  `)
+
+  // Email verification shipped after accounts existed. Everyone already
+  // signed up has been using the app, so treat them as verified and only
+  // subject new signups to the code gate.
+  await pool.query(`
+    UPDATE users SET email_verified = TRUE WHERE email_verified IS NULL;
+    ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT FALSE;
+    ALTER TABLE users ALTER COLUMN email_verified SET NOT NULL;
   `)
 
   // 2. Create/Update Decks table
@@ -229,6 +240,7 @@ export async function migrate() {
   await migrateAgentChats()
   await migrateAgentPlans()
   await migrateGenerationJobs()
+  await migrateEmailOtps()
 }
 
 /* ---------------- users ---------------- */
@@ -274,27 +286,31 @@ export async function updateUserLastLogin(userId) {
 export async function findUserByEmail(email) {
   dbRequired()
   const { rows } = await pool.query(
-    `SELECT id, email, first_name, last_name, profile_image_url, credits_cents, password_hash, metadata, preferences, last_login_at
+    `SELECT id, email, first_name, last_name, profile_image_url, credits_cents, password_hash, email_verified, metadata, preferences, last_login_at
      FROM users WHERE email = $1`,
     [email],
   )
   return rows[0] || null
 }
 
-export async function createUser({ id, email, firstName, lastName, passwordHash, profileImageUrl = null }) {
+export async function createUser({
+  id, email, firstName, lastName, passwordHash,
+  profileImageUrl = null, emailVerified = false,
+}) {
   dbRequired()
   const { rows } = await pool.query(
-    `INSERT INTO users (id, email, first_name, last_name, password_hash, profile_image_url, credits_cents, last_login_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+    `INSERT INTO users (id, email, first_name, last_name, password_hash, email_verified, profile_image_url, credits_cents, last_login_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
      ON CONFLICT (email) DO UPDATE SET
        first_name   = EXCLUDED.first_name,
        last_name    = EXCLUDED.last_name,
        password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
+       email_verified = EXCLUDED.email_verified OR users.email_verified,
        profile_image_url = COALESCE(EXCLUDED.profile_image_url, users.profile_image_url),
        last_login_at = NOW(),
        updated_at   = NOW()
-     RETURNING id, email, first_name, last_name, profile_image_url, credits_cents, metadata, preferences, last_login_at`,
-    [id, email, firstName, lastName, passwordHash, profileImageUrl, NEW_USER_CENTS],
+     RETURNING id, email, first_name, last_name, profile_image_url, credits_cents, email_verified, metadata, preferences, last_login_at`,
+    [id, email, firstName, lastName, passwordHash, emailVerified, profileImageUrl, NEW_USER_CENTS],
   )
   return rows[0]
 }
@@ -324,6 +340,129 @@ export async function deductCredits(userId, amountCents) {
   )
   if (!rows.length) return null
   return rows[0].credits_cents
+}
+
+/* ---------------- email OTP codes ---------------- */
+
+/**
+ * One-time 6-digit codes for email verification and password reset.
+ *
+ * Codes live in Postgres (Neon) and only an HMAC of the code is stored — see
+ * server/otp.js. A plain hash would be pointless here: a leaked table of
+ * sha256(six digits) is a one-million-entry rainbow table away from every code.
+ * Rows are single-use (`used_at`), expire, and count failed attempts.
+ */
+export async function migrateEmailOtps() {
+  if (!hasDb) {
+    console.warn('[db] migrateEmailOtps() skipped — no POSTGRES_URL configured')
+    return
+  }
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS email_otps (
+      id         VARCHAR PRIMARY KEY,
+      user_id    VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      purpose    VARCHAR NOT NULL,
+      code_hash  VARCHAR NOT NULL,
+      attempts   INTEGER NOT NULL DEFAULT 0,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at    TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    ALTER TABLE email_otps ALTER COLUMN created_at TYPE TIMESTAMPTZ;
+  `)
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_email_otps_user
+     ON email_otps (user_id, purpose, created_at DESC);`,
+  )
+  // "verify_email" | "reset_password"
+}
+
+/**
+ * Store a fresh code, retiring any outstanding one for the same purpose so an
+ * older email in the inbox stops working the moment a new one is sent.
+ */
+export async function createEmailOtp({ id, userId, purpose, codeHash, expiresAt }) {
+  dbRequired()
+  await pool.query(
+    `DELETE FROM email_otps WHERE user_id = $1 AND purpose = $2 AND used_at IS NULL`,
+    [userId, purpose],
+  )
+  const { rows } = await pool.query(
+    `INSERT INTO email_otps (id, user_id, purpose, code_hash, expires_at)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, expires_at`,
+    [id, userId, purpose, codeHash, expiresAt],
+  )
+  return rows[0]
+}
+
+/** When the most recent code for this purpose was issued (resend cooldown). */
+export async function latestEmailOtpAt(userId, purpose) {
+  dbRequired()
+  const { rows } = await pool.query(
+    `SELECT created_at FROM email_otps
+      WHERE user_id = $1 AND purpose = $2
+      ORDER BY created_at DESC LIMIT 1`,
+    [userId, purpose],
+  )
+  return rows[0]?.created_at || null
+}
+
+/** The newest unused code for this purpose, if any. */
+export async function getActiveEmailOtp(userId, purpose) {
+  dbRequired()
+  const { rows } = await pool.query(
+    `SELECT id, code_hash, attempts, expires_at, created_at
+       FROM email_otps
+      WHERE user_id = $1 AND purpose = $2 AND used_at IS NULL
+      ORDER BY created_at DESC LIMIT 1`,
+    [userId, purpose],
+  )
+  return rows[0] || null
+}
+
+/** Mark a code used. False means another request already consumed it. */
+export async function consumeEmailOtp(id) {
+  dbRequired()
+  const { rows } = await pool.query(
+    `UPDATE email_otps SET used_at = NOW()
+      WHERE id = $1 AND used_at IS NULL
+      RETURNING id`,
+    [id],
+  )
+  return rows.length > 0
+}
+
+/** Count a wrong guess; returns the new attempt total. */
+export async function incrementEmailOtpAttempts(id) {
+  dbRequired()
+  const { rows } = await pool.query(
+    `UPDATE email_otps SET attempts = attempts + 1
+      WHERE id = $1
+      RETURNING attempts`,
+    [id],
+  )
+  return rows[0]?.attempts ?? 0
+}
+
+export async function markUserEmailVerified(userId) {
+  dbRequired()
+  await pool.query(
+    `UPDATE users SET email_verified = TRUE, updated_at = NOW() WHERE id = $1`,
+    [userId],
+  )
+}
+
+export async function updateUserPassword(userId, passwordHash) {
+  dbRequired()
+  const { rows } = await pool.query(
+    `UPDATE users
+        SET password_hash = $2, updated_at = NOW()
+      WHERE id = $1
+      RETURNING id`,
+    [userId, passwordHash],
+  )
+  return rows.length > 0
 }
 
 /* ---------------- decks ---------------- */

@@ -28,7 +28,12 @@ async function postJson(url, body) {
     throw new Error(`Server returned ${res.status}`)
   }
   if (!res.ok) {
-    throw new Error(data?.error || `Server returned ${res.status}`)
+    const err = new Error(data?.error || `Server returned ${res.status}`)
+    // Callers branch on the server's code (e.g. email_unverified) without
+    // having to match on message text.
+    err.status = res.status
+    err.code = data?.code
+    throw err
   }
   return data
 }
@@ -62,6 +67,40 @@ export async function loginWithGoogle(idToken) {
     localStorage.setItem('slideai:token', data.token)
   }
   return data
+}
+
+/**
+ * Ask the server to email a one-time reset code. Resolves even when no account
+ * matches (the endpoint deliberately does not reveal which emails exist).
+ */
+export async function requestPasswordReset(email) {
+  return postJson('/api/auth/forgot-password', { email })
+}
+
+/**
+ * Exchange an emailed code + new password for a session. Returns
+ * `{ verificationRequired: true }` when the account also needs email verification.
+ */
+export async function resetPassword({ email, code, password }) {
+  const data = await postJson('/api/auth/reset-password', { email, code, password })
+  if (data.token) {
+    localStorage.setItem('slideai:token', data.token)
+  }
+  return data
+}
+
+/** Confirm a signup email with its 6-digit code; signs the user in on success. */
+export async function verifyEmail({ email, code }) {
+  const data = await postJson('/api/auth/verify-email', { email, code })
+  if (data.token) {
+    localStorage.setItem('slideai:token', data.token)
+  }
+  return data
+}
+
+/** Send a fresh signup verification code. */
+export async function resendVerificationCode(email) {
+  return postJson('/api/auth/resend-verification', { email })
 }
 
 export async function register({ email, password, firstName, lastName }) {
