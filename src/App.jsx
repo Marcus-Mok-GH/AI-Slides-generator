@@ -134,6 +134,36 @@ export default function App() {
       })
   }, [])
 
+  // A visitor can type their deck idea on the sign-in screen. It is queued in
+  // localStorage (see LoginPage) so that the first thing they meet after
+  // signing in is their own topic in the composer, not an empty box.
+  //
+  // The queue is only cleared once the composer has actually taken the text:
+  // this effect runs twice under StrictMode, and an effect that cleared it up
+  // front would drop the idea when the first timer got cleaned up.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    // Wait for a URL-addressed deck to settle — that request wins.
+    if (deck || routeLoading) return
+    let queued = ''
+    try { queued = localStorage.getItem('slideai:queuedPrompt') || '' } catch {}
+    if (!queued.trim()) return
+
+    let cancelled = false
+    let attempts = 0
+    function applyQueued() {
+      if (cancelled) return
+      if (heroRef.current) {
+        heroRef.current.applyPrompt(queued)
+        try { localStorage.removeItem('slideai:queuedPrompt') } catch {}
+        return
+      }
+      if (attempts++ < 10) window.setTimeout(applyQueued, 60)
+    }
+    applyQueued()
+    return () => { cancelled = true }
+  }, [deck, routeLoading])
+
   // Resume any background generation job that was running when the tab
   // was closed. We check localStorage on mount, but only act when we're
   // not already streaming something.

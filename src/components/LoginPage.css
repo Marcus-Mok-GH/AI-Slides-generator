@@ -20,9 +20,9 @@
   padding: var(--space-10);
   color: #fff;
   background:
-    radial-gradient(120% 90% at 15% 0%, rgba(255, 255, 255, 0.22), transparent 55%),
-    radial-gradient(90% 80% at 100% 100%, rgba(236, 72, 153, 0.45), transparent 60%),
-    linear-gradient(150deg, #312e81 0%, #4f46e5 48%, #7c3aed 100%);
+    radial-gradient(120% 90% at 12% 0%, rgba(255, 126, 80, 0.4), transparent 56%),
+    radial-gradient(90% 80% at 100% 100%, rgba(200, 135, 27, 0.32), transparent 60%),
+    linear-gradient(155deg, #221912 0%, #3d2016 46%, #6d2b14 100%);
 }
 
 .login-aside::after {
@@ -164,6 +164,20 @@
   animation: fadeInUp 320ms var(--ease-out-expo) both;
 }
 
+.login-home-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--space-4);
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.login-home-link:hover {
+  color: var(--accent-strong);
+}
+
 .login-brand {
   display: flex;
   align-items: center;
@@ -204,6 +218,26 @@
   font-size: 14px;
   color: var(--text-muted);
   margin-bottom: var(--space-6);
+}
+
+/* Optional deck idea captured before the account exists */
+.login-idea {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--space-5);
+  padding: 12px 14px 13px;
+  border: 1px dashed var(--accent-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.login-idea .login-label {
+  color: var(--text);
+}
+
+.login-idea .login-field input {
+  background: var(--surface);
 }
 
 .login-error {
@@ -343,17 +377,19 @@
   margin-top: var(--space-2);
   border: 0;
   border-radius: var(--radius-full);
-  background: var(--accent-grad);
-  color: var(--on-accent);
+  background: var(--brand);
+  color: var(--brand-ink);
   font-size: 14.5px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-sm);
 }
 
 .login-submit:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--on-accent);
   transform: translateY(-1px);
-  filter: brightness(1.05);
+  box-shadow: var(--shadow-md);
 }
 
 .login-submit:disabled {

@@ -1,5 +1,6 @@
 import { useAuth } from '../context/AuthContext.jsx'
 import LoginPage from './LoginPage.jsx'
+import LandingPage from './LandingPage.jsx'
 import SharedDeckPage from './SharedDeckPage.jsx'
 import '../App.css'
 
@@ -16,6 +17,16 @@ function deckIdFromLocation() {
   } catch {
     return match[1]
   }
+}
+
+/**
+ * Signed-out routing. `/` is the public landing page; URLs that only make
+ * sense inside the product (`/login`, `/app/...`, `/agentfive`) go straight to
+ * the sign-in form, so a deep link never lands on marketing copy.
+ */
+function wantsSignIn() {
+  if (typeof window === 'undefined') return false
+  return /^\/(login|signup|app|agentfive)(\/|$)/.test(window.location.pathname)
 }
 
 export default function AuthGuard({ children }) {
@@ -35,7 +46,7 @@ export default function AuthGuard({ children }) {
     // deck and let the call to action do the asking.
     const deckId = deckIdFromLocation()
     if (deckId) return <SharedDeckPage deckId={deckId} />
-    return <LoginPage />
+    return wantsSignIn() ? <LoginPage /> : <LandingPage />
   }
 
   return children

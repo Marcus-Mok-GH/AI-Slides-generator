@@ -8,6 +8,12 @@ import './LoginPage.css'
 
 const RESEND_COOLDOWN_SECONDS = 30
 
+/**
+ * A visitor's own deck idea, captured before the account exists. App reads and
+ * clears this on mount, so the composer opens with their topic already typed.
+ */
+const QUEUED_PROMPT_KEY = 'slideai:queuedPrompt'
+
 export default function LoginPage() {
   const { login, register, loginWithGoogle } = useAuth()
   // Someone arriving from a shared deck asked for their own copy and almost
@@ -18,8 +24,23 @@ export default function LoginPage() {
       typeof window !== 'undefined' &&
       new URLSearchParams(window.location.search).has('remix'),
   )
+  // The landing page sends new visitors to `?start=1`; `?signin=1` is the
+  // explicit "I already have an account" path and always wins.
+  const [startIntent] = useState(() => {
+    if (typeof window === 'undefined') return false
+    const params = new URLSearchParams(window.location.search)
+    if (params.has('signin')) return false
+    if (params.has('start')) return true
+    try {
+      return Boolean(localStorage.getItem(QUEUED_PROMPT_KEY))
+    } catch {
+      return false
+    }
+  })
   // 'login' | 'register' | 'verify' | 'forgot' | 'reset'
-  const [mode, setMode] = useState(remixIntent ? 'register' : 'login')
+  const [mode, setMode] = useState(
+    remixIntent || startIntent ? 'register' : 'login',
+  )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -32,8 +53,25 @@ export default function LoginPage() {
   const [cooldown, setCooldown] = useState(0)
   // Visitors can page through a real example deck before creating an account.
   const [showSample, setShowSample] = useState(false)
+  // Optional deck idea, restored so a reload does not lose what they typed.
+  const [idea, setIdea] = useState(() => {
+    try {
+      return localStorage.getItem(QUEUED_PROMPT_KEY) || ''
+    } catch {
+      return ''
+    }
+  })
   const emailRef = useRef(null)
+  const ideaRef = useRef(null)
   const codeRef = useRef(null)
+
+  function updateIdea(value) {
+    setIdea(value)
+    try {
+      if (value.trim()) localStorage.setItem(QUEUED_PROMPT_KEY, value.trim())
+      else localStorage.removeItem(QUEUED_PROMPT_KEY)
+    } catch { /* storage can be unavailable; the field still works */ }
+  }
   // Auto-focusing on touch devices pops the keyboard instantly and hides the
   // page behind it — only pre-focus on pointer-precise devices.
   const canAutoFocus =
@@ -303,6 +341,9 @@ export default function LoginPage() {
 
       <div className="login-main">
       <div className="login-card">
+        <a className="login-home-link" href="/">
+          <span aria-hidden>←</span> Back to home
+        </a>
         <div className="login-brand">
           <span className="login-brand-mark">S</span>
           <span className="login-brand-name">slide<b>ai</b></span>
@@ -310,6 +351,30 @@ export default function LoginPage() {
 
         <h1 className="login-title">{copy.title}</h1>
         <p className="login-subtitle">{copy.sub}</p>
+
+        {mode === 'login' || mode === 'register' ? (
+          <div className="login-idea">
+            <label className="login-field">
+              <span className="login-label">What are you presenting?</span>
+              <input
+                ref={ideaRef}
+                type="text"
+                maxLength={300}
+                autoComplete="off"
+                enterKeyHint="next"
+                value={idea}
+                onChange={(e) => updateIdea(e.target.value)}
+                placeholder="e.g. Q3 review for a 40-person SaaS team"
+                aria-describedby="login-idea-hint"
+              />
+            </label>
+            <span className="login-hint" id="login-idea-hint">
+              {idea.trim()
+                ? 'Saved — this is waiting in the composer when you get in.'
+                : 'Optional. We’ll have it ready for you after you sign in.'}
+            </span>
+          </div>
+        ) : null}
 
         {(mode === 'login' || mode === 'register') && googleClientId ? (
           <>
@@ -558,7 +623,11 @@ export default function LoginPage() {
           onClose={() => setShowSample(false)}
           onSignIn={() => {
             setShowSample(false)
-            window.requestAnimationFrame(() => emailRef.current?.focus())
+            // The visitor just liked a deck; their own idea is the natural next
+            // field, not an email address.
+            window.requestAnimationFrame(() => {
+              (ideaRef.current || emailRef.current)?.focus()
+            })
           }}
         />
       ) : null}

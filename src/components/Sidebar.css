@@ -111,16 +111,16 @@
   margin-bottom: var(--space-3);
   min-height: 44px;
   border: 0;
-  background: var(--accent-grad);
-  color: var(--on-accent);
+  background: var(--brand);
+  color: var(--brand-ink);
   font-weight: 600;
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-sm);
 }
 
 .nav-item.is-primary:hover {
-  filter: brightness(1.06);
-  transform: translateY(-1px);
+  background: var(--accent);
   color: var(--on-accent);
+  transform: translateY(-1px);
 }
 
 .nav-item.is-primary .nav-icon {

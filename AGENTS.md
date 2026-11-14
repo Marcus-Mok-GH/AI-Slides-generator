@@ -72,6 +72,7 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 - **Debounced auto-save**: 700ms delay after last edit, skips if `deck.streaming === true`.
 - **URL routing**: Decks at `/app/slide/{id}` (canonical, session required), legacy `?deck={id}`, full-page views at `/app/decks` and `/app/templates` (`PAGE_PATHS` / `pageFromLocation()` in `src/App.jsx`).
 - **Public share links**: `/share/{id}` renders `SharedDeckPage` from `main.jsx` before the auth guard, and `AuthGuard` shows the same read-only page for a signed-out visitor on a legacy `/app/slide/{id}` link. It reads `GET /api/shared/decks/:id` (registered before `app.use('/api', authMiddleware)` in `server/app.js`, resolved by `getDeckById()` in `server/db.js`). Deck ids are random 72-bit tokens, so the link is the permission. The same page downloads PDF/PPTX by calling `src/lib/exportDeck.js` in the visitor's own browser — no auth and no `/api/export` round trip, and the file matches the stage because it is the same slide document.
+- **Queued deck idea**: `LoginPage` stores the visitor's optional "What are you presenting?" text in `localStorage` under `slideai:queuedPrompt`; the mount effect in `src/App.jsx` hands it to `HomePage`'s imperative `applyPrompt` and only clears the key once the composer has taken the text. Do not clear it before applying — that effect runs twice under StrictMode.
 - **"Start from this deck" handoff**: the shared page's CTA links to `/app?remix={deckId}`; `LoginPage` then opens on sign-up with remix copy, and once `AuthGuard` mounts `<App />` the mount effect in `src/App.jsx` strips the param, `POST`s `/api/shared/decks/:id/copy` (auth required, fresh deck id, no credits spent) and opens the copy in the viewer. OTP verify/reset keep `window.location.search` so the intent survives a full reload.
 - **Auth lifecycle**: Single `fetchCurrentUser()` on mount, global `slideai:unauthorized` event listener.
 - **SSE streaming**: Custom `streamParser.js` for incremental JSON parsing (no off-the-shelf library).
@@ -83,6 +84,14 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
   (`:root` and `[data-theme="dark"]`). Component CSS must reference tokens, not
   raw hex. Headings use `var(--font-display)`; `var(--font-mono)` is reserved
   for the ⌘K hint.
+- **"Studio Ink" identity**: warm paper/ink neutrals, a single vermilion accent
+  (`--accent`), ink primary actions (`--brand` / `--brand-ink` — they invert in
+  dark mode) and Fraunces as `--font-display`. Home, landing and auth all use
+  it; the deck stage keeps whatever theme the deck itself carries.
+- **Public landing page**: `LandingPage.jsx` renders for signed-out visitors on
+  `/`, while `/login`, `/app/*` and `/agentfive` go straight to `LoginPage`
+  (`wantsSignIn()` in `AuthGuard.jsx`). Landing CTAs navigate with a full page
+  load (`/login?start=1`, `/login?signin=1`) because routing lives outside App.
 - **Viewer rail**: rail + mobile strip share one `RailItem` in `SlideViewer.jsx`
   rendering live 16:9 iframe thumbnails (`ThumbPreview.jsx`). Thumbs mount lazily
   (IntersectionObserver) and scale the 1280×720 canvas to the box width

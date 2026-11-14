@@ -6,13 +6,13 @@ const ALL = 'All'
 // Muted duotone covers, keyed by category — one consistent system instead
 // of a rainbow of one-off gradients. Works on light and dark chrome.
 const TINTS = {
-  Sales: 'linear-gradient(135deg, #4f46e5, #6d28d9)',
-  Startup: 'linear-gradient(135deg, #4f46e5, #6d28d9)',
-  Business: 'linear-gradient(135deg, #3b82f6, #4f46e5)',
-  Marketing: 'linear-gradient(135deg, #9333ea, #c026d3)',
-  Internal: 'linear-gradient(135deg, #475569, #1e293b)',
-  Education: 'linear-gradient(135deg, #0d9488, #0f766e)',
-  Strategy: 'linear-gradient(135deg, #d97706, #b45309)',
+  Sales: 'linear-gradient(158deg, #2f3b57, #161d2c)',
+  Startup: 'linear-gradient(158deg, #513623, #2a1b10)',
+  Business: 'linear-gradient(158deg, #38414f, #1b212b)',
+  Marketing: 'linear-gradient(158deg, #c9461f, #7c2310)',
+  Internal: 'linear-gradient(158deg, #40503c, #1f271d)',
+  Education: 'linear-gradient(158deg, #6d5530, #3b2c16)',
+  Strategy: 'linear-gradient(158deg, #4d2b46, #24141f)',
 }
 
 const templates = [
