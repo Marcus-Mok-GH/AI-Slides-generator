@@ -502,6 +502,25 @@ export async function getDeck(id, userId) {
   return { ...row.data, id: row.id, updatedAt: row.updated_at }
 }
 
+/**
+ * Read a deck without an owner filter. Only the public share route uses this:
+ * deck ids are random 72-bit tokens, so holding the link is the permission.
+ * Everything that mutates or lists decks stays scoped to a user id.
+ */
+export async function getDeckById(id) {
+  if (!id) return null
+  dbRequired()
+  const { rows } = await pool.query(
+    `SELECT id, data, updated_at
+     FROM decks
+     WHERE id = $1`,
+    [id],
+  )
+  if (rows.length === 0) return null
+  const row = rows[0]
+  return { ...row.data, id: row.id, updatedAt: row.updated_at }
+}
+
 export async function saveDeck(deck, userId) {
   if (!userId) throw new Error('saveDeck requires userId')
   dbRequired()

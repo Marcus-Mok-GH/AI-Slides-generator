@@ -284,6 +284,30 @@ export async function loadDeck(id) {
   return data.deck
 }
 
+/**
+ * Public deck fetch for shared links. Deliberately sends no auth header: the
+ * link has to work for someone who has never signed in.
+ */
+export async function loadSharedDeck(id) {
+  const res = await fetch(`/api/shared/decks/${encodeURIComponent(id)}`)
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`Server returned ${res.status}`)
+  const data = await res.json()
+  return data.deck
+}
+
+/**
+ * Copy a shared deck into the signed-in user's account. Used by the deck a
+ * share-link visitor asked for before they had to sign in.
+ */
+export async function copySharedDeck(id) {
+  const data = await postJson(
+    `/api/shared/decks/${encodeURIComponent(id)}/copy`,
+    {},
+  )
+  return data.deck
+}
+
 export async function saveDeck(deck) {
   const data = await postJson('/api/decks', { deck })
   return data

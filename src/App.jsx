@@ -10,6 +10,7 @@ import AgentFive from './components/AgentFive.jsx'
 import {
   startBackgroundDeck,
   connectToJob,
+  copySharedDeck,
   saveDeck as saveDeckApi,
   loadDeck,
   deleteDeck as deleteDeckApi,
@@ -88,6 +89,7 @@ export default function App() {
   const { mode: themeMode, setMode: setThemeMode, cycle: cycleTheme } = useTheme()
   const saveTimer = useRef(null)
   const heroRef = useRef(null)
+  const remixHandled = useRef(false)
 
   const refreshDecks = useCallback(async () => {
     try {
@@ -102,6 +104,35 @@ export default function App() {
   useEffect(() => {
     refreshDecks()
   }, [refreshDecks])
+
+  // A visitor who asked for their own copy of a shared deck arrives with
+  // ?remix={deckId}. AuthGuard shows the login page first, so by the time
+  // <App /> mounts they have an account: hand them an editable copy and open
+  // it, rather than dropping them on an empty create screen.
+  useEffect(() => {
+    if (typeof window === 'undefined' || remixHandled.current) return
+    const params = new URLSearchParams(window.location.search)
+    const remixId = params.get('remix')
+    if (!remixId) return
+    remixHandled.current = true
+
+    // Strip the intent before copying: a refresh must not copy twice.
+    params.delete('remix')
+    const query = params.toString()
+    window.history.replaceState(
+      { deckId: null },
+      '',
+      `${window.location.pathname}${query ? `?${query}` : ''}`,
+    )
+
+    copySharedDeck(remixId)
+      .then((copied) => {
+        if (copied) setDeck({ ...copied, streaming: false })
+      })
+      .catch((e) => {
+        console.warn('Failed to copy shared deck:', e)
+      })
+  }, [])
 
   // Resume any background generation job that was running when the tab
   // was closed. We check localStorage on mount, but only act when we're

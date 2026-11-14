@@ -1,7 +1,7 @@
 import express from 'express'
 import { generateDeck, streamGenerateDeck, regenerateSlide, redesignSlide, editSlide } from './generateDeck.js'
 import {
-  listDecks, getDeck, saveDeck, deleteDeck, renameDeck, migrate,
+  listDecks, getDeck, getDeckById, saveDeck, deleteDeck, renameDeck, migrate,
   migratePromptHistory, savePromptHistory, getPromptHistory, deletePromptHistoryItem,
   migrateAgentChats, listAgentChats, getAgentChat, createAgentChat, updateAgentChat, deleteAgentChat,
   getCredits, deductCredits,
@@ -121,8 +121,59 @@ app.get('/api/stats', async (_req, res) => {
 // Auth routes — optional auth so register/login work without a token
 app.use('/api/auth', optionalAuthMiddleware, authRouter)
 
+/**
+ * GET /api/shared/decks/:id — public, read-only deck for share links.
+ *
+ * Registered before the auth guard on purpose: the Share button exists so a
+ * link can be opened by someone who has no account. Deck ids are random
+ * 72-bit tokens, so the link itself is the permission. Nothing is writable
+ * here, and no owner or account data leaves the server.
+ */
+app.get('/api/shared/decks/:id', async (req, res) => {
+  try {
+    const deck = await getDeckById(req.params.id)
+    if (!deck) return res.status(404).json({ error: 'Deck not found' })
+    res.setHeader('Cache-Control', 'public, max-age=60')
+    res.json({ deck })
+  } catch (err) {
+    console.error('[shared deck] error:', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable' })
+    }
+    res.status(500).json({ error: err?.message || 'Failed to load shared deck' })
+  }
+})
+
 // All other /api routes require JWT auth
 app.use('/api', authMiddleware)
+
+/**
+ * POST /api/shared/decks/:id/copy — start your own deck from a shared one.
+ *
+ * This is where the "Start from this deck" button on a share link lands once
+ * the visitor has an account: the deck they just read becomes an editable
+ * copy they own. No model call runs, so it costs no credits, and the copy
+ * gets a fresh id instead of touching the original.
+ */
+app.post('/api/shared/decks/:id/copy', async (req, res) => {
+  try {
+    const source = await getDeckById(req.params.id)
+    if (!source) return res.status(404).json({ error: 'Deck not found' })
+
+    const copy = { ...source }
+    delete copy.id
+    delete copy.updatedAt
+
+    const { id } = await saveDeck(copy, req.user.id)
+    res.json({ deck: { ...copy, id } })
+  } catch (err) {
+    console.error('[copy shared deck] error:', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable' })
+    }
+    res.status(500).json({ error: err?.message || 'Failed to copy deck' })
+  }
+})
 
 /**
  * Current user's credit balance plus the per-deck price the client should

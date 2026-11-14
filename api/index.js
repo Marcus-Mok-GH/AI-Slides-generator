@@ -1338,6 +1338,19 @@ async function getDeck(id, userId) {
   const row = rows[0];
   return { ...row.data, id: row.id, updatedAt: row.updated_at };
 }
+async function getDeckById(id) {
+  if (!id) return null;
+  dbRequired();
+  const { rows } = await pool.query(
+    `SELECT id, data, updated_at
+     FROM decks
+     WHERE id = $1`,
+    [id]
+  );
+  if (rows.length === 0) return null;
+  const row = rows[0];
+  return { ...row.data, id: row.id, updatedAt: row.updated_at };
+}
 async function saveDeck(deck, userId) {
   if (!userId) throw new Error("saveDeck requires userId");
   dbRequired();
@@ -4061,7 +4074,38 @@ app.get("/api/stats", async (_req, res) => {
   }
 });
 app.use("/api/auth", optionalAuthMiddleware, auth_default);
+app.get("/api/shared/decks/:id", async (req, res) => {
+  try {
+    const deck = await getDeckById(req.params.id);
+    if (!deck) return res.status(404).json({ error: "Deck not found" });
+    res.setHeader("Cache-Control", "public, max-age=60");
+    res.json({ deck });
+  } catch (err) {
+    console.error("[shared deck] error:", err);
+    if (isDbError(err)) {
+      return res.status(503).json({ error: "Database unavailable" });
+    }
+    res.status(500).json({ error: err?.message || "Failed to load shared deck" });
+  }
+});
 app.use("/api", authMiddleware);
+app.post("/api/shared/decks/:id/copy", async (req, res) => {
+  try {
+    const source = await getDeckById(req.params.id);
+    if (!source) return res.status(404).json({ error: "Deck not found" });
+    const copy = { ...source };
+    delete copy.id;
+    delete copy.updatedAt;
+    const { id } = await saveDeck(copy, req.user.id);
+    res.json({ deck: { ...copy, id } });
+  } catch (err) {
+    console.error("[copy shared deck] error:", err);
+    if (isDbError(err)) {
+      return res.status(503).json({ error: "Database unavailable" });
+    }
+    res.status(500).json({ error: err?.message || "Failed to copy deck" });
+  }
+});
 app.get("/api/credits", async (req, res) => {
   try {
     const balanceCents = await getCredits(req.user.id);

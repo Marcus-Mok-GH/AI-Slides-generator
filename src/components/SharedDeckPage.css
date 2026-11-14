@@ -1,0 +1,406 @@
+/* =========================================================================
+   Shared deck — the page a share link opens for people without an account
+   ========================================================================= */
+
+.shared {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  background-image: var(--ambient);
+  color: var(--text);
+}
+
+/* ---- Top bar ---- */
+
+.shared-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: max(12px, env(safe-area-inset-top))
+    max(20px, env(safe-area-inset-right)) 12px
+    max(20px, env(safe-area-inset-left));
+}
+
+.shared-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.shared-brand-mark {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--accent-grad);
+  color: var(--on-accent);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.shared-brand-name {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.shared-brand-name b {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.shared-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.shared-deck-title {
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shared-deck-meta {
+  font-size: 12px;
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shared-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: var(--radius-full);
+  background: var(--accent-grad);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-glow);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: filter var(--duration-fast) var(--ease-in-out),
+    transform var(--duration-fast) var(--ease-in-out);
+}
+
+.shared-cta:hover {
+  filter: brightness(1.06);
+}
+
+.shared-cta:active {
+  transform: translateY(1px);
+}
+
+.shared-cta:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.shared-cta-spark {
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* ---- Stage ---- */
+
+.shared-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: 0 max(20px, env(safe-area-inset-left))
+    max(24px, env(safe-area-inset-bottom))
+    max(20px, env(safe-area-inset-right));
+}
+
+/* A 16:9 box that never grows taller than the space under the bar. */
+.shared-stage {
+  position: relative;
+  width: min(100%, calc((100dvh - 210px) * 16 / 9));
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--bg-subtle);
+  box-shadow: var(--shadow-lg);
+}
+
+.shared-stage-zoom {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1280px;
+  height: 720px;
+  transform-origin: 0 0;
+}
+
+.shared-stage-zoom iframe {
+  pointer-events: none;
+}
+
+/* ---- Controls ---- */
+
+.shared-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: min(100%, calc((100dvh - 210px) * 16 / 9));
+}
+
+.shared-arrow {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-xs);
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-in-out),
+    border-color var(--duration-fast) var(--ease-in-out);
+}
+
+.shared-arrow:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+.shared-arrow:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.shared-arrow:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.shared-position {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.shared-progress {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.shared-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--accent-grad);
+  transition: width var(--duration-base) var(--ease-out-expo);
+}
+
+.shared-count {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-soft);
+}
+
+/* ---- Download (runs in the visitor's browser, no account needed) ---- */
+
+.shared-download {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: min(100%, calc((100dvh - 210px) * 16 / 9));
+  min-height: 30px;
+}
+
+.shared-download-label {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shared-download-label.is-busy {
+  color: var(--text-muted);
+}
+
+.shared-download-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.shared-download-btn {
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-xs);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-in-out),
+    border-color var(--duration-fast) var(--ease-in-out);
+}
+
+.shared-download-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+.shared-download-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.shared-download-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+/* ---- Loading / empty states ---- */
+
+.shared-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-10) var(--space-5);
+  text-align: center;
+}
+
+.shared-spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  border: 2.5px solid var(--border-strong);
+  border-top-color: var(--accent);
+  animation: shared-spin 800ms linear infinite;
+}
+
+@keyframes shared-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.shared-empty-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
+.shared-note {
+  max-width: 38ch;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.shared-empty-cta {
+  margin-top: var(--space-2);
+  height: 40px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-xs);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.shared-empty-cta:hover {
+  background: var(--surface-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shared-spinner {
+    animation-duration: 2.4s;
+  }
+
+  .shared-progress-fill {
+    transition: none;
+  }
+}
+
+/* ---- Small screens ---- */
+
+@media (max-width: 720px) {
+  .shared-bar {
+    gap: var(--space-3);
+  }
+
+  .shared-brand-name {
+    display: none;
+  }
+
+  .shared-cta {
+    height: 34px;
+    padding: 0 13px;
+    font-size: 12.5px;
+  }
+
+  .shared-main {
+    gap: var(--space-3);
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+  }
+
+  .shared-stage,
+  .shared-controls,
+  .shared-download {
+    width: 100%;
+  }
+
+  .shared-arrow {
+    width: 34px;
+    height: 34px;
+    font-size: 19px;
+  }
+}

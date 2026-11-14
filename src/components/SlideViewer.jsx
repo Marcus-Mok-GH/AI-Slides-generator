@@ -489,9 +489,11 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
 
   async function handleShare() {
     if (isStreaming) return
+    // /share/{id} is the public, read-only view, so the link opens for a
+    // recipient who is not signed in. /app/slide/{id} requires a session.
     const link =
       deck.id && typeof window !== 'undefined'
-        ? `${window.location.origin}/app/slide/${encodeURIComponent(deck.id)}`
+        ? `${window.location.origin}/share/${encodeURIComponent(deck.id)}`
         : window.location.href
     const shareData = {
       title: deck.title || 'Deck',

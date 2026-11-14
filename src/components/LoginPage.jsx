@@ -10,8 +10,16 @@ const RESEND_COOLDOWN_SECONDS = 30
 
 export default function LoginPage() {
   const { login, register, loginWithGoogle } = useAuth()
+  // Someone arriving from a shared deck asked for their own copy and almost
+  // certainly has no account yet, so open on sign-up rather than "Welcome
+  // back". Everyone else still gets the sign-in form.
+  const [remixIntent] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).has('remix'),
+  )
   // 'login' | 'register' | 'verify' | 'forgot' | 'reset'
-  const [mode, setMode] = useState('login')
+  const [mode, setMode] = useState(remixIntent ? 'register' : 'login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -165,7 +173,8 @@ export default function LoginPage() {
     try {
       await verifyEmail({ email, code })
       // The response signs us in; a reload hands the session to AuthProvider.
-      window.location.replace('/app')
+      // Keep the query string so an intended deck copy still goes through.
+      window.location.replace(`/app${window.location.search}`)
     } catch (err) {
       setError(err?.message || 'Could not verify that code')
       setLoading(false)
@@ -221,7 +230,7 @@ export default function LoginPage() {
       if (data?.verificationRequired) {
         goToVerify(data.email || email, 'Password updated. Confirm your email to finish.')
       } else {
-        window.location.replace('/app')
+        window.location.replace(`/app${window.location.search}`)
       }
     } catch (err) {
       setError(err?.message || 'Could not reset your password')
@@ -239,10 +248,17 @@ export default function LoginPage() {
   }
 
   const copy = {
-    login: { title: 'Welcome back', sub: 'Sign in to continue building decks.' },
+    login: {
+      title: 'Welcome back',
+      sub: remixIntent
+        ? 'Sign in to open your own copy of this deck.'
+        : 'Sign in to continue building decks.',
+    },
     register: {
       title: 'Create your account',
-      sub: 'Just an email and a password — no credit card.',
+      sub: remixIntent
+        ? 'One email and a password, then the deck opens as your own copy.'
+        : 'Just an email and a password — no credit card.',
     },
     verify: {
       title: 'Check your email',
