@@ -1,5 +1,6 @@
 import express from 'express'
 import { generateDeck, streamGenerateDeck, regenerateSlide, redesignSlide, editSlide } from './generateDeck.js'
+import { suggestPlanQuestions, planDeck, sanitizePlan } from './planning.js'
 import {
   listDecks, getDeck, getDeckById, saveDeck, deleteDeck, renameDeck, migrate,
   migratePromptHistory, savePromptHistory, getPromptHistory, deletePromptHistoryItem,
@@ -240,6 +241,55 @@ for (const { ext, label, mime, build } of EXPORT_FORMATS) {
   })
 }
 
+/* ────────────────── Plan mode ────────────────── */
+
+/**
+ * POST /api/plan/questions
+ *
+ * Plan mode starts by asking the user for the spec: what the model still
+ * needs to know about audience, outcome and constraints. Free — nothing is
+ * generated and nothing is charged.
+ */
+app.post('/api/plan/questions', async (req, res) => {
+  try {
+    const { prompt, length = '8 cards', tone = 'Professional' } = req.body || {}
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+      return res.status(400).json({ error: 'Missing "prompt"' })
+    }
+    const questions = await suggestPlanQuestions({ prompt: prompt.trim(), length, tone })
+    res.json({ questions })
+  } catch (err) {
+    console.error('[plan/questions] error:', err)
+    res.status(500).json({ error: err?.message || 'Failed to draft questions' })
+  }
+})
+
+/**
+ * POST /api/plan
+ *
+ * Turns the brief plus the user's answers into a slide-by-slide outline they
+ * can edit. Also free: the deck itself is charged when it is built.
+ */
+app.post('/api/plan', async (req, res) => {
+  try {
+    const { prompt, answers = [], spec = {} } = req.body || {}
+    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+      return res.status(400).json({ error: 'Missing "prompt"' })
+    }
+    const plan = await planDeck({
+      prompt: prompt.trim(),
+      answers: Array.isArray(answers) ? answers : [],
+      spec: spec && typeof spec === 'object' ? spec : {},
+    })
+    res.json({ plan })
+  } catch (err) {
+    console.error('[plan] error:', err)
+    res.status(500).json({ error: err?.message || 'Failed to draft plan' })
+  }
+})
+
+/* ─────────────────────────────────────────────── */
+
 app.post('/api/generate-deck', async (req, res) => {
   try {
     const {
@@ -248,6 +298,7 @@ app.post('/api/generate-deck', async (req, res) => {
       tone = 'Professional',
       language = 'English',
       mode = 'default',
+      plan = null,
     } = req.body || {}
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
@@ -271,6 +322,7 @@ app.post('/api/generate-deck', async (req, res) => {
       tone,
       language,
       mode,
+      plan: sanitizePlan(plan),
     })
 
     const balanceCents = await deductCredits(req.user.id, costCents)
@@ -306,6 +358,7 @@ app.post('/api/generate-deck/background', async (req, res) => {
     mode      = 'default',
     deckId,
     userTheme = null,
+    plan      = null,
   } = req.body || {}
 
   if (!prompt?.trim()) {
@@ -339,6 +392,7 @@ app.post('/api/generate-deck/background', async (req, res) => {
     length, tone, language, mode,
     costCents,
     userTheme: userTheme?.primary ? userTheme : null,
+    plan: sanitizePlan(plan),
     deckId: jobId,
   }
 
@@ -442,6 +496,7 @@ app.post('/api/generate-deck/stream', async (req, res) => {
     mode = 'default',
     deckId,
     userTheme = null,
+    plan = null,
   } = req.body || {}
 
   res.setHeader('Content-Type', 'text/event-stream')
@@ -483,6 +538,7 @@ app.post('/api/generate-deck/stream', async (req, res) => {
       language,
       mode,
       userTheme: userTheme && userTheme.primary ? userTheme : null,
+      plan: sanitizePlan(plan),
     }
 
     const deck = await streamGenerateDeck(ctx, {

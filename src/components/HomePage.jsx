@@ -8,6 +8,8 @@ import {
 } from 'react'
 import { deckCostCents } from '../lib/pricing.js'
 import { DEFAULT_DECK_OPTIONS } from '../lib/deckDefaults.js'
+import { loadDeckPrefs, saveDeckPrefs } from '../lib/deckPreferences.js'
+import useFlashMessage from '../lib/useFlashMessage.js'
 import './HomePage.css'
 
 /* -------------------------------------------------------------------------
@@ -144,10 +146,21 @@ const TOOL_ICONS = {
    ------------------------------------------------------------------------- */
 
 const Composer = forwardRef(function Composer(
-  { onGenerate, onContinue, status = 'idle', error = '' },
+  { onGenerate, onPlan, onContinue, status = 'idle', error = '' },
   ref,
 ) {
   const [prompt, setPrompt] = useState('')
+  // Plan mode: ask for the spec and plan the deck before building it. The
+  // choice is remembered so it survives a reload, like the Customize page.
+  const [planFirst, setPlanFirst] = useState(() => loadDeckPrefs().planFirst)
+  const [prefNotice, notifyPrefs] = useFlashMessage()
+
+  function togglePlanFirst() {
+    const next = !planFirst
+    setPlanFirst(next)
+    saveDeckPrefs({ planFirst: next })
+    notifyPrefs('Saved')
+  }
   const [chipBusy, setChipBusy] = useState('')
   const [chipError, setChipError] = useState('')
   const [promptHistory, setPromptHistory] = useState([])
@@ -208,9 +221,14 @@ const Composer = forwardRef(function Composer(
   }
 
   // Generate straight away with sensible defaults — the customizer is an
-  // opt-in detour, not a mandatory second step.
+  // opt-in detour, not a mandatory second step. With Plan first on, the same
+  // button opens the planning step instead of spending credits immediately.
   function submit() {
     if (!prompt.trim() || isLoading) return
+    if (planFirst) {
+      onPlan?.({ prompt: prompt.trim() })
+      return
+    }
     onGenerate?.({ prompt: prompt.trim() })
   }
 
@@ -427,6 +445,19 @@ const Composer = forwardRef(function Composer(
         </span>
         <button
           type="button"
+          className={`composer-plan ${planFirst ? 'is-on' : ''}`}
+          onClick={togglePlanFirst}
+          aria-pressed={planFirst}
+          title="Answer a few questions and approve an outline before any slides are built"
+        >
+          <span className="composer-plan-dot" aria-hidden />
+          Plan first
+        </button>
+        <span className="composer-notice" role="status" aria-live="polite">
+          {prefNotice}
+        </span>
+        <button
+          type="button"
           className="composer-tune"
           onClick={customize}
           disabled={!prompt.trim() || isLoading}
@@ -438,7 +469,7 @@ const Composer = forwardRef(function Composer(
           className="composer-submit"
           disabled={!prompt.trim() || isLoading}
         >
-          Generate deck
+          {planFirst ? 'Plan deck' : 'Generate deck'}
           <span className="composer-submit-cost">{costLabel}</span>
           <span className="composer-submit-icon">{TOOL_ICONS.arrow}</span>
         </button>
@@ -779,6 +810,7 @@ const HomePage = forwardRef(function HomePage(
     totalCount = 0,
     query = '',
     onGenerate,
+    onPlan,
     onContinue,
     onOpen,
     onDelete,
@@ -831,6 +863,7 @@ const HomePage = forwardRef(function HomePage(
           <Composer
             ref={composerRef}
             onGenerate={onGenerate}
+            onPlan={onPlan}
             onContinue={onContinue}
             status={status}
             error={error}

@@ -211,6 +211,48 @@ var DeckStreamParser = class {
   }
 };
 
+// server/llm.js
+var DEFAULT_BASE = "https://gen.pollinations.ai/v1";
+var DEFAULT_MODEL = "openai/gpt-6-luna";
+var LLM_BASE = (process.env.POLLINATIONS_BASE_URL || DEFAULT_BASE).replace(/\/+$/, "");
+var DECK_MODEL = process.env.POLLINATIONS_DECK_MODEL || DEFAULT_MODEL;
+var SLIDE_MODEL = process.env.POLLINATIONS_SLIDE_MODEL || DEFAULT_MODEL;
+var AGENT_MODEL = process.env.POLLINATIONS_AGENT_MODEL || DEFAULT_MODEL;
+function llmKey() {
+  return (process.env.POLLINATIONS_API_KEY || "").replace(/\s+/g, "");
+}
+function assertLlmKey() {
+  if (!llmKey()) {
+    const err = new Error(
+      "POLLINATIONS_API_KEY is not set. Add it to the environment (Vercel: Settings \u2192 Environment Variables) and redeploy."
+    );
+    err.statusCode = 503;
+    throw err;
+  }
+}
+function llmHeaders(extra = {}) {
+  const headers = { "Content-Type": "application/json", ...extra };
+  const key = llmKey();
+  if (!key) {
+    throw new Error("POLLINATIONS_API_KEY is not configured \u2014 add it to the environment to enable generation");
+  }
+  headers.Authorization = `Bearer ${key}`;
+  return headers;
+}
+function llmUrl(path) {
+  return `${LLM_BASE}${path}`;
+}
+function llmError(status, body) {
+  let detail = body || "";
+  try {
+    const parsed = JSON.parse(body);
+    detail = parsed?.error?.message || parsed?.error || parsed?.message || body;
+  } catch {
+  }
+  const message = typeof detail === "string" ? detail : JSON.stringify(detail);
+  return new Error(`pollinations ${status}: ${message.slice(0, 300)}`);
+}
+
 // server/jsonRepair.js
 var JSON_WHITESPACE = " 	\n\r";
 function repairJson(s) {
@@ -273,46 +315,51 @@ function repairJson(s) {
   return result;
 }
 
-// server/llm.js
-var DEFAULT_BASE = "https://gen.pollinations.ai/v1";
-var DEFAULT_MODEL = "openai/gpt-6-luna";
-var LLM_BASE = (process.env.POLLINATIONS_BASE_URL || DEFAULT_BASE).replace(/\/+$/, "");
-var DECK_MODEL = process.env.POLLINATIONS_DECK_MODEL || DEFAULT_MODEL;
-var SLIDE_MODEL = process.env.POLLINATIONS_SLIDE_MODEL || DEFAULT_MODEL;
-var AGENT_MODEL = process.env.POLLINATIONS_AGENT_MODEL || DEFAULT_MODEL;
-function llmKey() {
-  return (process.env.POLLINATIONS_API_KEY || "").replace(/\s+/g, "");
-}
-function assertLlmKey() {
-  if (!llmKey()) {
-    const err = new Error(
-      "POLLINATIONS_API_KEY is not set. Add it to the environment (Vercel: Settings \u2192 Environment Variables) and redeploy."
-    );
-    err.statusCode = 503;
-    throw err;
+// server/llmJson.js
+async function callLlm({ model, system, user, maxTokens = 16e3 }) {
+  assertLlmKey();
+  const res = await fetch(llmUrl("/chat/completions"), {
+    method: "POST",
+    headers: llmHeaders(),
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user }
+      ]
+    })
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw llmError(res.status, text);
   }
+  const data = await res.json().catch(() => null);
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content) throw new Error("Empty response from model");
+  return content;
 }
-function llmHeaders(extra = {}) {
-  const headers = { "Content-Type": "application/json", ...extra };
-  const key = llmKey();
-  if (!key) {
-    throw new Error("POLLINATIONS_API_KEY is not configured \u2014 add it to the environment to enable generation");
+function extractJson(text) {
+  const candidates = [text.trim()];
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) candidates.push(fenced[1].trim());
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start !== -1 && end !== -1 && end > start) {
+    candidates.push(text.slice(start, end + 1));
   }
-  headers.Authorization = `Bearer ${key}`;
-  return headers;
-}
-function llmUrl(path) {
-  return `${LLM_BASE}${path}`;
-}
-function llmError(status, body) {
-  let detail = body || "";
-  try {
-    const parsed = JSON.parse(body);
-    detail = parsed?.error?.message || parsed?.error || parsed?.message || body;
-  } catch {
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      return JSON.parse(candidate);
+    } catch {
+    }
+    try {
+      return JSON.parse(repairJson(candidate));
+    } catch {
+    }
   }
-  const message = typeof detail === "string" ? detail : JSON.stringify(detail);
-  return new Error(`pollinations ${status}: ${message.slice(0, 300)}`);
+  throw new Error("Model did not return parseable JSON");
 }
 
 // src/lib/pricing.js
@@ -330,6 +377,141 @@ function deckCostCents(length) {
 }
 var MIN_DECK_CENTS = deckCostCents(`${MIN_SLIDES} cards`);
 var MAX_DECK_CENTS = deckCostCents(`${MAX_SLIDES} cards`);
+
+// server/planning.js
+var MAX_QUESTIONS = 4;
+function normalizeQuestions(raw) {
+  const list = Array.isArray(raw?.questions) ? raw.questions : [];
+  return list.filter((q) => q && typeof q === "object" && String(q.question || "").trim()).slice(0, MAX_QUESTIONS).map((q, i) => ({
+    id: String(q.id || `q${i + 1}`).trim().slice(0, 40) || `q${i + 1}`,
+    question: String(q.question).trim().slice(0, 240),
+    why: q.why ? String(q.why).trim().slice(0, 240) : "",
+    suggestions: (Array.isArray(q.suggestions) ? q.suggestions : []).map((s) => String(s).trim().slice(0, 120)).filter(Boolean).slice(0, 4)
+  }));
+}
+function sanitizePlan(plan) {
+  if (!plan || typeof plan !== "object") return null;
+  const slides = (Array.isArray(plan.slides) ? plan.slides : []).filter((s) => s && typeof s === "object" && String(s.title || "").trim()).slice(0, MAX_SLIDES).map((s) => ({
+    title: String(s.title).trim().slice(0, 200),
+    purpose: s.purpose ? String(s.purpose).trim().slice(0, 400) : "",
+    keyPoints: (Array.isArray(s.keyPoints) ? s.keyPoints : []).map((p) => String(p).trim().slice(0, 300)).filter(Boolean).slice(0, 6)
+  }));
+  if (slides.length === 0) return null;
+  return {
+    title: plan.title ? String(plan.title).trim().slice(0, 200) : "",
+    subtitle: plan.subtitle ? String(plan.subtitle).trim().slice(0, 400) : "",
+    audience: plan.audience ? String(plan.audience).trim().slice(0, 300) : "",
+    narrative: plan.narrative ? String(plan.narrative).trim().slice(0, 800) : "",
+    slides
+  };
+}
+function buildPlanBlock(plan) {
+  const approved = sanitizePlan(plan);
+  if (!approved) return "";
+  const slides = approved.slides.map((s, i) => {
+    const head = `  ${i + 1}. "${s.title}"${s.purpose ? ` \u2014 ${s.purpose}` : ""}`;
+    if (!s.keyPoints.length) return head;
+    return `${head}
+${s.keyPoints.map((p) => `     - ${p}`).join("\n")}`;
+  });
+  return `APPROVED PLAN \u2014 the user reviewed and approved this outline. Build exactly this deck:
+${approved.title ? `- Deck title: "${approved.title}"
+` : ""}${approved.subtitle ? `- Subtitle: "${approved.subtitle}"
+` : ""}${approved.audience ? `- Audience: ${approved.audience}
+` : ""}${approved.narrative ? `- Story arc: ${approved.narrative}
+` : ""}
+${slides.join("\n")}
+
+Follow the plan slide for slide: same count, same order, same ideas. Keep each
+slide's title unless a sharper wording is clearly better. Cover every key point
+on its own slide. Do not add topics the plan does not contain.`;
+}
+async function suggestPlanQuestions({ prompt, length, tone = "Professional" }) {
+  if (!prompt || !String(prompt).trim()) throw new Error("Missing prompt");
+  const system = `You are a presentation strategist about to plan a deck from a short brief.
+Ask the few questions whose answers would most change the deck \u2014 nothing else.
+
+Return ONLY valid JSON (no prose, no code fences):
+{
+  "questions": [
+    {
+      "id": "audience",
+      "question": "Who is in the room?",
+      "why": "one short clause on why it matters",
+      "suggestions": ["concrete answer", "concrete answer", "concrete answer"]
+    }
+  ]
+}
+
+Rules:
+- 3 or 4 questions. Never more.
+- Each question is one short sentence, answerable in a line.
+- suggestions: 3 concrete answers the user can click, phrased in their own voice (max 8 words each).
+- Cover only what the brief does NOT already say: audience, the outcome they want, must-include
+  content or evidence, and what to avoid.
+- Never ask about colors, themes, slide count, tone, or visual design \u2014 those are separate controls.
+- Never ask a question the brief already answers.`;
+  const user = `Brief:
+"""${String(prompt).trim()}"""
+
+Planned length: ${parseLength(length)} slides. Tone: ${tone}.
+
+Return the questions JSON now.`;
+  const content = await callLlm({ model: DECK_MODEL, system, user, maxTokens: 2e3 });
+  return normalizeQuestions(extractJson(content));
+}
+async function planDeck({ prompt, answers = [], spec = {} }) {
+  if (!prompt || !String(prompt).trim()) throw new Error("Missing prompt");
+  const cardCount = parseLength(spec.length);
+  const tone = spec.tone || "Professional";
+  const language = spec.language || "English";
+  const mode = spec.mode || "default";
+  const answerLines = (Array.isArray(answers) ? answers : []).filter((a) => a && typeof a === "object" && String(a.answer || "").trim()).slice(0, 10).map((a) => `- ${String(a.question || a.id || "Note").trim()}: ${String(a.answer).trim()}`);
+  const answerText = answerLines.length ? answerLines.join("\n") : "(the user skipped the questions \u2014 work from the brief)";
+  const system = `You are a senior presentation strategist. You do NOT write slides yet \u2014
+you write the plan a designer would follow.
+
+Return ONLY valid JSON (no prose, no code fences):
+{
+  "title": "Deck title \u2014 punchy and specific",
+  "subtitle": "One sentence that frames the deck",
+  "audience": "Who this is for, in a phrase",
+  "narrative": "2-3 sentences on the arc: how the story moves from the first slide to the last",
+  "slides": [
+    {
+      "title": "Slide title \u2014 punchy and specific",
+      "purpose": "What this one slide must accomplish",
+      "keyPoints": ["specific point", "specific point"]
+    }
+  ]
+}
+
+Rules:
+- Generate exactly ${cardCount} slides.
+- One idea per slide. Titles are punchy and specific \u2014 never "Introduction", "Overview",
+  "Agenda", or "Thank you".
+- keyPoints: 2-4 per slide. Concrete nouns, real numbers where relevant. Never placeholders
+  like "TBD", "[insert]", or "data here".
+- Write in ${language}. Tone: ${tone}.
+- Honor every constraint in the answers \u2014 especially the audience, what to include, what to avoid.
+- The last slide must land the outcome the user asked for. The plan is the whole story: every
+  slide advances it, nothing repeats.
+- Depth: ${mode === "concise" ? "lean on headlines \u2014 few, sharp points per slide" : mode === "detailed" ? "substantial \u2014 every slide carries evidence and depth" : "balanced \u2014 substantive but scannable"}.`;
+  const user = `Topic / brief:
+"""${String(prompt).trim()}"""
+
+Answers to your questions:
+${answerText}
+
+Length: exactly ${cardCount} slides. Tone: ${tone}. Language: ${language}.
+
+Return the plan JSON now.`;
+  const content = await callLlm({ model: DECK_MODEL, system, user, maxTokens: 6e3 });
+  const parsed = extractJson(content);
+  const plan = sanitizePlan(parsed);
+  if (!plan) throw new Error("Model did not return a usable plan");
+  return plan;
+}
 
 // server/generateDeck.js
 var MODE_RULES = {
@@ -360,8 +542,10 @@ var MODE_RULES = {
      Close with a clear takeaway or a bridge to the next slide.
      NEVER restate the on-screen text. Always add depth and substance behind it.`
 };
-function buildDeckSystemPrompt({ length, tone, language, mode = "default", userTheme = null }) {
-  const cardCount = parseLength(length);
+function buildDeckSystemPrompt({ length, tone, language, mode = "default", userTheme = null, plan = null }) {
+  const approvedPlan = sanitizePlan(plan);
+  const cardCount = approvedPlan ? approvedPlan.slides.length : parseLength(length);
+  const planBlock = buildPlanBlock(approvedPlan);
   const modeBlock = MODE_RULES[mode] || MODE_RULES.default;
   const themeBlock = userTheme && userTheme.primary ? `THEME \u2014 USER HAS SELECTED A SPECIFIC THEME. You MUST use exactly these colors:
 - "background": "${userTheme.background}"
@@ -400,7 +584,9 @@ Return ONLY valid JSON (no prose, no code fences). Output this shape:
   ]
 }
 
-DESIGN LAW \u2014 follow strictly:
+${planBlock ? `${planBlock}
+
+` : ""}DESIGN LAW \u2014 follow strictly:
 
 1. ONE IDEA PER SLIDE. If you have two ideas, make two slides.
 
@@ -475,52 +661,6 @@ Design this slide from scratch. Invent the most striking visual way to communica
 this one idea using typography, geometry, color, gradients, spacing, and CSS-drawn
 visual systems. Return strictly valid JSON. No markdown.`;
 }
-async function callLlm7({ model, system, user }) {
-  assertLlmKey();
-  const url = llmUrl("/chat/completions");
-  const res = await fetch(url, {
-    method: "POST",
-    headers: llmHeaders(),
-    body: JSON.stringify({
-      model,
-      max_tokens: 16e3,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user }
-      ]
-    })
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw llmError(res.status, text);
-  }
-  const data = await res.json().catch(() => null);
-  const content = data?.choices?.[0]?.message?.content;
-  if (!content) throw new Error("Empty response from model");
-  return content;
-}
-function extractJson(text) {
-  const candidates = [text.trim()];
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced) candidates.push(fenced[1].trim());
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start !== -1 && end !== -1 && end > start) {
-    candidates.push(text.slice(start, end + 1));
-  }
-  for (const candidate of candidates) {
-    if (!candidate) continue;
-    try {
-      return JSON.parse(candidate);
-    } catch {
-    }
-    try {
-      return JSON.parse(repairJson(candidate));
-    } catch {
-    }
-  }
-  throw new Error("Model did not return parseable JSON");
-}
 function normalizeSlide(s, fallbackIndex = 0) {
   return {
     title: String(s?.title || `Slide ${fallbackIndex + 1}`),
@@ -555,14 +695,16 @@ function normalizeDeck(raw, ctx) {
       tone: ctx.tone,
       language: ctx.language,
       mode: ctx.mode || "default",
+      plan: ctx.plan ? sanitizePlan(ctx.plan) : null,
       generatedAt: (/* @__PURE__ */ new Date()).toISOString()
     }
   };
 }
-function buildUserMessage(prompt) {
+function buildUserMessage(prompt, plan = null) {
+  const approvedPlan = sanitizePlan(plan);
   return `Topic / brief:
 """${prompt}"""
-
+${approvedPlan ? "\nThe user approved the plan above. Follow it slide for slide: same count, same order, same ideas.\n" : ""}
 Generate the deck JSON now.
 
 CRITICAL CONTENT RULES \u2014 failure to follow these is unacceptable:
@@ -574,14 +716,14 @@ CRITICAL CONTENT RULES \u2014 failure to follow these is unacceptable:
 }
 async function generateDeck(ctx) {
   const system = buildDeckSystemPrompt(ctx);
-  const user = buildUserMessage(ctx.prompt);
-  const content = await callLlm7({ model: DECK_MODEL, system, user });
+  const user = buildUserMessage(ctx.prompt, ctx.plan);
+  const content = await callLlm({ model: DECK_MODEL, system, user });
   const parsed = extractJson(content);
   return normalizeDeck(parsed, ctx);
 }
 async function streamGenerateDeck(ctx, handlers = {}) {
   const system = buildDeckSystemPrompt(ctx);
-  const user = buildUserMessage(ctx.prompt);
+  const user = buildUserMessage(ctx.prompt, ctx.plan);
   const upstream = await fetch(llmUrl("/chat/completions"), {
     method: "POST",
     headers: llmHeaders(),
@@ -680,6 +822,7 @@ async function streamGenerateDeck(ctx, handlers = {}) {
         tone: ctx.tone,
         language: ctx.language,
         mode: ctx.mode || "default",
+        plan: ctx.plan ? sanitizePlan(ctx.plan) : null,
         generatedAt: (/* @__PURE__ */ new Date()).toISOString()
       }
     };
@@ -768,7 +911,7 @@ ${instruction ? `User's redesign brief:
 ` : "No specific brief \u2014 pick a fresh visual direction that still suits the slide content."}
 
 Return JSON with ONLY the new "html" and "css" fields.`;
-  const content = await callLlm7({ model: SLIDE_MODEL, system, user });
+  const content = await callLlm({ model: SLIDE_MODEL, system, user });
   const parsed = extractJson(content);
   const html = typeof parsed?.html === "string" ? parsed.html.trim() : "";
   const css = typeof parsed?.css === "string" ? parsed.css.trim() : "";
@@ -801,7 +944,7 @@ ${instruction ? `Apply this user instruction:
 ` : "Sharpen it \u2014 cut filler, make it scannable, hit the word caps."}
 
 Return JSON for the rewritten slide only.`;
-  const content = await callLlm7({ model: SLIDE_MODEL, system, user });
+  const content = await callLlm({ model: SLIDE_MODEL, system, user });
   const parsed = extractJson(content);
   return normalizeSlide(parsed, slideIndex);
 }
@@ -922,7 +1065,7 @@ Return JSON \u2014 targeted "ops" if possible, else full "html"+"css" replacemen
 Your previous response failed to apply: ${lastErr.message}
 Return corrected JSON. search_block values must be copied EXACTLY from the
 current html/css above.`;
-    const content = await callLlm7({ model: SLIDE_MODEL, system, user: prompt });
+    const content = await callLlm({ model: SLIDE_MODEL, system, user: prompt });
     const parsed = extractJson(content);
     if (typeof parsed?.html === "string" && parsed.html.trim()) {
       const html = parsed.html.trim();
@@ -4154,6 +4297,36 @@ for (const { ext, label, mime, build } of EXPORT_FORMATS) {
     }
   });
 }
+app.post("/api/plan/questions", async (req, res) => {
+  try {
+    const { prompt, length = "8 cards", tone = "Professional" } = req.body || {};
+    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
+      return res.status(400).json({ error: 'Missing "prompt"' });
+    }
+    const questions = await suggestPlanQuestions({ prompt: prompt.trim(), length, tone });
+    res.json({ questions });
+  } catch (err) {
+    console.error("[plan/questions] error:", err);
+    res.status(500).json({ error: err?.message || "Failed to draft questions" });
+  }
+});
+app.post("/api/plan", async (req, res) => {
+  try {
+    const { prompt, answers = [], spec = {} } = req.body || {};
+    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
+      return res.status(400).json({ error: 'Missing "prompt"' });
+    }
+    const plan = await planDeck({
+      prompt: prompt.trim(),
+      answers: Array.isArray(answers) ? answers : [],
+      spec: spec && typeof spec === "object" ? spec : {}
+    });
+    res.json({ plan });
+  } catch (err) {
+    console.error("[plan] error:", err);
+    res.status(500).json({ error: err?.message || "Failed to draft plan" });
+  }
+});
 app.post("/api/generate-deck", async (req, res) => {
   try {
     const {
@@ -4161,7 +4334,8 @@ app.post("/api/generate-deck", async (req, res) => {
       length = "8 cards",
       tone = "Professional",
       language = "English",
-      mode = "default"
+      mode = "default",
+      plan = null
     } = req.body || {};
     if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
       return res.status(400).json({ error: 'Missing "prompt"' });
@@ -4181,7 +4355,8 @@ app.post("/api/generate-deck", async (req, res) => {
       length,
       tone,
       language,
-      mode
+      mode,
+      plan: sanitizePlan(plan)
     });
     const balanceCents = await deductCredits(req.user.id, costCents);
     res.json({
@@ -4204,7 +4379,8 @@ app.post("/api/generate-deck/background", async (req, res) => {
     language = "English",
     mode = "default",
     deckId,
-    userTheme = null
+    userTheme = null,
+    plan = null
   } = req.body || {};
   if (!prompt?.trim()) {
     return res.status(400).json({ error: "Missing prompt" });
@@ -4237,6 +4413,7 @@ app.post("/api/generate-deck/background", async (req, res) => {
     mode,
     costCents,
     userTheme: userTheme?.primary ? userTheme : null,
+    plan: sanitizePlan(plan),
     deckId: jobId
   };
   runGenerationJob(jobId, ctx, req.user.id, await getCredits(req.user.id).catch(() => 0)).catch((err) => console.error("[background-gen] unhandled error:", err));
@@ -4324,7 +4501,8 @@ app.post("/api/generate-deck/stream", async (req, res) => {
     language = "English",
     mode = "default",
     deckId,
-    userTheme = null
+    userTheme = null,
+    plan = null
   } = req.body || {};
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -4361,7 +4539,8 @@ data: ${JSON.stringify(data)}
       tone,
       language,
       mode,
-      userTheme: userTheme && userTheme.primary ? userTheme : null
+      userTheme: userTheme && userTheme.primary ? userTheme : null,
+      plan: sanitizePlan(plan)
     };
     const deck = await streamGenerateDeck(ctx, {
       onThinking: ({ text, type }) => {

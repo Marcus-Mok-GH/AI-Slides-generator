@@ -1,7 +1,8 @@
 import { DeckStreamParser } from './streamParser.js'
-import { repairJson } from './jsonRepair.js'
 
-import { DECK_MODEL, SLIDE_MODEL, llmHeaders, llmUrl, llmError, assertLlmKey } from './llm.js'
+import { DECK_MODEL, SLIDE_MODEL, llmHeaders, llmUrl, llmError } from './llm.js'
+import { callLlm as callLlm7, extractJson } from './llmJson.js'
+import { buildPlanBlock, sanitizePlan } from './planning.js'
 import { parseLength } from '../src/lib/pricing.js'
 
 /**
@@ -40,8 +41,12 @@ const MODE_RULES = {
      NEVER restate the on-screen text. Always add depth and substance behind it.`,
 }
 
-function buildDeckSystemPrompt({ length, tone, language, mode = 'default', userTheme = null }) {
-  const cardCount = parseLength(length)
+function buildDeckSystemPrompt({ length, tone, language, mode = 'default', userTheme = null, plan = null }) {
+  // An approved plan fixes the slide count and the story — the length control
+  // only applies to unplanned decks.
+  const approvedPlan = sanitizePlan(plan)
+  const cardCount = approvedPlan ? approvedPlan.slides.length : parseLength(length)
+  const planBlock = buildPlanBlock(approvedPlan)
   const modeBlock = MODE_RULES[mode] || MODE_RULES.default
 
   const themeBlock = userTheme && userTheme.primary
@@ -84,7 +89,7 @@ Return ONLY valid JSON (no prose, no code fences). Output this shape:
   ]
 }
 
-DESIGN LAW — follow strictly:
+${planBlock ? `${planBlock}\n\n` : ''}DESIGN LAW — follow strictly:
 
 1. ONE IDEA PER SLIDE. If you have two ideas, make two slides.
 
@@ -161,56 +166,6 @@ this one idea using typography, geometry, color, gradients, spacing, and CSS-dra
 visual systems. Return strictly valid JSON. No markdown.`
 }
 
-async function callLlm7({ model, system, user }) {
-  assertLlmKey()
-  const url = llmUrl('/chat/completions')
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: llmHeaders(),
-    body: JSON.stringify({
-      model,
-      max_tokens: 16000,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-    }),
-  })
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw llmError(res.status, text)
-  }
-
-  const data = await res.json().catch(() => null)
-  const content = data?.choices?.[0]?.message?.content
-  if (!content) throw new Error('Empty response from model')
-  return content
-}
-
-
-function extractJson(text) {
-  const candidates = [text.trim()]
-  // Also try the content of a fenced code block
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  if (fenced) candidates.push(fenced[1].trim())
-  // Also try just the outermost { … } span
-  const start = text.indexOf('{')
-  const end = text.lastIndexOf('}')
-  if (start !== -1 && end !== -1 && end > start) {
-    candidates.push(text.slice(start, end + 1))
-  }
-
-  for (const candidate of candidates) {
-    if (!candidate) continue
-    // Try raw parse first
-    try { return JSON.parse(candidate) } catch {}
-    // Try with repair
-    try { return JSON.parse(repairJson(candidate)) } catch {}
-  }
-  throw new Error('Model did not return parseable JSON')
-}
-
 function normalizeSlide(s, fallbackIndex = 0) {
   return {
     title: String(s?.title || `Slide ${fallbackIndex + 1}`),
@@ -249,15 +204,17 @@ function normalizeDeck(raw, ctx) {
       tone: ctx.tone,
       language: ctx.language,
       mode: ctx.mode || 'default',
+      plan: ctx.plan ? sanitizePlan(ctx.plan) : null,
       generatedAt: new Date().toISOString(),
     },
   }
 }
 
-function buildUserMessage(prompt) {
+function buildUserMessage(prompt, plan = null) {
+  const approvedPlan = sanitizePlan(plan)
   return `Topic / brief:
 """${prompt}"""
-
+${approvedPlan ? '\nThe user approved the plan above. Follow it slide for slide: same count, same order, same ideas.\n' : ''}
 Generate the deck JSON now.
 
 CRITICAL CONTENT RULES — failure to follow these is unacceptable:
@@ -270,7 +227,7 @@ CRITICAL CONTENT RULES — failure to follow these is unacceptable:
 
 export async function generateDeck(ctx) {
   const system = buildDeckSystemPrompt(ctx)
-  const user = buildUserMessage(ctx.prompt)
+  const user = buildUserMessage(ctx.prompt, ctx.plan)
   const content = await callLlm7({ model: DECK_MODEL, system, user })
   const parsed = extractJson(content)
   return normalizeDeck(parsed, ctx)
@@ -282,7 +239,7 @@ export async function generateDeck(ctx) {
  */
 export async function streamGenerateDeck(ctx, handlers = {}) {
   const system = buildDeckSystemPrompt(ctx)
-  const user = buildUserMessage(ctx.prompt)
+  const user = buildUserMessage(ctx.prompt, ctx.plan)
 
   const upstream = await fetch(llmUrl('/chat/completions'), {
     method: 'POST',
@@ -407,6 +364,7 @@ export async function streamGenerateDeck(ctx, handlers = {}) {
         tone: ctx.tone,
         language: ctx.language,
         mode: ctx.mode || 'default',
+        plan: ctx.plan ? sanitizePlan(ctx.plan) : null,
         generatedAt: new Date().toISOString(),
       },
     }

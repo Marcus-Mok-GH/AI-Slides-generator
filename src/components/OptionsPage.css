@@ -283,8 +283,99 @@
 
 .opts-footer {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
   margin-top: var(--space-4);
+}
+
+/* Reserved line so a confirmation never nudges the footer buttons. */
+.opts-notice {
+  min-height: 16px;
+  margin-top: var(--space-3);
+  color: var(--success-text);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.opts-footer-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.opts-reset {
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-soft);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--border-strong);
+}
+
+.opts-reset:hover:not(:disabled) {
+  color: var(--accent);
+  text-decoration-color: var(--accent-border);
+}
+
+.opts-reset:disabled {
+  opacity: 0.35;
+  text-decoration-color: transparent;
+  cursor: default;
+}
+
+.opts-plan {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.opts-plan:hover,
+.opts-plan:focus-visible {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  outline: none;
+}
+
+.opts-plan-dot {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.opts-plan.is-on {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.opts-plan.is-on .opts-plan-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 .opts-generate-btn {
@@ -390,7 +481,21 @@
   /* In flow, not fixed: a fixed bar would be covered by the mobile bottom
      nav, and the shell's bottom padding already clears both. */
   .opts-footer {
-    margin-top: var(--space-5);
+    margin-top: var(--space-3);
+  }
+
+  .opts-notice {
+    margin-top: var(--space-2);
+  }
+
+  .opts-footer-left {
+    width: 100%;
+  }
+
+  .opts-plan {
+    flex: 1 1 auto;
+    min-height: 44px;
+    justify-content: center;
   }
 
   .opts-generate-btn {

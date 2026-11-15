@@ -120,6 +120,24 @@ export async function generateDeck(payload) {
   return data.deck
 }
 
+/**
+ * Plan mode, step 1: the questions worth answering before the outline is
+ * drafted. Resolves to an array of `{ id, question, why, suggestions }`.
+ */
+export async function suggestPlanQuestions({ prompt, length, tone }) {
+  const data = await postJson('/api/plan/questions', { prompt, length, tone })
+  return data.questions || []
+}
+
+/**
+ * Plan mode, step 2: the slide-by-slide outline the user edits and approves.
+ * The approved object is passed back to generation as `plan`.
+ */
+export async function planDeck({ prompt, answers = [], spec = {} }) {
+  const data = await postJson('/api/plan', { prompt, answers, spec })
+  return data.plan
+}
+
 export async function editSlide({ deck, slideIndex, instruction }) {
   const data = await postJson('/api/edit-slide', {
     deck,

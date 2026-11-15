@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar.jsx'
 import TopBar from './components/TopBar.jsx'
 import HomePage from './components/HomePage.jsx'
 import OptionsPage from './components/OptionsPage.jsx'
+import PlanPage from './components/PlanPage.jsx'
 import TemplatesPage from './components/TemplatesPage.jsx'
 import MyDecksPage from './components/MyDecksPage.jsx'
 import SlideViewer from './components/SlideViewer.jsx'
@@ -425,6 +426,7 @@ export default function App() {
         tone: payload.tone,
         language: payload.language,
         mode: payload.mode || 'default',
+        plan: payload.plan || null,
         generatedAt: new Date().toISOString(),
       },
       streaming: true,
@@ -459,6 +461,15 @@ export default function App() {
       setDeck(null)
       try { localStorage.removeItem('slideai:activeJob') } catch {}
     }
+  }
+
+  // Plan mode: the composer's "Plan first" button (and the Customize page's
+  // toggle) lands here instead of spending credits straight away. Any options
+  // already chosen ride along so the planning step starts from them.
+  function handlePlan({ prompt, ...options }) {
+    setError('')
+    setPromptPayload({ prompt, ...options })
+    setCreateStep('plan')
   }
 
   async function handleOpenDeck(id) {
@@ -607,6 +618,22 @@ export default function App() {
               onGenerate={(opts) =>
                 handleGenerate({ ...promptPayload, ...opts })
               }
+              onPlan={(opts) =>
+                handlePlan({ prompt: promptPayload.prompt, ...opts })
+              }
+              status={status}
+              error={error}
+            />
+          </div>
+        ) : createStep === 'plan' && promptPayload ? (
+          <div className="content">
+            <PlanPage
+              prompt={promptPayload.prompt}
+              defaults={promptPayload}
+              onBack={() => setCreateStep('prompt')}
+              onBuild={(opts) =>
+                handleGenerate({ ...promptPayload, ...opts })
+              }
               status={status}
               error={error}
             />
@@ -627,6 +654,7 @@ export default function App() {
               onGenerate={({ prompt }) =>
                 handleGenerate({ prompt, ...DEFAULT_DECK_OPTIONS })
               }
+              onPlan={handlePlan}
               onOpen={handleOpenDeck}
               onDelete={handleDeleteDeck}
               onRename={handleRenameDeck}

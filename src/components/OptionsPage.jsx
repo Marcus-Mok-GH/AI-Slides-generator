@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import './OptionsPage.css'
 import { deckCostCents } from '../lib/pricing.js'
-import { DEFAULT_DECK_OPTIONS } from '../lib/deckDefaults.js'
+import { DEFAULT_PREFS, loadDeckPrefs, resetDeckPrefs, saveDeckPrefs } from '../lib/deckPreferences.js'
+import useFlashMessage from '../lib/useFlashMessage.js'
 
 const lengths = ['4 cards', '8 cards', '12 cards', '16 cards']
 const tones = ['Professional', 'Casual', 'Playful', 'Bold']
@@ -23,12 +24,50 @@ const PRESET_THEMES = [
   { id: 'gold',     name: 'Gold',     primary: '#ffca28', accent: '#ffa000', background: '#120d00' },
 ]
 
-export default function OptionsPage({ onBack, onGenerate, status = 'idle', error = '' }) {
-  const [length, setLength] = useState(DEFAULT_DECK_OPTIONS.length)
-  const [tone, setTone] = useState(DEFAULT_DECK_OPTIONS.tone)
-  const [language, setLanguage] = useState(DEFAULT_DECK_OPTIONS.language)
-  const [mode, setMode] = useState(DEFAULT_DECK_OPTIONS.mode)
-  const [themeId, setThemeId] = useState(null)
+export default function OptionsPage({ onBack, onGenerate, onPlan, status = 'idle', error = '' }) {
+  // Last visit's choices, read once on mount, so the page reopens where the
+  // user left it instead of resetting to the defaults.
+  const [prefs] = useState(loadDeckPrefs)
+  const [length, setLength] = useState(prefs.length)
+  const [tone, setTone] = useState(prefs.tone)
+  const [language, setLanguage] = useState(prefs.language)
+  const [mode, setMode] = useState(prefs.mode)
+  const [themeId, setThemeId] = useState(() =>
+    PRESET_THEMES.some((t) => t.id === prefs.themeId) ? prefs.themeId : null,
+  )
+  // Plan mode: carry these choices into the planning step instead of building
+  // straight away. Planning is free; the deck is charged when it is built.
+  const [planFirst, setPlanFirst] = useState(prefs.planFirst)
+  // Saving is silent by design; this is the only confirmation the user sees.
+  const [prefNotice, notifyPrefs] = useFlashMessage()
+
+  function togglePlanFirst() {
+    const next = !planFirst
+    setPlanFirst(next)
+    saveDeckPrefs({ planFirst: next })
+    notifyPrefs(next ? 'Plan first saved' : 'Plan first off — saved')
+  }
+
+  // Nothing remembered is worth a reset button, so it disables itself once the
+  // form already matches the defaults — that doubling as the click feedback.
+  const isDefaultPrefs =
+    length === DEFAULT_PREFS.length &&
+    tone === DEFAULT_PREFS.tone &&
+    language === DEFAULT_PREFS.language &&
+    mode === DEFAULT_PREFS.mode &&
+    themeId === null &&
+    planFirst === DEFAULT_PREFS.planFirst
+
+  function resetPrefs() {
+    const defaults = resetDeckPrefs()
+    setLength(defaults.length)
+    setTone(defaults.tone)
+    setLanguage(defaults.language)
+    setMode(defaults.mode)
+    setThemeId(null)
+    setPlanFirst(defaults.planFirst)
+    notifyPrefs('Preferences reset to defaults')
+  }
 
   const isLoading = status === 'loading'
   const costLabel = `$${(deckCostCents(length) / 100).toFixed(2)}`
@@ -41,7 +80,7 @@ export default function OptionsPage({ onBack, onGenerate, status = 'idle', error
   function handleGenerate() {
     if (isLoading) return
     const chosen = PRESET_THEMES.find((t) => t.id === themeId) || null
-    onGenerate?.({
+    const options = {
       length,
       tone,
       language,
@@ -49,7 +88,15 @@ export default function OptionsPage({ onBack, onGenerate, status = 'idle', error
       userTheme: chosen
         ? { name: chosen.name, primary: chosen.primary, accent: chosen.accent, background: chosen.background }
         : null,
-    })
+    }
+    // Remember the picks for the next visit, whichever button was hit.
+    saveDeckPrefs({ length, tone, language, mode, themeId, planFirst })
+    notifyPrefs('Preferences saved')
+    if (planFirst) {
+      onPlan?.(options)
+      return
+    }
+    onGenerate?.(options)
   }
 
   return (
@@ -175,7 +222,32 @@ export default function OptionsPage({ onBack, onGenerate, status = 'idle', error
 
       {error ? <div className="opts-error">{error}</div> : null}
 
+      <div className="opts-notice" role="status" aria-live="polite">
+        {prefNotice}
+      </div>
+
       <div className="opts-footer">
+        <div className="opts-footer-left">
+          <button
+            type="button"
+            className={`opts-plan ${planFirst ? 'is-on' : ''}`}
+            onClick={togglePlanFirst}
+            aria-pressed={planFirst}
+            title="Answer a few questions and approve an outline before any slides are built"
+          >
+            <span className="opts-plan-dot" aria-hidden />
+            Plan first
+          </button>
+          <button
+            type="button"
+            className="opts-reset"
+            onClick={resetPrefs}
+            disabled={isLoading || isDefaultPrefs}
+            title="Forget the choices saved on this device and start from the defaults"
+          >
+            Reset defaults
+          </button>
+        </div>
         <button
           className="opts-generate-btn"
           disabled={isLoading}
@@ -183,6 +255,11 @@ export default function OptionsPage({ onBack, onGenerate, status = 'idle', error
         >
           {isLoading ? (
             <><span className="spinner" /> Generating…</>
+          ) : planFirst ? (
+            <>
+              Plan deck
+              <span className="opts-generate-arrow" aria-hidden>→</span>
+            </>
           ) : (
             <>
               Generate

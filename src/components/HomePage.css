@@ -432,6 +432,59 @@
   margin-left: 3px;
 }
 
+.composer-plan {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.composer-plan:hover,
+.composer-plan:focus-visible {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  outline: none;
+}
+
+.composer-plan-dot {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.composer-plan.is-on {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.composer-plan.is-on .composer-plan-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+/* Fixed slot so the transient confirmation never shifts the buttons. */
+.composer-notice {
+  min-width: 34px;
+  color: var(--success-text);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .composer-tune {
   padding: 10px 14px;
   border: 1px solid var(--border-strong);
