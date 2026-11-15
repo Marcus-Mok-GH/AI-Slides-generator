@@ -45,6 +45,209 @@ function useStageScale(el) {
   return scale
 }
 
+/**
+ * Full-screen presentation of a shared deck.
+ *
+ * Everything runs in the visitor's browser — no session, no server round trip.
+ * Fullscreen is requested where the platform allows it (iOS Safari only offers
+ * it for video elements), and the overlay covers the viewport either way, so
+ * present mode works with or without the API. Native Esc leaves fullscreen,
+ * which fires `fullscreenchange` and closes this overlay; without fullscreen
+ * the same Escape key closes it directly.
+ */
+function Presentation({ slides, theme, deckTitle, index, onGo, onClose }) {
+  const overlayRef = useRef(null)
+  const stageRef = useRef(null)
+  const [scale, setScale] = useState(0)
+  const touchStart = useRef(null)
+  const total = slides.length
+  const slide = slides[index]
+
+  // Fit the 16:9 canvas inside the stage, whichever side is the constraint.
+  useLayoutEffect(() => {
+    const el = stageRef.current
+    if (!el) return undefined
+    const measure = () => {
+      const r = el.getBoundingClientRect()
+      if (!r.width || !r.height) return
+      setScale(Math.min(r.width / CANVAS_W, r.height / CANVAS_H))
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure)
+      return () => window.removeEventListener('resize', measure)
+    }
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const el = overlayRef.current
+    if (el && document.fullscreenEnabled) el.requestFullscreen?.().catch(() => {})
+
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement) onClose()
+    }
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      // Close either way: some environments deliver Escape without exiting
+      // fullscreen themselves, and an overlay left on screen would trap the
+      // visitor.
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+      onClose()
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    window.addEventListener('keydown', onKey)
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange)
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = previousOverflow
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+    }
+  }, [onClose])
+
+  function exit() {
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {})
+    onClose()
+  }
+
+  // Left third goes back, right third goes forward, the middle does nothing.
+  function onZoneClick(e) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    if (!rect.width) return
+    const pct = (e.clientX - rect.left) / rect.width
+    if (pct < 0.3) onGo(-1)
+    else if (pct > 0.7) onGo(1)
+  }
+
+  function onTouchStart(e) {
+    const t = e.touches?.[0]
+    touchStart.current = t ? { x: t.clientX, y: t.clientY } : null
+  }
+
+  function onTouchEnd(e) {
+    const start = touchStart.current
+    touchStart.current = null
+    const t = e.changedTouches?.[0]
+    if (!start || !t) return
+    const dx = t.clientX - start.x
+    const dy = t.clientY - start.y
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.4) return
+    onGo(dx < 0 ? 1 : -1)
+  }
+
+  const pct = total > 0 ? ((index + 1) / total) * 100 : 0
+
+  return (
+    <div
+      className="shared-present"
+      ref={overlayRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Presenting ${deckTitle || 'deck'}`}
+    >
+      <div
+        className="shared-present-stage"
+        ref={stageRef}
+        onClick={onZoneClick}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        {slide && scale > 0 ? (
+          <div
+            className="shared-present-frame"
+            style={{
+              width: `${CANVAS_W}px`,
+              height: `${CANVAS_H}px`,
+              transform: `translate(-50%, -50%) scale(${scale})`,
+            }}
+          >
+            <HtmlSlide
+              slide={slide}
+              theme={theme}
+              index={index}
+              total={total}
+              deckTitle={deckTitle}
+            />
+          </div>
+        ) : null}
+
+        {index > 0 ? (
+          <div className="shared-present-zone left" aria-hidden>
+            <span>‹</span>
+          </div>
+        ) : null}
+        {index < total - 1 ? (
+          <div className="shared-present-zone right" aria-hidden>
+            <span>›</span>
+          </div>
+        ) : null}
+
+        {/* A 16:9 slide in a portrait window is small; pointing that out is
+            more useful than shrinking it further. CSS keeps this to phones. */}
+        <div className="shared-present-rotate" aria-hidden>
+          <span className="shared-present-rotate-icon">⟳</span>
+          Rotate your phone for a bigger view
+        </div>
+      </div>
+
+      <div className="shared-present-hud">
+        <button
+          type="button"
+          className="shared-present-btn"
+          onClick={() => onGo(-1)}
+          disabled={index === 0}
+          aria-label="Previous slide"
+        >
+          ←
+        </button>
+
+        <div className="shared-present-counter">
+          <div
+            className="shared-present-progress"
+            role="progressbar"
+            aria-valuemin={1}
+            aria-valuemax={total}
+            aria-valuenow={index + 1}
+            aria-label={`Slide ${index + 1} of ${total}`}
+          >
+            <div
+              className="shared-present-progress-fill"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <span className="shared-present-count">
+            {index + 1} / {total}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          className="shared-present-btn"
+          onClick={() => onGo(1)}
+          disabled={index === total - 1}
+          aria-label="Next slide"
+        >
+          →
+        </button>
+
+        <span className="shared-present-hint" aria-hidden>
+          ← → to move · Esc to exit
+        </span>
+
+        <button type="button" className="shared-present-exit" onClick={exit}>
+          ✕ Exit
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function SharedDeckPage({ deckId }) {
   const [deck, setDeck] = useState(null)
   const [state, setState] = useState('loading') // loading | ready | missing | error
@@ -53,6 +256,7 @@ export default function SharedDeckPage({ deckId }) {
   const [busy, setBusy] = useState('') // '' | 'pdf' | 'pptx'
   const [downloadNote, setDownloadNote] = useState('')
   const [stageEl, setStageEl] = useState(null)
+  const [presenting, setPresenting] = useState(false)
   const scale = useStageScale(stageEl)
 
   useEffect(() => {
@@ -99,7 +303,11 @@ export default function SharedDeckPage({ deckId }) {
     [total],
   )
 
+  // Stable identity: Presentation's fullscreen/scroll-lock effect depends on it.
+  const closePresentation = useCallback(() => setPresenting(false), [])
+
   // Arrow keys (and space) move through the deck, like the owner's viewer.
+  // `F` opens the presentation, which keeps using this same index.
   useEffect(() => {
     if (state !== 'ready') return undefined
     function onKey(e) {
@@ -109,11 +317,14 @@ export default function SharedDeckPage({ deckId }) {
       } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
         e.preventDefault()
         go(-1)
+      } else if ((e.key === 'f' || e.key === 'F') && !presenting) {
+        e.preventDefault()
+        setPresenting(true)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [state, go])
+  }, [state, go, presenting])
 
   /**
    * Download the shared deck as a file.
@@ -305,6 +516,14 @@ export default function SharedDeckPage({ deckId }) {
             <div className="shared-download-actions">
               <button
                 type="button"
+                className="shared-download-btn shared-download-btn--present"
+                onClick={() => setPresenting(true)}
+                title="Present full-screen (F)"
+              >
+                ▶ Present
+              </button>
+              <button
+                type="button"
                 className="shared-download-btn"
                 onClick={() => download('pdf')}
                 disabled={!!busy}
@@ -325,6 +544,17 @@ export default function SharedDeckPage({ deckId }) {
           </div>
         </main>
       )}
+
+      {presenting && state === 'ready' ? (
+        <Presentation
+          slides={slides}
+          theme={deck.theme}
+          deckTitle={deck.title}
+          index={index}
+          onGo={go}
+          onClose={closePresentation}
+        />
+      ) : null}
     </div>
   )
 }

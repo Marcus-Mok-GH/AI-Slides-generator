@@ -11,7 +11,7 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString()
 }
 
-function DeckCard({ deck, view, onOpen, onDelete, onRename }) {
+function DeckCard({ deck, view, onOpen, onDelete, onRename, onTogglePublic }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
@@ -96,6 +96,19 @@ function DeckCard({ deck, view, onOpen, onDelete, onRename }) {
                 <button onClick={() => { setMenuOpen(false); onOpen(deck.id) }}>Open</button>
                 <button onClick={startRename}>Rename</button>
                 <button
+                  title={
+                    deck.isPublic
+                      ? 'Remove this deck from the public gallery'
+                      : 'Anyone can browse this deck from the landing-page gallery'
+                  }
+                  onClick={() => {
+                    setMenuOpen(false)
+                    onTogglePublic?.(deck.id, !deck.isPublic)
+                  }}
+                >
+                  {deck.isPublic ? 'Remove from gallery' : 'Show in gallery'}
+                </button>
+                <button
                   className="danger"
                   onClick={() => {
                     setMenuOpen(false)
@@ -115,6 +128,7 @@ function DeckCard({ deck, view, onOpen, onDelete, onRename }) {
             <span className="deck-slide-count">{deck.slideCount} cards</span>
           )}
           <span className="deck-edited">Edited {timeAgo(deck.updatedAt)}</span>
+          {deck.isPublic ? <span className="deck-gallery-flag">In gallery</span> : null}
         </div>
       </div>
     </article>
@@ -127,7 +141,7 @@ const SORTS = [
   { id: 'az', label: 'A – Z' },
 ]
 
-export default function MyDecksPage({ decks = [], query = '', onOpen, onDelete, onRename, onCreateNew }) {
+export default function MyDecksPage({ decks = [], query = '', onOpen, onDelete, onRename, onTogglePublic, onCreateNew }) {
   const [view, setView] = useState('grid')
   const [sort, setSort] = useState('newest')
 
@@ -227,6 +241,7 @@ export default function MyDecksPage({ decks = [], query = '', onOpen, onDelete, 
               onOpen={onOpen}
               onDelete={onDelete}
               onRename={onRename}
+              onTogglePublic={onTogglePublic}
             />
           ))}
         </div>

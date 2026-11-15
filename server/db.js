@@ -212,8 +212,15 @@ export async function migrate() {
     );
 
     ALTER TABLE decks ADD COLUMN IF NOT EXISTS user_id VARCHAR;
+    ALTER TABLE decks ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT FALSE;
     ALTER TABLE decks ALTER COLUMN created_at TYPE TIMESTAMPTZ;
     ALTER TABLE decks ALTER COLUMN updated_at TYPE TIMESTAMPTZ;
+  `)
+
+  // Opt-in gallery listings only, so the partial index stays small.
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_decks_public_updated_at
+    ON decks (updated_at DESC) WHERE is_public;
   `)
 
   // Attempt to add foreign key if missing
@@ -471,7 +478,7 @@ export async function listDecks(userId, limit = 24) {
   if (!userId) return []
   dbRequired()
   const { rows } = await pool.query(
-    `SELECT id, title, subtitle, slide_count, theme, updated_at
+    `SELECT id, title, subtitle, slide_count, theme, is_public, updated_at
      FROM decks
      WHERE user_id = $1
      ORDER BY updated_at DESC
@@ -484,8 +491,75 @@ export async function listDecks(userId, limit = 24) {
     subtitle: r.subtitle,
     slideCount: r.slide_count,
     theme: r.theme,
+    isPublic: Boolean(r.is_public),
     updatedAt: r.updated_at,
   }))
+}
+
+/**
+ * Author credit for a published deck: a first name plus a last initial, which
+ * is enough to attribute the work without turning the gallery into an email
+ * directory. Accounts created with just an email and password have no name at
+ * all, so those tiles simply carry no byline.
+ */
+function galleryAuthor(row) {
+  const first = String(row.first_name || '').trim()
+  const last = String(row.last_name || '').trim()
+  if (!first && !last) return null
+  const name = first
+    ? `${first}${last ? ` ${last.charAt(0).toUpperCase()}.` : ''}`
+    : last
+  const initials =
+    `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() ||
+    name.charAt(0).toUpperCase()
+  return { name, initials }
+}
+
+/**
+ * Public gallery listing — only decks whose owner switched `is_public` on.
+ * Share links stay unlisted until then, so publishing is an explicit decision
+ * rather than a side effect of sending someone a link.
+ *
+ * The first slide rides along as `cover` so the landing page can render a real
+ * thumbnail with the same renderer as the stage.
+ */
+export async function listPublicDecks(limit = 6) {
+  dbRequired()
+  const { rows } = await pool.query(
+    `SELECT d.id, d.title, d.subtitle, d.slide_count, d.theme,
+            d.data->'slides'->0 AS cover, d.updated_at,
+            u.first_name, u.last_name
+     FROM decks d
+     LEFT JOIN users u ON u.id = d.user_id
+     WHERE d.is_public IS TRUE
+     ORDER BY d.updated_at DESC
+     LIMIT $1`,
+    [limit],
+  )
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    subtitle: r.subtitle,
+    slideCount: r.slide_count,
+    theme: r.theme,
+    cover: r.cover,
+    author: galleryAuthor(r),
+    updatedAt: r.updated_at,
+  }))
+}
+
+/** Opt a deck in to (or out of) the public gallery. Returns null if not owned. */
+export async function setDeckPublic(id, userId, isPublic) {
+  if (!id || !userId) return null
+  dbRequired()
+  const { rows } = await pool.query(
+    `UPDATE decks SET is_public = $3
+     WHERE id = $1 AND user_id = $2
+     RETURNING is_public`,
+    [id, userId, Boolean(isPublic)],
+  )
+  if (rows.length === 0) return null
+  return { isPublic: Boolean(rows[0].is_public) }
 }
 
 export async function getDeck(id, userId) {

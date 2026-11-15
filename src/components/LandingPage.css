@@ -289,6 +289,53 @@
   border-right: 0;
 }
 
+/* Live activity line — proof that decks are actually being written here. */
+.lp-proof {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin: 22px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.lp-proof strong {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.lp-proof-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: lp-proof-pulse 2.6s ease-in-out infinite;
+}
+
+.lp-proof-today {
+  color: var(--text-soft);
+}
+
+@keyframes lp-proof-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-proof-dot {
+    animation: none;
+  }
+}
+
 /* Prompt card */
 
 .lp-prompt {

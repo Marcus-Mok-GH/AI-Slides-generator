@@ -71,7 +71,24 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 - **No Redux/Zustand**: Uses React `useState` + callbacks with explicit prop drilling. State flows down, callbacks up.
 - **Debounced auto-save**: 700ms delay after last edit, skips if `deck.streaming === true`.
 - **URL routing**: Decks at `/app/slide/{id}` (canonical, session required), legacy `?deck={id}`, full-page views at `/app/decks` and `/app/templates` (`PAGE_PATHS` / `pageFromLocation()` in `src/App.jsx`).
-- **Public share links**: `/share/{id}` renders `SharedDeckPage` from `main.jsx` before the auth guard, and `AuthGuard` shows the same read-only page for a signed-out visitor on a legacy `/app/slide/{id}` link. It reads `GET /api/shared/decks/:id` (registered before `app.use('/api', authMiddleware)` in `server/app.js`, resolved by `getDeckById()` in `server/db.js`). Deck ids are random 72-bit tokens, so the link is the permission. The same page downloads PDF/PPTX by calling `src/lib/exportDeck.js` in the visitor's own browser — no auth and no `/api/export` round trip, and the file matches the stage because it is the same slide document.
+- **Public share links**: `/share/{id}` renders `SharedDeckPage` from `main.jsx` before the auth guard, and `AuthGuard` shows the same read-only page for a signed-out visitor on a legacy `/app/slide/{id}` link. It reads `GET /api/shared/decks/:id` (registered before `app.use('/api', authMiddleware)` in `server/app.js`, resolved by `getDeckById()` in `server/db.js`). Deck ids are random 72-bit tokens, so the link is the permission. The same page downloads PDF/PPTX by calling `src/lib/exportDeck.js` in the visitor's own browser — no auth and no `/api/export` round trip,   and the file matches the stage because it is the same slide document. The
+  page also has a full-screen **Present** mode (`Presentation` in
+  `SharedDeckPage.jsx`, `F` to open): it requests fullscreen where the browser
+  allows it, falls back to a viewport overlay where it does not (iOS), shares
+  the page's slide index, navigates by arrows/space/click zones/swipe, closes on
+  Escape, on leaving fullscreen, or from the HUD, pads the HUD with
+  `env(safe-area-inset-*)`, and shows a rotate hint on portrait phones.
+- **Public gallery**: `decks.is_public` (default `false`) is opt-in from My Decks →
+  "Show in gallery". `GET /api/gallery` (public, before the auth guard, 60 s cache)
+  returns the six newest published decks with their first slide as `cover`;
+  Tiles are credited with the author's first name and last initial (a
+  `LEFT JOIN users`; never the surname or email) — accounts with no name get no
+  byline, and the row is still reserved so tiles stay the same height.
+  `LandingPage` fetches the list (it also gates the header's "Gallery" nav
+  entry on it) and `DeckGallery.jsx` renders each tile with `HtmlSlide`, linking
+  to `/share/{id}`. `POST /api/decks/:id/publish` flips the flag, owner-scoped.
+  A share link alone never lists a deck, and both the section and the nav link
+  disappear when the list is empty or the database is unavailable.
 - **Queued deck idea**: `LoginPage` stores the visitor's optional "What are you presenting?" text in `localStorage` under `slideai:queuedPrompt`; the mount effect in `src/App.jsx` hands it to `HomePage`'s imperative `applyPrompt` and only clears the key once the composer has taken the text. Do not clear it before applying — that effect runs twice under StrictMode.
 - **"Start from this deck" handoff**: the shared page's CTA links to `/app?remix={deckId}`; `LoginPage` then opens on sign-up with remix copy, and once `AuthGuard` mounts `<App />` the mount effect in `src/App.jsx` strips the param, `POST`s `/api/shared/decks/:id/copy` (auth required, fresh deck id, no credits spent) and opens the copy in the viewer. OTP verify/reset keep `window.location.search` so the intent survives a full reload.
 - **Auth lifecycle**: Single `fetchCurrentUser()` on mount, global `slideai:unauthorized` event listener.

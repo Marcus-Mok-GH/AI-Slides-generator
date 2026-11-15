@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { deckCostCents } from '../lib/pricing.js'
 import { SampleDeckCard, SampleDeckViewer } from './SampleDeck.jsx'
+import DeckGallery from './DeckGallery.jsx'
+import { loadGalleryDecks } from '../lib/api.js'
 import useTheme from '../lib/useTheme.js'
 import './LandingPage.css'
 
@@ -109,10 +111,70 @@ function money(cents) {
 
 const THEME_ICONS = { light: '☀', dark: '☾', system: '◐' }
 
+// Below this, a count is not proof of anything — showing "2 decks" would cost
+// more trust than it buys, so the line stays hidden.
+const PROOF_MIN_DECKS = 10
+
+const decimal = new Intl.NumberFormat('en')
+
+/**
+ * Live activity, so a first-time visitor can see the studio is not a mock-up.
+ * One unauthenticated request; any failure (no database, offline, cold host)
+ * simply leaves the line out instead of breaking the page.
+ */
+function useDeckActivity() {
+  const [activity, setActivity] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    fetch('/api/stats', { headers: { Accept: 'application/json' } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!alive || !data) return
+        const total = Number(data.total) || 0
+        const today = Number(data.today) || 0
+        if (total < PROOF_MIN_DECKS) return
+        setActivity({ total, today })
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  return activity
+}
+
+/**
+ * Decks their owners published to the gallery. The list also gates the nav
+ * entry: a link to a section that isn't rendered would scroll nowhere.
+ */
+function useGalleryDecks() {
+  const [decks, setDecks] = useState([])
+
+  useEffect(() => {
+    let alive = true
+    loadGalleryDecks()
+      .then((list) => {
+        if (!alive) return
+        // A deck with no slides would render an empty tile.
+        setDecks(list.filter((d) => d?.id && d?.cover?.html))
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  return decks
+}
+
 export default function LandingPage() {
   const { mode, cycle } = useTheme()
   const [idea, setIdea] = useState('')
   const [showSample, setShowSample] = useState(false)
+  const activity = useDeckActivity()
+  const galleryDecks = useGalleryDecks()
   const ideaRef = useRef(null)
 
   function useExample(text) {
@@ -135,6 +197,7 @@ export default function LandingPage() {
           </a>
 
           <nav className="lp-links" aria-label="Sections">
+            {galleryDecks.length > 0 ? <a href="#gallery">Gallery</a> : null}
             <a href="#how">How it works</a>
             <a href="#features">Features</a>
             <a href="#pricing">Pricing</a>
@@ -185,6 +248,18 @@ export default function LandingPage() {
               every slide as real HTML and CSS, and hands you something you can
               present — or edit down to the last word.
             </p>
+            {activity ? (
+              <p className="lp-proof" aria-live="polite">
+                <span className="lp-proof-dot" aria-hidden />
+                <span>
+                  <strong>{decimal.format(activity.total)}</strong> decks written
+                  here
+                  {activity.today > 0 ? (
+                    <span className="lp-proof-today"> · {decimal.format(activity.today)} today</span>
+                  ) : null}
+                </span>
+              </p>
+            ) : null}
             <ul className="lp-facts">
               <li>$100 of credits on us</li>
               <li>No card required</li>
@@ -264,6 +339,9 @@ export default function LandingPage() {
             <SampleDeckCard onOpen={() => setShowSample(true)} />
           </div>
         </section>
+
+        {/* Real decks their owners chose to publish */}
+        <DeckGallery decks={galleryDecks} />
 
         {/* How it works */}
         <section className="lp-section" id="how" aria-labelledby="lp-how-title">

@@ -2,7 +2,8 @@ import express from 'express'
 import { generateDeck, streamGenerateDeck, regenerateSlide, redesignSlide, editSlide } from './generateDeck.js'
 import { suggestPlanQuestions, planDeck, sanitizePlan } from './planning.js'
 import {
-  listDecks, getDeck, getDeckById, saveDeck, deleteDeck, renameDeck, migrate,
+  listDecks, listPublicDecks, setDeckPublic,
+  getDeck, getDeckById, saveDeck, deleteDeck, renameDeck, migrate,
   migratePromptHistory, savePromptHistory, getPromptHistory, deletePromptHistoryItem,
   migrateAgentChats, listAgentChats, getAgentChat, createAgentChat, updateAgentChat, deleteAgentChat,
   getCredits, deductCredits,
@@ -145,8 +146,52 @@ app.get('/api/shared/decks/:id', async (req, res) => {
   }
 })
 
+/**
+ * GET /api/gallery — public list of decks their owners chose to publish.
+ *
+ * Opt-in only: a share link stays unlisted until its author switches gallery
+ * publishing on from My Decks. Each entry carries its first slide as `cover`,
+ * so the landing page renders real thumbnails instead of screenshots.
+ */
+app.get('/api/gallery', async (_req, res) => {
+  try {
+    const decks = await listPublicDecks(6)
+    res.setHeader('Cache-Control', 'public, max-age=60')
+    res.json({ decks })
+  } catch (err) {
+    console.error('[gallery] error:', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable', decks: [] })
+    }
+    res.status(500).json({ error: 'Failed to load gallery', decks: [] })
+  }
+})
+
 // All other /api routes require JWT auth
 app.use('/api', authMiddleware)
+
+/**
+ * POST /api/decks/:id/publish — list a deck in the public gallery, or delist
+ * it. Owner-scoped: another user's deck id resolves to 404, never a silent
+ * edit, and delisting takes it off the landing page immediately.
+ */
+app.post('/api/decks/:id/publish', async (req, res) => {
+  try {
+    const result = await setDeckPublic(
+      req.params.id,
+      req.user.id,
+      Boolean(req.body?.public),
+    )
+    if (!result) return res.status(404).json({ error: 'Deck not found' })
+    res.json({ id: req.params.id, ...result })
+  } catch (err) {
+    console.error('[publish deck] error:', err)
+    if (isDbError(err)) {
+      return res.status(503).json({ error: 'Database unavailable' })
+    }
+    res.status(500).json({ error: err?.message || 'Failed to update gallery listing' })
+  }
+})
 
 /**
  * POST /api/shared/decks/:id/copy — start your own deck from a shared one.

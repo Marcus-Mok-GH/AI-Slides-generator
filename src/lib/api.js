@@ -315,6 +315,24 @@ export async function loadSharedDeck(id) {
 }
 
 /**
+ * Public gallery: decks whose owners opted them in. No auth header, no
+ * session — this is what the landing page shows to visitors.
+ */
+export async function loadGalleryDecks() {
+  const res = await fetch('/api/gallery')
+  if (!res.ok) throw new Error(`Server returned ${res.status}`)
+  const data = await res.json()
+  return data.decks || []
+}
+
+/** List (or delist) one of your own decks in the public gallery. */
+export async function setDeckPublic(id, isPublic) {
+  return postJson(`/api/decks/${encodeURIComponent(id)}/publish`, {
+    public: Boolean(isPublic),
+  })
+}
+
+/**
  * Copy a shared deck into the signed-in user's account. Used by the deck a
  * share-link visitor asked for before they had to sign in.
  */

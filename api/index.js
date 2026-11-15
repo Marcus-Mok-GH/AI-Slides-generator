@@ -1261,8 +1261,13 @@ async function migrate() {
     );
 
     ALTER TABLE decks ADD COLUMN IF NOT EXISTS user_id VARCHAR;
+    ALTER TABLE decks ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT FALSE;
     ALTER TABLE decks ALTER COLUMN created_at TYPE TIMESTAMPTZ;
     ALTER TABLE decks ALTER COLUMN updated_at TYPE TIMESTAMPTZ;
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_decks_public_updated_at
+    ON decks (updated_at DESC) WHERE is_public;
   `);
   try {
     await pool.query(`
@@ -1452,7 +1457,7 @@ async function listDecks(userId, limit = 24) {
   if (!userId) return [];
   dbRequired();
   const { rows } = await pool.query(
-    `SELECT id, title, subtitle, slide_count, theme, updated_at
+    `SELECT id, title, subtitle, slide_count, theme, is_public, updated_at
      FROM decks
      WHERE user_id = $1
      ORDER BY updated_at DESC
@@ -1465,8 +1470,53 @@ async function listDecks(userId, limit = 24) {
     subtitle: r.subtitle,
     slideCount: r.slide_count,
     theme: r.theme,
+    isPublic: Boolean(r.is_public),
     updatedAt: r.updated_at
   }));
+}
+function galleryAuthor(row) {
+  const first = String(row.first_name || "").trim();
+  const last = String(row.last_name || "").trim();
+  if (!first && !last) return null;
+  const name = first ? `${first}${last ? ` ${last.charAt(0).toUpperCase()}.` : ""}` : last;
+  const initials = `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || name.charAt(0).toUpperCase();
+  return { name, initials };
+}
+async function listPublicDecks(limit = 6) {
+  dbRequired();
+  const { rows } = await pool.query(
+    `SELECT d.id, d.title, d.subtitle, d.slide_count, d.theme,
+            d.data->'slides'->0 AS cover, d.updated_at,
+            u.first_name, u.last_name
+     FROM decks d
+     LEFT JOIN users u ON u.id = d.user_id
+     WHERE d.is_public IS TRUE
+     ORDER BY d.updated_at DESC
+     LIMIT $1`,
+    [limit]
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    subtitle: r.subtitle,
+    slideCount: r.slide_count,
+    theme: r.theme,
+    cover: r.cover,
+    author: galleryAuthor(r),
+    updatedAt: r.updated_at
+  }));
+}
+async function setDeckPublic(id, userId, isPublic) {
+  if (!id || !userId) return null;
+  dbRequired();
+  const { rows } = await pool.query(
+    `UPDATE decks SET is_public = $3
+     WHERE id = $1 AND user_id = $2
+     RETURNING is_public`,
+    [id, userId, Boolean(isPublic)]
+  );
+  if (rows.length === 0) return null;
+  return { isPublic: Boolean(rows[0].is_public) };
 }
 async function getDeck(id, userId) {
   if (!userId) return null;
@@ -4231,7 +4281,37 @@ app.get("/api/shared/decks/:id", async (req, res) => {
     res.status(500).json({ error: err?.message || "Failed to load shared deck" });
   }
 });
+app.get("/api/gallery", async (_req, res) => {
+  try {
+    const decks = await listPublicDecks(6);
+    res.setHeader("Cache-Control", "public, max-age=60");
+    res.json({ decks });
+  } catch (err) {
+    console.error("[gallery] error:", err);
+    if (isDbError(err)) {
+      return res.status(503).json({ error: "Database unavailable", decks: [] });
+    }
+    res.status(500).json({ error: "Failed to load gallery", decks: [] });
+  }
+});
 app.use("/api", authMiddleware);
+app.post("/api/decks/:id/publish", async (req, res) => {
+  try {
+    const result = await setDeckPublic(
+      req.params.id,
+      req.user.id,
+      Boolean(req.body?.public)
+    );
+    if (!result) return res.status(404).json({ error: "Deck not found" });
+    res.json({ id: req.params.id, ...result });
+  } catch (err) {
+    console.error("[publish deck] error:", err);
+    if (isDbError(err)) {
+      return res.status(503).json({ error: "Database unavailable" });
+    }
+    res.status(500).json({ error: err?.message || "Failed to update gallery listing" });
+  }
+});
 app.post("/api/shared/decks/:id/copy", async (req, res) => {
   try {
     const source = await getDeckById(req.params.id);

@@ -13,6 +13,7 @@ import {
   connectToJob,
   copySharedDeck,
   saveDeck as saveDeckApi,
+  setDeckPublic as setDeckPublicApi,
   loadDeck,
   deleteDeck as deleteDeckApi,
   renameDeck as renameDeckApi,
@@ -490,6 +491,20 @@ export default function App() {
     }
   }
 
+  // Gallery publishing is opt-in per deck; flip it locally first so the menu
+  // reflects the change immediately, then reconcile with the server.
+  async function handleTogglePublicDeck(id, isPublic) {
+    setSavedDecks((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, isPublic } : d)),
+    )
+    try {
+      await setDeckPublicApi(id, isPublic)
+    } catch (e) {
+      console.warn('Failed to update gallery listing:', e)
+      refreshDecks() // revert
+    }
+  }
+
   async function handleRenameDeck(id, newTitle) {
     // Optimistically update the local list so the UI responds instantly.
     setSavedDecks((prev) =>
@@ -608,6 +623,7 @@ export default function App() {
               onOpen={handleOpenDeck}
               onDelete={handleDeleteDeck}
               onRename={handleRenameDeck}
+              onTogglePublic={handleTogglePublicDeck}
               onCreateNew={() => handleNavigate('new')}
             />
           </div>

@@ -103,6 +103,18 @@
   flex-wrap: wrap;
 }
 
+/* Marks a deck that is listed in the public gallery. */
+.deck-gallery-flag {
+  padding: 1px 7px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
 /* =========================================================================
    Responsive
    ========================================================================= */
