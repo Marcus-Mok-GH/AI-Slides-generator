@@ -156,6 +156,9 @@
   position: fixed;
   inset: 0;
   z-index: 80;
+  /* Last-resort guard: a window too short for the slide's floor scrolls the
+     viewer instead of clipping the notes or the controls. */
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -247,6 +250,14 @@
   place-items: center;
 }
 
+/* With the notes open the stage gives the panel its height instead of being
+   covered by it, so the slide and its notes stay readable together. The
+   `max()` is the guard: past a certain window height the slide stops shrinking
+   (a 16:9 box 420px wide is still legible) and the notes panel yields instead. */
+.sample-viewer.has-notes .sample-viewer-canvas {
+  width: min(100%, 1120px, max(420px, calc((100dvh - 400px) * 16 / 9)));
+}
+
 .sample-viewer-canvas {
   width: min(100%, 1120px, calc((100dvh - 260px) * 16 / 9));
   overflow: hidden;
@@ -307,6 +318,80 @@
   color: var(--text-muted);
   min-width: 46px;
   text-align: center;
+}
+
+/* ---- Speaker notes ---- */
+.sample-notes-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+}
+
+.sample-notes-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.sample-notes-btn.is-on {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.sample-notes-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring-soft);
+}
+
+.sample-notes {
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 14px 18px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.sample-notes-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: 6px;
+}
+
+.sample-notes-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.sample-notes-slide {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-soft);
+}
+
+.sample-notes-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
 }
 
 .sample-viewer-note {
@@ -378,11 +463,56 @@
     padding: 8px 11px;
   }
 
-  .sample-viewer-canvas {
+  .sample-viewer-canvas,
+  .sample-viewer.has-notes .sample-viewer-canvas {
     width: 100%;
   }
 
   .sample-viewer-tag {
+    display: none;
+  }
+
+  .sample-notes {
+    max-height: 30vh;
+    overflow-y: auto;
+    padding: 12px 14px 14px;
+  }
+
+  .sample-notes-text {
+    font-size: 13.5px;
+  }
+}
+
+/* Short window: trim the chrome and the notes panel so the slide keeps its
+   legibility floor instead of collapsing to a thumbnail. */
+@media (max-height: 700px) {
+  .sample-viewer {
+    gap: 10px;
+  }
+
+  .sample-viewer.has-notes .sample-viewer-canvas {
+    width: min(100%, 1120px, max(380px, calc((100dvh - 290px) * 16 / 9)));
+  }
+
+  /* Grow into spare room, but never shrink below the slide itself — otherwise
+     the centred canvas spills over the notes panel. When even that does not
+     fit, the viewer scrolls (its own guard) rather than clipping the slide. */
+  .sample-viewer-stage {
+    flex: 1 0 auto;
+  }
+
+  .sample-notes {
+    max-height: 34dvh;
+    overflow-y: auto;
+    padding: 11px 14px 12px;
+  }
+
+  .sample-notes-text {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .sample-viewer-note {
     display: none;
   }
 }

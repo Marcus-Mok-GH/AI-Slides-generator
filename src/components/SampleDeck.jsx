@@ -22,6 +22,8 @@ const SAMPLE_DECK = {
   slides: [
     {
       title: 'Waste heat, turned into watts.',
+      notes:
+        'Open on the two numbers the room cares about — 14 plants live and $2.4M ARR, both from a standing start 26 months ago. The line to land before slide 2: we are not selling a turbine, we are selling heat the plant has already paid for. Hold the $18M and the 18-month use of funds for the ask; the traction detail earns the right to it.',
       html: `<div class="slide title-slide">
   <span class="eyebrow">Seed round · 2027</span>
   <h1>Waste heat,<br />turned into watts.</h1>
@@ -32,6 +34,8 @@ const SAMPLE_DECK = {
     },
     {
       title: 'The problem',
+      notes:
+        'Attribute the numbers before anyone asks: 67% is the industry average from the 2025 waste-heat inventory, while the $1.2M is our own model for a plant burning 40 GWh a year at $0.08/kWh. Say that out loud — it is the difference between a stat and a claim. The chart is sized by plant, not by year, because "we are too small for this" is the objection we hear most.',
       html: `<div class="slide stats-slide">
   <header>
     <span class="eyebrow">The problem</span>
@@ -67,6 +71,8 @@ const SAMPLE_DECK = {
     },
     {
       title: 'How it works',
+      notes:
+        'Walk the three steps in one breath, then spend the time on the pilot rather than the hardware: six weeks, zero production downtime, and the switchgear work is the only part the plant has to staff itself. If the room is operational rather than financial, close this slide by offering the flue survey — a two-hour visit, free, and it produces the payback number for their own building.',
       html: `<div class="slide steps-slide">
   <header>
     <span class="eyebrow">The product</span>
@@ -83,6 +89,8 @@ const SAMPLE_DECK = {
     },
     {
       title: 'Proof',
+      notes:
+        'Read the quote, then stop talking and let it sit. Dana was a two-year no who finally ran the pilot on a single boiler, so the credibility is in the resistance, not the yes — mention that if the room pushes back. Then go straight to the ask; this is the last slide that does any persuading.',
       html: `<div class="slide quote-slide">
   <span class="quote-mark">&ldquo;</span>
   <blockquote>Our boiler house pays for itself now. All we had to do was stop throwing the heat away.</blockquote>
@@ -204,10 +212,16 @@ export function SampleDeckCard({ onOpen }) {
   )
 }
 
-/** Full-screen, keyboard-navigable view of the sample deck. */
+/**
+ * Full-screen, keyboard-navigable view of the sample deck. The speaker notes
+ * are the part of the product a screenshot can never show, so they are one
+ * button away instead of being described in a feature list.
+ */
 export function SampleDeckViewer({ onClose, onSignIn }) {
   const [index, setIndex] = useState(0)
+  const [notesOpen, setNotesOpen] = useState(false)
   const closeRef = useRef(null)
+  const slide = SAMPLE_DECK.slides[index]
 
   const go = (delta) =>
     setIndex((i) => Math.min(SLIDE_COUNT - 1, Math.max(0, i + delta)))
@@ -227,6 +241,9 @@ export function SampleDeckViewer({ onClose, onSignIn }) {
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault()
         go(-1)
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault()
+        setNotesOpen((v) => !v)
       }
     }
 
@@ -238,7 +255,12 @@ export function SampleDeckViewer({ onClose, onSignIn }) {
   }, [onClose])
 
   return (
-    <div className="sample-viewer" role="dialog" aria-modal="true" aria-label="Sample deck">
+    <div
+      className={`sample-viewer ${notesOpen ? 'has-notes' : ''}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Sample deck"
+    >
       <header className="sample-viewer-head">
         <div className="sample-viewer-brand">
           <span className="sample-viewer-mark">S</span>
@@ -261,6 +283,16 @@ export function SampleDeckViewer({ onClose, onSignIn }) {
           <SlideCanvas index={index} />
         </div>
       </div>
+
+      {notesOpen ? (
+        <div className="sample-notes" id="sample-notes" role="region" aria-label="Speaker notes">
+          <div className="sample-notes-head">
+            <span className="sample-notes-label">Speaker notes</span>
+            <span className="sample-notes-slide">Slide {index + 1}</span>
+          </div>
+          <p className="sample-notes-text">{slide.notes}</p>
+        </div>
+      ) : null}
 
       <div className="sample-viewer-foot">
         <div className="sample-viewer-nav">
@@ -285,10 +317,21 @@ export function SampleDeckViewer({ onClose, onSignIn }) {
           >
             ›
           </button>
+          <button
+            type="button"
+            className={`sample-notes-btn ${notesOpen ? 'is-on' : ''}`}
+            onClick={() => setNotesOpen((v) => !v)}
+            aria-pressed={notesOpen}
+            aria-expanded={notesOpen}
+            aria-controls="sample-notes"
+            title="Toggle speaker notes (N)"
+          >
+            {notesOpen ? 'Hide notes' : 'Notes'}
+          </button>
         </div>
 
         <p className="sample-viewer-note">
-          Generated from a single prompt — layout, copy and chart included.
+          Generated from a single prompt — layout, copy, chart and speaker notes included.
         </p>
 
         <button type="button" className="sample-viewer-cta" onClick={onSignIn}>
