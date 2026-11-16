@@ -855,6 +855,19 @@
     max-width: 620px;
   }
 
+  /* Stacked hero: the card's action comes straight after the textarea and the
+     example chips follow it. With four rows of chips in between, the button
+     fell below the fold on a phone and on a short laptop screen — a visitor
+     typed an idea and had no visible way to build it. */
+  .lp-prompt-foot {
+    order: 2;
+    margin-top: 0;
+  }
+
+  .lp-chips {
+    order: 3;
+  }
+
   .lp-showcase {
     padding-top: 40px;
   }
@@ -917,8 +930,8 @@
   }
 
   .lp-hero {
-    padding: 32px 16px 24px;
-    gap: 28px;
+    padding: 20px 16px 24px;
+    gap: 24px;
   }
 
   .lp-hero::before {
@@ -930,7 +943,12 @@
   }
 
   .lp-lede {
+    margin-top: 16px;
     font-size: 15.5px;
+  }
+
+  .lp-facts {
+    margin-top: 18px;
   }
 
   .lp-facts li {
@@ -942,6 +960,12 @@
 
   .lp-prompt {
     padding: 16px;
+    gap: 10px;
+  }
+
+  .lp-prompt-foot {
+    flex-direction: column-reverse;
+    align-items: stretch;
   }
 
   .lp-prompt-title {
@@ -955,11 +979,6 @@
 
   .lp-chip {
     font-size: 11px;
-  }
-
-  .lp-prompt-foot {
-    flex-direction: column;
-    align-items: stretch;
   }
 
   .lp-prompt-foot .lp-btn {
@@ -1002,5 +1021,30 @@
   .lp-foot-note {
     order: 3;
     width: 100%;
+  }
+}
+
+/* Short phones (and the viewport that is left once the keyboard is up) need a
+   tighter hero for the button to stay on the first screen. */
+@media (max-width: 760px) and (max-height: 720px) {
+  .lp-hero {
+    padding-top: 8px;
+  }
+
+  .lp-title {
+    font-size: 36px;
+  }
+
+  .lp-lede {
+    margin-top: 10px;
+    font-size: 15px;
+  }
+
+  .lp-facts {
+    margin-top: 12px;
+  }
+
+  .lp-prompt {
+    gap: 7px;
   }
 }
