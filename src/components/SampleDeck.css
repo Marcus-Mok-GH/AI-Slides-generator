@@ -159,6 +159,12 @@
   /* Last-resort guard: a window too short for the slide's floor scrolls the
      viewer instead of clipping the notes or the controls. */
   overflow-y: auto;
+  /* Slide sizing has one rule, in .sample-viewer-canvas. These are its only
+     inputs: the cap, the legibility floor, and the height the viewer's own
+     chrome (header, gaps, footer, padding) takes out of the window. */
+  --sample-slide-max: 1120px;
+  --sample-slide-floor: 420px;
+  --sample-chrome: 260px;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -169,6 +175,11 @@
   background: var(--bg);
   background-image: var(--ambient);
   animation: sample-viewer-in 220ms var(--ease-out-expo) both;
+}
+
+/* The notes panel is part of the chrome the slide has to fit beside. */
+.sample-viewer.has-notes {
+  --sample-chrome: 400px;
 }
 
 .sample-viewer-head {
@@ -250,16 +261,17 @@
   place-items: center;
 }
 
-/* With the notes open the stage gives the panel its height instead of being
-   covered by it, so the slide and its notes stay readable together. The
-   `max()` is the guard: past a certain window height the slide stops shrinking
-   (a 16:9 box 420px wide is still legible) and the notes panel yields instead. */
-.sample-viewer.has-notes .sample-viewer-canvas {
-  width: min(100%, 1120px, max(420px, calc((100dvh - 400px) * 16 / 9)));
-}
-
+/* The one place the slide is sized: no wider than the cap or the column, and
+   no taller than the 16:9 box that fits under the reserved chrome. With notes
+   open the chrome reservation grows, so the stage yields height to the panel
+   instead of being covered by it; the floor keeps the slide legible, after
+   which the panel shrinks and finally the viewer scrolls. */
 .sample-viewer-canvas {
-  width: min(100%, 1120px, calc((100dvh - 260px) * 16 / 9));
+  width: min(
+    var(--sample-slide-max),
+    100%,
+    max(var(--sample-slide-floor), calc((100dvh - var(--sample-chrome)) * 16 / 9))
+  );
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -463,11 +475,6 @@
     padding: 8px 11px;
   }
 
-  .sample-viewer-canvas,
-  .sample-viewer.has-notes .sample-viewer-canvas {
-    width: 100%;
-  }
-
   .sample-viewer-tag {
     display: none;
   }
@@ -488,10 +495,24 @@
 @media (max-height: 700px) {
   .sample-viewer {
     gap: 10px;
+    --sample-slide-floor: 380px;
   }
 
-  .sample-viewer.has-notes .sample-viewer-canvas {
-    width: min(100%, 1120px, max(380px, calc((100dvh - 290px) * 16 / 9)));
+  .sample-viewer.has-notes {
+    --sample-chrome: 290px;
+  }
+
+  /* Once the slide hits its floor the rest has to scroll, so the button that
+     ends the visit stays pinned to the bottom of the window. */
+  .sample-viewer-foot {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding-top: 10px;
+    background: var(--bg);
+    background: color-mix(in oklab, var(--bg) 90%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 
   /* Grow into spare room, but never shrink below the slide itself — otherwise
