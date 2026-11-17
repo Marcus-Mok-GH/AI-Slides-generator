@@ -9,7 +9,14 @@ const AI_EDIT_CHIPS = [
   'More visual contrast',
 ]
 
-export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }) {
+export default function SlideEditor({
+  deck,
+  slideIndex,
+  onChangeSlide,
+  onDeleteSlide,
+  canDelete = true,
+  onClose,
+}) {
   const slide = deck.slides[slideIndex]
   const [aiPrompt, setAiPrompt] = useState('')
   const [aiEditing, setAiEditing] = useState(false)
@@ -259,6 +266,33 @@ export default function SlideEditor({ deck, slideIndex, onChangeSlide, onClose }
             ) : null}
           </>
         )}
+      </div>
+
+      <div className="ed-divider" />
+
+      {/* The one action here that cannot be undone, so it sits last and asks
+          first. Removing a slide is a structural edit, not a rewrite. */}
+      <div className="ed-section">
+        <label className="ed-label">Slide structure</label>
+        <button
+          type="button"
+          className="ed-delete-btn"
+          disabled={!canDelete || !onDeleteSlide}
+          onClick={() => {
+            if (!onDeleteSlide) return
+            const confirmed = window.confirm(
+              `Remove slide ${slideIndex + 1}? This can't be undone.`,
+            )
+            if (confirmed) onDeleteSlide()
+          }}
+        >
+          <span aria-hidden>✕</span> Remove this slide
+        </button>
+        <p className="regen-hint">
+          {canDelete
+            ? 'Takes this slide out of the deck. The rest renumber, and export and present use what is left.'
+            : 'A deck needs at least one slide, and this is the last one.'}
+        </p>
       </div>
     </aside>
   )

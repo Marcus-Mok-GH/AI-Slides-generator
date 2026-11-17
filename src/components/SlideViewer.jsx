@@ -720,6 +720,20 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
     onDeckChange?.({ ...deck, slides: nextSlides })
   }
 
+  // Drop the active slide. The expected count travels with the deck: on a deck
+  // that has just finished streaming it still holds the generated total, and
+  // the stage footer would otherwise keep counting a slide that no longer
+  // exists. A deck always keeps at least one slide — an empty deck has nothing
+  // to edit, present or export.
+  function deleteSlide() {
+    if (isStreaming || slideCount <= 1) return
+    const nextSlides = deck.slides.filter((_, i) => i !== active)
+    onDeckChange?.({ ...deck, slides: nextSlides, expectedCount: nextSlides.length })
+    setEditing(false)
+    userJump(Math.min(active, nextSlides.length - 1))
+    showToast(`Slide ${active + 1} removed`)
+  }
+
   const progressPct = isStreaming
     ? Math.min(100, Math.round((completedCount / Math.max(expectedCount, 1)) * 100))
     : 100
@@ -1064,6 +1078,8 @@ export default function SlideViewer({ deck, savingState, onDeckChange, onBack })
             deck={deck}
             slideIndex={active}
             onChangeSlide={updateSlide}
+            onDeleteSlide={deleteSlide}
+            canDelete={slideCount > 1}
             onClose={() => setEditing(false)}
           />
         )}

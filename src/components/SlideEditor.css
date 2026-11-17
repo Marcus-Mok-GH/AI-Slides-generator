@@ -213,6 +213,37 @@
   color: var(--text);
 }
 
+/* Destructive, so it stays quiet until it is hovered or focused. */
+.ed-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  align-self: flex-start;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease,
+    background-color var(--duration-fast) ease;
+}
+
+.ed-delete-btn:hover:not(:disabled),
+.ed-delete-btn:focus-visible {
+  border-color: var(--error-border);
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.ed-delete-btn:disabled {
+  opacity: 0.5;
+}
+
 /* ---- AI edit block ---- */
 .ai-edit-section {
   padding: var(--space-3);
