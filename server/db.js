@@ -9,6 +9,8 @@
  * driver means a broken database degrades to 503s on DB routes only.
  */
 
+import { NEW_USER_CENTS } from '../src/lib/pricing.js'
+
 // Neon only (Vercel Storage). No fallback env vars: a stale
 // SUPABASE_DATABASE_URL or DATABASE_URL must never silently become the
 // app's database.
@@ -127,14 +129,12 @@ export async function generateId() {
 /**
  * Initial credit grants (in cents).
  *   NEW_USER_CENTS — handed to anyone signing up after the credits column
- *     exists. Currently $5 (= 500 cents).
+ *     exists. Defined in `src/lib/pricing.js` alongside deck pricing so the
+ *     landing page advertises the same number the server grants.
  *   LEGACY_USER_CENTS — one-time backfill for users that already existed
  *     before we shipped credits. Currently $100 (= 10 000 cents).
- *
- * Per-deck pricing lives in `src/lib/pricing.js` (50¢ for 8 slides, scaled by
- * slide count). Tweak both as needed.
  */
-export const NEW_USER_CENTS = 500
+export { NEW_USER_CENTS }
 export const LEGACY_USER_CENTS = 10000
 
 /**

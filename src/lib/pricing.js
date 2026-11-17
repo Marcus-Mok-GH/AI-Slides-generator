@@ -25,3 +25,13 @@ export function deckCostCents(length) {
 
 export const MIN_DECK_CENTS = deckCostCents(`${MIN_SLIDES} cards`)
 export const MAX_DECK_CENTS = deckCostCents(`${MAX_SLIDES} cards`)
+
+/**
+ * Credits handed to a brand-new account. Single source of truth: the server
+ * grants this (`server/db.js`) and the landing page advertises it, so the
+ * promise and the balance in the top bar cannot drift apart.
+ */
+export const NEW_USER_CENTS = 500
+
+/** Whole default-length decks that grant pays for (10 at 50¢ each). */
+export const FREE_DECK_COUNT = Math.floor(NEW_USER_CENTS / BASE_DECK_CENTS)

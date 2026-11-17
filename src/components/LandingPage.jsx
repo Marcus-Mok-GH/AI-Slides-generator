@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { deckCostCents } from '../lib/pricing.js'
+import { deckCostCents, NEW_USER_CENTS, FREE_DECK_COUNT } from '../lib/pricing.js'
 import { SampleDeckCard, SampleDeckViewer } from './SampleDeck.jsx'
 import DeckGallery from './DeckGallery.jsx'
 import { loadGalleryDecks } from '../lib/api.js'
@@ -71,7 +71,7 @@ const LENGTHS = [4, 8, 12, 16]
 const FAQS = [
   {
     q: 'Do I need a credit card to try it?',
-    a: 'No. A new account starts with $100 of credits, which covers your first two hundred eight-slide decks. You only top up if you keep going.',
+    a: `No. A new account starts with ${shortMoney(NEW_USER_CENTS)} of credits, which covers your first ${FREE_DECK_COUNT} eight-slide decks. You only top up if you keep going.`,
   },
   {
     q: 'How is this different from a template tool?',
@@ -107,6 +107,12 @@ function signIn() {
 
 function money(cents) {
   return `$${(cents / 100).toFixed(2)}`
+}
+
+/** Whole-dollar amounts read better as "$5" than "$5.00" in prose. */
+function shortMoney(cents) {
+  const dollars = cents / 100
+  return Number.isInteger(dollars) ? `$${dollars}` : `$${dollars.toFixed(2)}`
 }
 
 const THEME_ICONS = { light: '☀', dark: '☾', system: '◐' }
@@ -261,7 +267,7 @@ export default function LandingPage() {
               </p>
             ) : null}
             <ul className="lp-facts">
-              <li>$100 of credits on us</li>
+              <li>{shortMoney(NEW_USER_CENTS)} of credits on us</li>
               <li>No card required</li>
               <li>PDF &amp; PPTX export</li>
             </ul>
@@ -391,19 +397,20 @@ export default function LandingPage() {
             <div className="lp-pricing-copy">
               <span className="lp-kicker">Pricing</span>
               <h2 id="lp-pricing-title" className="lp-h2">
-                $100 in credits, then pay per deck.
+                {shortMoney(NEW_USER_CENTS)} in credits, then pay per deck.
               </h2>
               <p className="lp-body">
-                No subscription and no seat maths. A new account starts with $100
-                of credits, so your first decks are already paid for. After that
-                you top up only when you generate.
+                No subscription and no seat maths. A new account starts with{' '}
+                {shortMoney(NEW_USER_CENTS)} of credits — enough for {FREE_DECK_COUNT}{' '}
+                eight-slide decks — so your first decks are already paid for. After
+                that you top up only when you generate.
               </p>
               <button
                 type="button"
                 className="lp-btn lp-btn--primary"
                 onClick={() => startWithIdea('')}
               >
-                Start with $100 free
+                Start with {shortMoney(NEW_USER_CENTS)} free
               </button>
             </div>
             <table className="lp-price-table">

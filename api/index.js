@@ -377,6 +377,8 @@ function deckCostCents(length) {
 }
 var MIN_DECK_CENTS = deckCostCents(`${MIN_SLIDES} cards`);
 var MAX_DECK_CENTS = deckCostCents(`${MAX_SLIDES} cards`);
+var NEW_USER_CENTS = 500;
+var FREE_DECK_COUNT = Math.floor(NEW_USER_CENTS / BASE_DECK_CENTS);
 
 // server/planning.js
 var MAX_QUESTIONS = 4;
@@ -1200,7 +1202,6 @@ async function generateId() {
   webcrypto.getRandomValues(bytes);
   return Buffer.from(bytes).toString("base64url");
 }
-var NEW_USER_CENTS = 500;
 var LEGACY_USER_CENTS = 1e4;
 async function migrate() {
   if (!hasDb) {
