@@ -289,6 +289,32 @@
   border-right: 0;
 }
 
+/* Hero shortcut to the sample deck: proof before anyone signs up, without
+   competing with the prompt card's primary action. */
+.lp-proof-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 22px;
+  padding: 0 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--border-strong);
+  background: none;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
+.lp-proof-link span {
+  color: var(--accent);
+}
+
+.lp-proof-link:hover {
+  border-bottom-color: var(--accent);
+  color: var(--accent-strong);
+}
+
 /* Live activity line — proof that decks are actually being written here. */
 .lp-proof {
   display: inline-flex;
@@ -949,6 +975,10 @@
 
   .lp-facts {
     margin-top: 18px;
+  }
+
+  .lp-proof-link {
+    margin-top: 16px;
   }
 
   .lp-facts li {

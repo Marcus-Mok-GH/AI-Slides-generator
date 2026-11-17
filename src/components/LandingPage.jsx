@@ -271,6 +271,17 @@ export default function LandingPage() {
               <li>No card required</li>
               <li>PDF &amp; PPTX export</li>
             </ul>
+            {/* The one real deck on the page is the best argument there is, and
+                it used to sit a full screen below this copy. One click from the
+                hero opens it without an account or a scroll. */}
+            <button
+              type="button"
+              className="lp-proof-link"
+              onClick={() => setShowSample(true)}
+            >
+              Watch a real deck first
+              <span aria-hidden>→</span>
+            </button>
           </div>
 
           <form className="lp-prompt" onSubmit={onSubmit}>
@@ -485,8 +496,12 @@ export default function LandingPage() {
         <SampleDeckViewer
           onClose={() => setShowSample(false)}
           onSignIn={() => {
+            // "Create your own — free" has to create something. Closing the
+            // overlay and leaving the visitor on the same page made the most
+            // convincing moment on the site a dead end; continue into sign-up
+            // with whatever idea they already typed waiting in the composer.
             setShowSample(false)
-            ideaRef.current?.focus()
+            startWithIdea(idea)
           }}
         />
       ) : null}
