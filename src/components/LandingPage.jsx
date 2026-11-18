@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { deckCostCents, NEW_USER_CENTS, FREE_DECK_COUNT } from '../lib/pricing.js'
-import { SampleDeckCard, SampleDeckViewer } from './SampleDeck.jsx'
+import { SampleDeckCard, SampleDeckViewer, SAMPLE_DECKS } from './SampleDeck.jsx'
 import DeckGallery from './DeckGallery.jsx'
 import { loadGalleryDecks } from '../lib/api.js'
 import useTheme from '../lib/useTheme.js'
@@ -179,6 +179,9 @@ export default function LandingPage() {
   const { mode, cycle } = useTheme()
   const [idea, setIdea] = useState('')
   const [showSample, setShowSample] = useState(false)
+  // Which example deck the viewer opens on. The landing page offers all of
+  // them, because the one deck a visitor needs to see is their own kind.
+  const [sampleDeck, setSampleDeck] = useState(0)
   const activity = useDeckActivity()
   const galleryDecks = useGalleryDecks()
   const ideaRef = useRef(null)
@@ -191,6 +194,11 @@ export default function LandingPage() {
   function onSubmit(e) {
     e.preventDefault()
     startWithIdea(idea)
+  }
+
+  function openSample(deckIndex = 0) {
+    setSampleDeck(deckIndex)
+    setShowSample(true)
   }
 
   return (
@@ -283,7 +291,7 @@ export default function LandingPage() {
             <button
               type="button"
               className="lp-proof-link"
-              onClick={() => setShowSample(true)}
+              onClick={() => openSample(0)}
             >
               Watch a real deck first
               <span aria-hidden>→</span>
@@ -334,18 +342,19 @@ export default function LandingPage() {
           <div className="lp-showcase-copy">
             <span className="lp-kicker">Sample</span>
             <h2 id="lp-showcase-title" className="lp-h2">
-              This is one prompt, rendered live.
+              Three prompts, rendered live.
             </h2>
             <p className="lp-body">
-              The slides next to this text are not screenshots. They are the real
-              deck document the app produces, drawn by the same renderer you get
-              after signing in — chart, notes and page furniture included.
+              These are not screenshots. They are the real deck documents the app
+              produces — a fundraise pitch, a board review and an onboarding
+              session — drawn by the same renderer you get after signing in,
+              chart, notes and page furniture included.
             </p>
             <div className="lp-showcase-actions">
               <button
                 type="button"
                 className="lp-btn lp-btn--primary"
-                onClick={() => setShowSample(true)}
+                onClick={() => openSample(0)}
               >
                 Open the full deck
               </button>
@@ -357,9 +366,22 @@ export default function LandingPage() {
                 Make one like it
               </button>
             </div>
+            <div className="lp-showcase-more">
+              <span className="lp-showcase-more-label">Also in the viewer</span>
+              {SAMPLE_DECKS.map((deck, i) => (
+                <button
+                  key={deck.id}
+                  type="button"
+                  className="lp-topic"
+                  onClick={() => openSample(i)}
+                >
+                  {deck.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="lp-showcase-stage">
-            <SampleDeckCard onOpen={() => setShowSample(true)} />
+            <SampleDeckCard onOpen={openSample} />
           </div>
         </section>
 
@@ -500,6 +522,7 @@ export default function LandingPage() {
 
       {showSample ? (
         <SampleDeckViewer
+          initialDeck={sampleDeck}
           onClose={() => setShowSample(false)}
           onSignIn={() => {
             // "Create your own — free" has to create something. Closing the

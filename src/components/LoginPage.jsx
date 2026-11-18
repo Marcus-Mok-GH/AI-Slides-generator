@@ -51,8 +51,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
   const [cooldown, setCooldown] = useState(0)
-  // Visitors can page through a real example deck before creating an account.
+  // Visitors can page through real example decks before creating an account.
   const [showSample, setShowSample] = useState(false)
+  const [sampleDeck, setSampleDeck] = useState(0)
   // Optional deck idea, restored so a reload does not lose what they typed.
   const [idea, setIdea] = useState(() => {
     try {
@@ -328,7 +329,12 @@ export default function LoginPage() {
             no templates, no blank-canvas paralysis.
           </p>
           <div className="login-aside-sample">
-            <SampleDeckCard onOpen={() => setShowSample(true)} />
+            <SampleDeckCard
+              onOpen={(deckIndex) => {
+                setSampleDeck(deckIndex || 0)
+                setShowSample(true)
+              }}
+            />
           </div>
           <ul className="login-aside-list">
             <li><span className="login-aside-check">✓</span> Export to PDF, PPTX or JSON</li>
@@ -614,12 +620,18 @@ export default function LoginPage() {
 
         <div className="login-sample">
           <p className="login-sample-eyebrow">New here? This is what a deck looks like</p>
-          <SampleDeckCard onOpen={() => setShowSample(true)} />
+          <SampleDeckCard
+            onOpen={(deckIndex) => {
+              setSampleDeck(deckIndex || 0)
+              setShowSample(true)
+            }}
+          />
         </div>
       </div>
 
       {showSample ? (
         <SampleDeckViewer
+          initialDeck={sampleDeck}
           onClose={() => setShowSample(false)}
           onSignIn={() => {
             setShowSample(false)

@@ -164,7 +164,8 @@
      chrome (header, gaps, footer, padding) takes out of the window. */
   --sample-slide-max: 1120px;
   --sample-slide-floor: 420px;
-  --sample-chrome: 260px;
+  /* Header, deck picker, gaps, footer and padding. */
+  --sample-chrome: 316px;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -179,7 +180,7 @@
 
 /* The notes panel is part of the chrome the slide has to fit beside. */
 .sample-viewer.has-notes {
-  --sample-chrome: 400px;
+  --sample-chrome: 456px;
 }
 
 .sample-viewer-head {
@@ -250,6 +251,44 @@
 }
 
 .sample-viewer-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring-soft);
+}
+
+/* ---- Example deck picker ---- */
+.sample-viewer-decks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.sample-deck-tab {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+}
+
+.sample-deck-tab:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.sample-deck-tab.is-on {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent-strong);
+}
+
+.sample-deck-tab:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--ring-soft);
 }
@@ -499,7 +538,7 @@
   }
 
   .sample-viewer.has-notes {
-    --sample-chrome: 290px;
+    --sample-chrome: 346px;
   }
 
   /* Once the slide hits its floor the rest has to scroll, so the button that
