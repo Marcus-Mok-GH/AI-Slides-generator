@@ -633,8 +633,12 @@ export default function LoginPage() {
         <SampleDeckViewer
           initialDeck={sampleDeck}
           onClose={() => setShowSample(false)}
-          onSignIn={() => {
+          onSignIn={(prompt) => {
             setShowSample(false)
+            // The visitor just liked a specific deck, so put that deck's
+            // prompt in the field they are about to submit — their own idea
+            // still wins if they already wrote one.
+            if (prompt && !idea.trim()) updateIdea(prompt)
             // The visitor just liked a deck; their own idea is the natural next
             // field, not an email address.
             window.requestAnimationFrame(() => {

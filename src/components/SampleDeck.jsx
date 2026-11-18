@@ -34,6 +34,10 @@ export const SAMPLE_DECKS = [
     id: 'pitch',
     label: 'Pitch deck',
     title: 'Lumen — Seed Round',
+    // Handed to the sign-up page when the visitor likes this deck: the deck
+    // they just read is the fastest possible first prompt for their own.
+    prompt:
+      'A 10-slide seed-round pitch for a startup turning factory waste heat into grid electricity: problem, solution, product, traction, business model, competition, team, ask, and vision.',
     theme: {
       name: 'Aurora',
       primary: '#7c5cff',
@@ -119,6 +123,8 @@ export const SAMPLE_DECKS = [
     id: 'review',
     label: 'Q3 review',
     title: 'Northwind — Q3 Review',
+    prompt:
+      'A 10-slide Q3 2026 board review for a 40-person SaaS company: highlights, KPIs vs target, wins, misses, customer stories, product progress, financials, lessons learned, and next-quarter priorities.',
     theme: {
       name: 'Tide',
       primary: '#2f9e8f',
@@ -205,6 +211,8 @@ export const SAMPLE_DECKS = [
     id: 'onboarding',
     label: 'Onboarding',
     title: 'Week one · Platform team',
+    prompt:
+      'An 8-slide onboarding deck for new engineers on the platform team: first-week plan, first deploy, who to ask for what, and what to read before Friday.',
     theme: {
       name: 'Orchid',
       primary: '#8b5cf6',
@@ -551,8 +559,15 @@ export function SampleDeckViewer({ onClose, onSignIn, initialDeck = 0 }) {
           Generated from a single prompt — layout, copy, chart and speaker notes included.
         </p>
 
-        <button type="button" className="sample-viewer-cta" onClick={onSignIn}>
-          Create your own — free
+        {/* The deck on screen doubles as the visitor's first prompt: carrying
+            it into sign-up means they land on a filled-in brief instead of an
+            empty box, and the deck they just liked is the one they build. */}
+        <button
+          type="button"
+          className="sample-viewer-cta"
+          onClick={() => onSignIn?.(deck.prompt)}
+        >
+          Make one like this — free
         </button>
       </div>
     </div>

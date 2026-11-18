@@ -524,13 +524,15 @@ export default function LandingPage() {
         <SampleDeckViewer
           initialDeck={sampleDeck}
           onClose={() => setShowSample(false)}
-          onSignIn={() => {
-            // "Create your own — free" has to create something. Closing the
+          onSignIn={(prompt) => {
+            // "Make one like this" has to produce something. Closing the
             // overlay and leaving the visitor on the same page made the most
             // convincing moment on the site a dead end; continue into sign-up
             // with whatever idea they already typed waiting in the composer.
+            // With nothing typed, the deck they just read becomes the brief,
+            // so they start from a filled-in prompt rather than an empty box.
             setShowSample(false)
-            startWithIdea(idea)
+            startWithIdea(idea.trim() ? idea : prompt || '')
           }}
         />
       ) : null}
