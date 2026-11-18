@@ -22,6 +22,7 @@ import {
   getCredits,
 } from './db.js'
 import { streamGenerateDeck } from './generateDeck.js'
+import { visitorErrorMessage } from './errorCopy.js'
 import { deckCostCents } from '../src/lib/pricing.js'
 
 /** How long buffered reasoning/partial updates may wait before a write. */
@@ -125,7 +126,9 @@ export async function runGenerationJob(jobId, ctx, userId, startBalance) {
     console.error('[jobRunner] generation failed:', err)
     try {
       flushBuffered()
-      append('error', { error: err?.message || 'Generation failed' })
+      // The raw upstream message stays in the log above; the visitor gets copy
+      // that tells them what to do next instead of quoting provider errors.
+      append('error', { error: visitorErrorMessage(err) })
       await chain
       await updateJobStatus(jobId, 'failed')
     } catch {}

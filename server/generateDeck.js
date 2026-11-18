@@ -667,7 +667,11 @@ current html/css above.`
 
     lastErr = new Error('model returned neither "ops" nor "html"')
   }
-  throw new Error(
+  const err = new Error(
     `Could not apply that edit (${lastErr?.message || 'unknown error'}). Try rephrasing the instruction.`
   )
+  // Already worded for the person typing the instruction — errorCopy passes
+  // it through instead of replacing it with the generic generation copy.
+  err.visitorSafe = true
+  throw err
 }

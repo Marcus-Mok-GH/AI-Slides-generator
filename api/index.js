@@ -1089,16 +1089,18 @@ current html/css above.`;
           slide: { ...target, html, css },
           notes: typeof parsed.notes === "string" ? parsed.notes : ""
         };
-      } catch (err) {
-        lastErr = err;
+      } catch (err2) {
+        lastErr = err2;
         continue;
       }
     }
     lastErr = new Error('model returned neither "ops" nor "html"');
   }
-  throw new Error(
+  const err = new Error(
     `Could not apply that edit (${lastErr?.message || "unknown error"}). Try rephrasing the instruction.`
   );
+  err.visitorSafe = true;
+  throw err;
 }
 
 // server/db.js
@@ -3528,6 +3530,29 @@ function slugify(title) {
   return String(title || "deck").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "deck";
 }
 
+// server/errorCopy.js
+function statusOf(err) {
+  if (err?.statusCode) return err.statusCode;
+  if (err?.status) return err.status;
+  const match = /pollinations (\d{3})/.exec(String(err?.message || ""));
+  return match ? Number(match[1]) : null;
+}
+function visitorErrorMessage(err) {
+  if (err?.visitorSafe && err?.message) return err.message;
+  const msg = String(err?.message || "");
+  const status = statusOf(err);
+  if (status === 429 || /rate limit|quota|too many requests/i.test(msg)) {
+    return "The studio is handling a lot of requests right now. Give it a few seconds and generate again \u2014 you haven\u2019t been charged.";
+  }
+  if (status === 401 || status === 403 || status === 503 || /api[_ ]?key|unauthorized|forbidden/i.test(msg)) {
+    return "Deck generation is briefly unavailable on our side. Try again in a minute \u2014 you haven\u2019t been charged.";
+  }
+  if (/timeout|timed out|econn|enotfound|ehostunreach|fetch failed|network|socket/i.test(msg)) {
+    return "We lost the connection to the AI part-way through. Try again in a moment \u2014 you haven\u2019t been charged.";
+  }
+  return "Something went wrong while generating that deck. Try again in a moment \u2014 you haven\u2019t been charged.";
+}
+
 // server/jobRunner.js
 var FLUSH_MS = 120;
 async function runGenerationJob(jobId, ctx, userId, startBalance) {
@@ -3615,7 +3640,7 @@ async function runGenerationJob(jobId, ctx, userId, startBalance) {
     console.error("[jobRunner] generation failed:", err);
     try {
       flushBuffered();
-      append("error", { error: err?.message || "Generation failed" });
+      append("error", { error: visitorErrorMessage(err) });
       await chain;
       await updateJobStatus(jobId, "failed");
     } catch {
@@ -4448,7 +4473,7 @@ app.post("/api/generate-deck", async (req, res) => {
   } catch (err) {
     console.error("[generate-deck] error:", err);
     res.status(500).json({
-      error: err?.message || "Failed to generate deck"
+      error: visitorErrorMessage(err)
     });
   }
 });
@@ -4664,7 +4689,7 @@ data: ${JSON.stringify(data)}
     res.end();
   } catch (err) {
     console.error("[generate-deck/stream] error:", err);
-    send("error", { error: err?.message || "Failed to generate deck" });
+    send("error", { error: visitorErrorMessage(err) });
     res.end();
   } finally {
     clearInterval(ping);
@@ -4825,7 +4850,7 @@ app.post("/api/regenerate-slide", async (req, res) => {
   } catch (err) {
     console.error("[regenerate-slide] error:", err);
     res.status(500).json({
-      error: err?.message || "Failed to regenerate slide"
+      error: visitorErrorMessage(err)
     });
   }
 });

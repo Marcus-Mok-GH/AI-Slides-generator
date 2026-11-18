@@ -16,6 +16,7 @@ import { buildPptxBuffer } from './exportPptx.js'
 import { buildPdfBuffer } from './exportPdf.js'
 import { slugify } from '../src/lib/deckName.js'
 import { runGenerationJob } from './jobRunner.js'
+import { visitorErrorMessage } from './errorCopy.js'
 import { BASE_DECK_CENTS, deckCostCents } from '../src/lib/pricing.js'
 import { authMiddleware, optionalAuthMiddleware } from './middleware/auth.js'
 import authRouter from './routes/auth.js'
@@ -380,7 +381,7 @@ app.post('/api/generate-deck', async (req, res) => {
   } catch (err) {
     console.error('[generate-deck] error:', err)
     res.status(500).json({
-      error: err?.message || 'Failed to generate deck',
+      error: visitorErrorMessage(err),
     })
   }
 })
@@ -637,7 +638,8 @@ app.post('/api/generate-deck/stream', async (req, res) => {
     res.end()
   } catch (err) {
     console.error('[generate-deck/stream] error:', err)
-    send('error', { error: err?.message || 'Failed to generate deck' })
+    // Raw provider detail stays in the log; the visitor gets actionable copy.
+    send('error', { error: visitorErrorMessage(err) })
     res.end()
   } finally {
     clearInterval(ping)
@@ -842,7 +844,7 @@ app.post('/api/regenerate-slide', async (req, res) => {
   } catch (err) {
     console.error('[regenerate-slide] error:', err)
     res.status(500).json({
-      error: err?.message || 'Failed to regenerate slide',
+      error: visitorErrorMessage(err),
     })
   }
 })
