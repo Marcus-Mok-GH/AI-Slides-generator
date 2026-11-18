@@ -1,11 +1,17 @@
-import React from 'react'
+import React, { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App.jsx'
 import AuthGuard from './components/AuthGuard.jsx'
 import SharedDeckPage from './components/SharedDeckPage.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import useTheme from './lib/useTheme.js'
 import './index.css'
+
+/**
+ * The studio is its own chunk. A signed-out visitor — the landing page and the
+ * sign-in form — never downloads the viewer, the editor, the agent or the
+ * export pipeline, so the first thing they read arrives faster.
+ */
+const App = lazy(() => import('./App.jsx'))
 
 // AuthGuard renders LoginPage instead of <App /> while signed out, so the
 // theme hook never mounts and the login screen ignores stored/OS dark mode.
@@ -41,7 +47,16 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     ) : (
       <AuthProvider>
         <AuthGuard>
-          <App />
+          <Suspense
+            fallback={
+              <div className="route-loading">
+                <div className="route-loading-spinner" aria-hidden />
+                <div className="route-loading-text">Opening the studio…</div>
+              </div>
+            }
+          >
+            <App />
+          </Suspense>
         </AuthGuard>
       </AuthProvider>
     )}

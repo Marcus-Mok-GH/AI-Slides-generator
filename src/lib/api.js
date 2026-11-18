@@ -15,6 +15,18 @@ export function getAuthHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+/**
+ * Whether a session token is stored. A visitor without one has no session to
+ * restore, so nothing about them depends on a round trip to /api/auth/me.
+ */
+export function hasStoredToken() {
+  try {
+    return Boolean(localStorage.getItem('slideai:token'))
+  } catch {
+    return false
+  }
+}
+
 async function postJson(url, body) {
   const res = await fetch(url, {
     method: 'POST',

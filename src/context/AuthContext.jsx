@@ -1,15 +1,25 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
-import { fetchCurrentUser, login as apiLogin, loginWithGoogle as apiGoogleLogin, register as apiRegister, logout as apiLogout } from '../lib/api.js'
+import { fetchCurrentUser, hasStoredToken, login as apiLogin, loginWithGoogle as apiGoogleLogin, register as apiRegister, logout as apiLogout } from '../lib/api.js'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [credits, setCredits] = useState(null)
-  const [loading, setLoading] = useState(true)
+  // Only a visitor with a stored token has a session to restore. Everyone else
+  // meets the front door immediately instead of a spinner waiting on an
+  // authenticated endpoint (which also costs a database query per visit).
+  const [loading, setLoading] = useState(() => hasStoredToken())
   const [error, setError] = useState(null)
 
   const loadUser = useCallback(async () => {
+    if (!hasStoredToken()) {
+      setUser(null)
+      setCredits(null)
+      setError(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
