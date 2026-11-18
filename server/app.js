@@ -589,6 +589,10 @@ app.post('/api/generate-deck/stream', async (req, res) => {
 
     const deck = await streamGenerateDeck(ctx, {
       onThinking: ({ text, type }) => {
+        // The deck document itself streams as content deltas — raw JSON — and
+        // quoting that in the client's thinking panel reads as debug output.
+        // Only genuine model reasoning is human thoughts worth showing.
+        if (type !== 'reasoning' || !text) return
         send('thinking', { text, type })
       },
       onMeta: (meta) => {

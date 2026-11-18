@@ -3593,7 +3593,7 @@ async function runGenerationJob(jobId, ctx, userId, startBalance) {
     await updateJobStatus(jobId, "running");
     const deck = await streamGenerateDeck(ctx, {
       onThinking: ({ text, type }) => {
-        if (!text) return;
+        if (!text || type !== "reasoning") return;
         if (!thinkingBuf) thinkingType = type || "reasoning";
         thinkingBuf += text;
         scheduleFlush();
@@ -4650,6 +4650,7 @@ data: ${JSON.stringify(data)}
     };
     const deck = await streamGenerateDeck(ctx, {
       onThinking: ({ text, type }) => {
+        if (type !== "reasoning" || !text) return;
         send("thinking", { text, type });
       },
       onMeta: (meta) => {

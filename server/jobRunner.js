@@ -73,7 +73,11 @@ export async function runGenerationJob(jobId, ctx, userId, startBalance) {
 
     const deck = await streamGenerateDeck(ctx, {
       onThinking: ({ text, type }) => {
-        if (!text) return
+        // Only genuine model reasoning reaches the client's thinking panel.
+        // The deck document itself also streams as content deltas — raw JSON —
+        // and quoting that in the panel reads as debug output to the visitor.
+        // Liveness during the wait comes from the rail's live typing instead.
+        if (!text || type !== 'reasoning') return
         if (!thinkingBuf) thinkingType = type || 'reasoning'
         thinkingBuf += text
         scheduleFlush()
