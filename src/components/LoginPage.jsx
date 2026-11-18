@@ -66,6 +66,16 @@ export default function LoginPage() {
   const ideaRef = useRef(null)
   const codeRef = useRef(null)
 
+  // Grow the idea box to fit its content so a long queued idea is never
+  // clipped — the visitor must be able to read back what they committed.
+  useEffect(() => {
+    const el = ideaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    // +2 covers the box's own borders, which scrollHeight excludes.
+    el.style.height = `${el.scrollHeight + 2}px`
+  }, [idea])
+
   function updateIdea(value) {
     setIdea(value)
     try {
@@ -362,12 +372,13 @@ export default function LoginPage() {
           <div className="login-idea">
             <label className="login-field">
               <span className="login-label">What are you presenting?</span>
-              <input
+              {/* A textarea, not a single-line input: a long queued idea must be
+                  readable in full, or the visitor cannot trust it was saved. */}
+              <textarea
                 ref={ideaRef}
-                type="text"
+                rows={2}
                 maxLength={300}
                 autoComplete="off"
-                enterKeyHint="next"
                 value={idea}
                 onChange={(e) => updateIdea(e.target.value)}
                 placeholder="e.g. Q3 review for a 40-person SaaS team"
@@ -376,7 +387,7 @@ export default function LoginPage() {
             </label>
             <span className="login-hint" id="login-idea-hint">
               {idea.trim()
-                ? 'Saved — this is waiting in the composer when you get in.'
+                ? 'Saved — sign up and this is one click from being built.'
                 : 'Optional. We’ll have it ready for you after you sign in.'}
             </span>
           </div>
