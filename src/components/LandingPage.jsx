@@ -266,6 +266,12 @@ export default function LandingPage() {
                 </span>
               </p>
             ) : null}
+          </div>
+
+          {/* Kept out of the copy block so the stacked hero can put the prompt
+              card (the page's one action) directly under the headline, with
+              these proof points following it instead of pushing it down. */}
+          <div className="lp-hero-proof">
             <ul className="lp-facts">
               <li>{shortMoney(NEW_USER_CENTS)} of credits on us</li>
               <li>No card required</li>

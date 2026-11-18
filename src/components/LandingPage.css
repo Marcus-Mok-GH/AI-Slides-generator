@@ -194,6 +194,9 @@
    Hero
    ------------------------------------------------------------------------- */
 
+/* Two columns on desktop: copy and proof down the left, the prompt card down
+   the right. Named areas let the stacked layout (below) reorder the same three
+   blocks without duplicating markup. */
 .lp-hero {
   position: relative;
   max-width: 1180px;
@@ -202,8 +205,27 @@
   padding: clamp(44px, 6.5vw, 92px) 24px clamp(36px, 5vw, 64px);
   display: grid;
   grid-template-columns: minmax(0, 1.03fr) minmax(0, 0.97fr);
-  gap: clamp(32px, 4.5vw, 64px);
+  grid-template-areas:
+    "copy prompt"
+    "proof prompt";
+  column-gap: clamp(32px, 4.5vw, 64px);
+  row-gap: 0;
   align-items: start;
+}
+
+.lp-hero-copy {
+  grid-area: copy;
+  min-width: 0;
+}
+
+.lp-hero-proof {
+  grid-area: proof;
+  min-width: 0;
+}
+
+.lp-prompt {
+  grid-area: prompt;
+  min-width: 0;
 }
 
 .lp-hero::before {
@@ -869,8 +891,20 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* Stacked: headline, then the prompt card, then the proof points. The card
+     carries the only action on the page, and at 1024x768 its button used to
+     fall below the fold behind the facts row. */
   .lp-hero {
+    grid-template-areas:
+      "copy"
+      "prompt"
+      "proof";
+    gap: 24px;
     padding-bottom: 8px;
+  }
+
+  .lp-hero-proof {
+    margin-top: -6px;
   }
 
   .lp-title {
@@ -974,7 +1008,7 @@
   }
 
   .lp-facts {
-    margin-top: 18px;
+    margin-top: 0;
   }
 
   .lp-proof-link {
