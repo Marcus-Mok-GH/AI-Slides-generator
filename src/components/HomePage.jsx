@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { getAuthHeaders } from '../lib/api.js'
 import { deckCostCents } from '../lib/pricing.js'
 import { DEFAULT_DECK_OPTIONS } from '../lib/deckDefaults.js'
 import { loadDeckPrefs, saveDeckPrefs } from '../lib/deckPreferences.js'
@@ -190,7 +191,9 @@ const Composer = forwardRef(function Composer(
 
   const fetchHistory = useCallback(async () => {
     try {
-      const res = await fetch('/api/prompt-history')
+      // Both history routes sit behind the auth middleware, so the session
+      // token has to ride along; a bare fetch answered 401 for every visitor.
+      const res = await fetch('/api/prompt-history', { headers: getAuthHeaders() })
       if (!res.ok) return
       const data = await res.json()
       setPromptHistory(data.history || [])
@@ -215,7 +218,10 @@ const Composer = forwardRef(function Composer(
   async function deleteHistoryItem(e, id) {
     e.stopPropagation()
     try {
-      await fetch(`/api/prompt-history/${id}`, { method: 'DELETE' })
+      await fetch(`/api/prompt-history/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      })
       setPromptHistory((prev) => prev.filter((h) => h.id !== id))
     } catch {}
   }
@@ -284,7 +290,7 @@ const Composer = forwardRef(function Composer(
     try {
       const res = await fetch('/api/fetch-url', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ url: url.trim() }),
       })
       const data = await res.json().catch(() => null)
