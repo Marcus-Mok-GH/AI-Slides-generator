@@ -506,6 +506,12 @@
   color: var(--text-soft);
 }
 
+/* The empty-submit nudge swaps in for the trust note, in the accent color. */
+.lp-prompt-note--nudge {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 /* -------------------------------------------------------------------------
    Shared section bits
    ------------------------------------------------------------------------- */

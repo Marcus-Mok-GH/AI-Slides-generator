@@ -185,14 +185,23 @@ export default function LandingPage() {
   const activity = useDeckActivity()
   const galleryDecks = useGalleryDecks()
   const ideaRef = useRef(null)
+  const [ideaNudge, setIdeaNudge] = useState(false)
 
   function useExample(text) {
     setIdea(text)
+    setIdeaNudge(false)
     ideaRef.current?.focus()
   }
 
   function onSubmit(e) {
     e.preventDefault()
+    // An empty submit used to dump the visitor on the sign-up page with a
+    // blank box. Keep them here and ask for the one sentence first.
+    if (!idea.trim()) {
+      setIdeaNudge(true)
+      ideaRef.current?.focus()
+      return
+    }
     startWithIdea(idea)
   }
 
@@ -311,7 +320,10 @@ export default function LandingPage() {
                 rows={3}
                 maxLength={300}
                 value={idea}
-                onChange={(e) => setIdea(e.target.value)}
+                onChange={(e) => {
+                  setIdea(e.target.value)
+                  if (e.target.value.trim()) setIdeaNudge(false)
+                }}
                 placeholder="e.g. A 10-slide investor pitch for an AI legal-research startup, leading with traction."
               />
             </label>
@@ -328,7 +340,14 @@ export default function LandingPage() {
               ))}
             </div>
             <div className="lp-prompt-foot">
-              <span className="lp-prompt-note">Free to start · saves to your account</span>
+              <span
+                className={`lp-prompt-note${ideaNudge ? ' lp-prompt-note--nudge' : ''}`}
+                role="status"
+              >
+                {ideaNudge
+                  ? 'Tell us what you are presenting first — or tap an example.'
+                  : 'Free to start · saves to your account'}
+              </span>
               <button type="submit" className="lp-btn lp-btn--primary">
                 Build my deck
                 <span aria-hidden>→</span>
