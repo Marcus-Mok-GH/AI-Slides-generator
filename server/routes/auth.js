@@ -134,14 +134,21 @@ router.post('/register', async (req, res) => {
       emailVerified: !emailConfigured,
     })
 
-    if (emailConfigured) {
-      // No session yet: the account stays locked until the code is entered.
-      const emailSent = await sendCode(user.id, user.email, PURPOSE_VERIFY_EMAIL)
-      return res.status(201).json({ verificationRequired: true, email: user.email, emailSent })
-    }
+    // The code still goes out, but it no longer withholds the session: a
+    // visitor who has just decided to try the product gets to their deck now
+    // and confirms the address from the account menu afterwards. Verification
+    // stays mandatory for password reset.
+    const emailSent = emailConfigured
+      ? await sendCode(user.id, user.email, PURPOSE_VERIFY_EMAIL)
+      : false
 
     await updateUserLastLogin(user.id)
-    res.json(sessionPayload(user))
+    res.status(201).json({
+      ...sessionPayload(user),
+      ...(emailConfigured
+        ? { verificationPending: true, email: user.email, emailSent }
+        : {}),
+    })
   } catch (err) {
     console.error('[auth/register] error:', err)
     res.status(500).json({ error: 'Registration failed' })
@@ -234,20 +241,11 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' })
     }
 
-    // Correct password, unverified address: send a fresh code and park them on
-    // the verification step instead of handing out a session.
-    if (!user.email_verified) {
-      if (isEmailConfigured()) {
-        const emailSent = await sendCode(user.id, user.email, PURPOSE_VERIFY_EMAIL)
-        return res.status(403).json({
-          error: emailSent
-            ? 'Confirm your email to continue. We sent a new code.'
-            : 'Confirm your email to continue.',
-          code: 'email_unverified',
-          email: user.email,
-          emailSent,
-        })
-      }
+    // A correct password is enough to sign in. An unverified address is a
+    // confirmation still outstanding, not a locked account — the app keeps
+    // asking for it from the account menu. A host with no email channel at all
+    // promotes the account instead, because there is no way to ever confirm.
+    if (!user.email_verified && !isEmailConfigured()) {
       await markUserEmailVerified(user.id)
       user.email_verified = true
     }
@@ -435,7 +433,7 @@ router.get('/me', async (req, res) => {
       firstName: req.user.firstName,
       lastName: req.user.lastName,
       profileImageUrl: req.user.profileImageUrl,
-      emailVerified: true,
+      emailVerified: req.user.emailVerified !== false,
     },
     credits: {
       balanceCents: creditsCents,

@@ -69,6 +69,7 @@ export async function authMiddleware(req, res, next) {
       lastName: dbUser.last_name,
       profileImageUrl: dbUser.profile_image_url,
       creditsCents: dbUser.credits_cents,
+      emailVerified: dbUser.email_verified !== false,
     }
     next()
   } catch (err) {
@@ -92,6 +93,7 @@ export async function optionalAuthMiddleware(req, _res, next) {
             lastName: dbUser.last_name,
             profileImageUrl: dbUser.profile_image_url,
             creditsCents: dbUser.credits_cents,
+            emailVerified: dbUser.email_verified !== false,
           }
         }
       } catch {

@@ -3703,7 +3703,8 @@ async function authMiddleware(req, res, next) {
       firstName: dbUser.first_name,
       lastName: dbUser.last_name,
       profileImageUrl: dbUser.profile_image_url,
-      creditsCents: dbUser.credits_cents
+      creditsCents: dbUser.credits_cents,
+      emailVerified: dbUser.email_verified !== false
     };
     next();
   } catch (err) {
@@ -3725,7 +3726,8 @@ async function optionalAuthMiddleware(req, _res, next) {
             firstName: dbUser.first_name,
             lastName: dbUser.last_name,
             profileImageUrl: dbUser.profile_image_url,
-            creditsCents: dbUser.credits_cents
+            creditsCents: dbUser.credits_cents,
+            emailVerified: dbUser.email_verified !== false
           };
         }
       } catch {
@@ -3978,12 +3980,12 @@ router.post("/register", async (req, res) => {
       passwordHash,
       emailVerified: !emailConfigured
     });
-    if (emailConfigured) {
-      const emailSent = await sendCode(user.id, user.email, PURPOSE_VERIFY_EMAIL);
-      return res.status(201).json({ verificationRequired: true, email: user.email, emailSent });
-    }
+    const emailSent = emailConfigured ? await sendCode(user.id, user.email, PURPOSE_VERIFY_EMAIL) : false;
     await updateUserLastLogin(user.id);
-    res.json(sessionPayload(user));
+    res.status(201).json({
+      ...sessionPayload(user),
+      ...emailConfigured ? { verificationPending: true, email: user.email, emailSent } : {}
+    });
   } catch (err) {
     console.error("[auth/register] error:", err);
     res.status(500).json({ error: "Registration failed" });
@@ -4058,16 +4060,7 @@ router.post("/login", async (req, res) => {
     if (!valid) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
-    if (!user.email_verified) {
-      if (isEmailConfigured()) {
-        const emailSent = await sendCode(user.id, user.email, PURPOSE_VERIFY_EMAIL);
-        return res.status(403).json({
-          error: emailSent ? "Confirm your email to continue. We sent a new code." : "Confirm your email to continue.",
-          code: "email_unverified",
-          email: user.email,
-          emailSent
-        });
-      }
+    if (!user.email_verified && !isEmailConfigured()) {
       await markUserEmailVerified(user.id);
       user.email_verified = true;
     }
@@ -4213,7 +4206,7 @@ router.get("/me", async (req, res) => {
       firstName: req.user.firstName,
       lastName: req.user.lastName,
       profileImageUrl: req.user.profileImageUrl,
-      emailVerified: true
+      emailVerified: req.user.emailVerified !== false
     },
     credits: {
       balanceCents: creditsCents,

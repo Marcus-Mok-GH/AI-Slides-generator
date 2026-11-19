@@ -14,6 +14,18 @@ const RESEND_COOLDOWN_SECONDS = 30
  */
 const QUEUED_PROMPT_KEY = 'slideai:queuedPrompt'
 
+/**
+ * `/app` with the intent params that matter (a `?remix=` copy) and none of this
+ * screen's own, so confirming an email never leaves `?verify=` in the URL.
+ */
+function appDestination() {
+  const params = new URLSearchParams(window.location.search)
+  params.delete('verify')
+  params.delete('email')
+  const query = params.toString()
+  return `/app${query ? `?${query}` : ''}`
+}
+
 export default function LoginPage() {
   const { login, register, loginWithGoogle } = useAuth()
   // Someone arriving from a shared deck asked for their own copy and almost
@@ -23,6 +35,13 @@ export default function LoginPage() {
     () =>
       typeof window !== 'undefined' &&
       new URLSearchParams(window.location.search).has('remix'),
+  )
+  // The account menu sends a signed-in visitor here to confirm an address that
+  // is still outstanding. That is a step of its own, not a sign-in form.
+  const [verifyIntent] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).has('verify'),
   )
   // The landing page sends new visitors to `?start=1`; `?signin=1` is the
   // explicit "I already have an account" path and always wins.
@@ -38,10 +57,15 @@ export default function LoginPage() {
     }
   })
   // 'login' | 'register' | 'verify' | 'forgot' | 'reset'
-  const [mode, setMode] = useState(
-    remixIntent || startIntent ? 'register' : 'login',
-  )
-  const [email, setEmail] = useState('')
+  const [mode, setMode] = useState(() => {
+    if (verifyIntent) return 'verify'
+    return remixIntent || startIntent ? 'register' : 'login'
+  })
+  // The confirmation link carries the address, so it is never retyped.
+  const [email, setEmail] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    return new URLSearchParams(window.location.search).get('email') || ''
+  })
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [code, setCode] = useState('')
@@ -194,6 +218,15 @@ export default function LoginPage() {
         // Names are optional on the server and nothing needs them — asking for
         // them just adds two fields before anyone has seen the product.
         const data = await register({ email, password })
+        // The account is usable straight away, so the deck they came to build
+        // opens now; the emailed code becomes a confirmation step in the
+        // account menu instead of a wall in front of their first slide. Keep
+        // the query string so a ?remix= copy still goes through.
+        if (data?.token) {
+          window.location.replace(appDestination())
+          return
+        }
+        // An older server still withholds the session until the code lands.
         if (data?.verificationRequired) {
           const address = data.email || email
           goToVerify(
@@ -222,8 +255,8 @@ export default function LoginPage() {
     try {
       await verifyEmail({ email, code })
       // The response signs us in; a reload hands the session to AuthProvider.
-      // Keep the query string so an intended deck copy still goes through.
-      window.location.replace(`/app${window.location.search}`)
+      // Keep an intended deck copy, drop this screen's own params.
+      window.location.replace(appDestination())
     } catch (err) {
       setError(err?.message || 'Could not verify that code')
       setLoading(false)
@@ -279,7 +312,7 @@ export default function LoginPage() {
       if (data?.verificationRequired) {
         goToVerify(data.email || email, 'Password updated. Confirm your email to finish.')
       } else {
-        window.location.replace(`/app${window.location.search}`)
+        window.location.replace(appDestination())
       }
     } catch (err) {
       setError(err?.message || 'Could not reset your password')
@@ -310,8 +343,10 @@ export default function LoginPage() {
         : 'Just an email and a password — no credit card.',
     },
     verify: {
-      title: 'Check your email',
-      sub: 'Enter the 6-digit code we sent you to finish setting up your account.',
+      title: verifyIntent ? 'Confirm your email' : 'Check your email',
+      sub: verifyIntent
+        ? 'Enter the 6-digit code we emailed you. Your account keeps working in the meantime — this only confirms the address.'
+        : 'Enter the 6-digit code we sent you to finish setting up your account.',
     },
     forgot: {
       title: 'Reset your password',
@@ -621,6 +656,14 @@ export default function LoginPage() {
                 Sign in
               </button>
             </>
+          ) : verifyIntent ? (
+            <button
+              type="button"
+              className="login-link"
+              onClick={() => window.location.assign('/app')}
+            >
+              Back to my decks
+            </button>
           ) : (
             <button type="button" className="login-link" onClick={backToLogin}>
               Back to sign in

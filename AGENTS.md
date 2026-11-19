@@ -92,6 +92,14 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
 - **Queued deck idea**: `LoginPage` stores the visitor's optional "What are you presenting?" text in `localStorage` under `slideai:queuedPrompt`; the mount effect in `src/App.jsx` hands it to `HomePage`'s imperative `applyPrompt` and only clears the key once the composer has taken the text. Do not clear it before applying — that effect runs twice under StrictMode.
 - **"Start from this deck" handoff**: the shared page's CTA links to `/app?remix={deckId}`; `LoginPage` then opens on sign-up with remix copy, and once `AuthGuard` mounts `<App />` the mount effect in `src/App.jsx` strips the param, `POST`s `/api/shared/decks/:id/copy` (auth required, fresh deck id, no credits spent) and opens the copy in the viewer. OTP verify/reset keep `window.location.search` so the intent survives a full reload.
 - **Auth lifecycle**: Single `fetchCurrentUser()` on mount, global `slideai:unauthorized` event listener.
+- **Deferred email verification**: `POST /api/auth/register` still sends the
+  6-digit code when email is configured, but returns the session too, so a new
+  account can build its first deck before confirming the address. Sign-in does
+  not block unverified accounts either. Confirmation lives in the product: the
+  top bar's avatar menu shows "Confirm your email" (accent dot on the avatar)
+  and links to `/login?verify=1&email=…`, which `AuthGuard` renders for a
+  signed-in unverified account. `GET /api/auth/me` returns the real
+  `emailVerified` from the DB row. Password reset still requires the code.
 - **SSE streaming**: Custom `streamParser.js` for incremental JSON parsing (no off-the-shelf library).
 - **Image generation**: deck generation no longer produces images. Only
   Agent Five's image tool calls a legacy Fireworks proxy

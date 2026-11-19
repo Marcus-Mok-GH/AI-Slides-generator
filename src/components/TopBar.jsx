@@ -47,6 +47,9 @@ export default function TopBar({
   deckCostCents = 50,
 }) {
   const [openMenu, setOpenMenu] = useState(null)
+  // Accounts now start working before the emailed code is entered, so the
+  // outstanding confirmation needs one quiet, findable place to live.
+  const needsEmailConfirm = user?.emailVerified === false
   const [scrolled, setScrolled] = useState(false)
   const wrapRef = useRef(null)
   const inputRef = useRef(null)
@@ -152,7 +155,7 @@ export default function TopBar({
           {THEME_ICONS[themeMode]}
         </button>
 
-        <div className="tb-pop-wrap">
+        <div className={`tb-pop-wrap${needsEmailConfirm ? ' has-verify-nudge' : ''}`}>
           <button
             type="button"
             className="avatar"
@@ -192,6 +195,23 @@ export default function TopBar({
                   ) : null}
                 </div>
               </div>
+              {needsEmailConfirm ? (
+                <>
+                  <div className="tb-pop-divider" />
+                  <button
+                    type="button"
+                    className="tb-pop-item tb-pop-verify"
+                    onClick={() => {
+                      setOpenMenu(null)
+                      window.location.assign(
+                        `/login?verify=1&email=${encodeURIComponent(user.email || '')}`,
+                      )
+                    }}
+                  >
+                    Confirm your email
+                  </button>
+                </>
+              ) : null}
               {onSignOut ? (
                 <>
                   <div className="tb-pop-divider" />

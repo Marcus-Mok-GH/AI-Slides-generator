@@ -343,6 +343,29 @@
   background: var(--surface-2);
 }
 
+/* An unverified account gets a quiet accent dot on the avatar and the one
+   action that explains it in the menu — no banner across the product. */
+.tb-pop-wrap.has-verify-nudge::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg);
+  pointer-events: none;
+}
+
+.tb-pop-verify {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* =========================================================================
    Responsive
    ========================================================================= */

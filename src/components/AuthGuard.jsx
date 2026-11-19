@@ -29,8 +29,14 @@ function wantsSignIn() {
   return /^\/(login|signup|app|agentfive)(\/|$)/.test(window.location.pathname)
 }
 
+/** The account menu's "Confirm your email" link points at `/login?verify=1`. */
+function verifyIntent() {
+  if (typeof window === 'undefined') return false
+  return new URLSearchParams(window.location.search).has('verify')
+}
+
 export default function AuthGuard({ children }) {
-  const { loading, isAuthenticated } = useAuth()
+  const { loading, isAuthenticated, user } = useAuth()
 
   if (loading) {
     return (
@@ -48,6 +54,11 @@ export default function AuthGuard({ children }) {
     if (deckId) return <SharedDeckPage deckId={deckId} />
     return wantsSignIn() ? <LoginPage /> : <LandingPage />
   }
+
+  // A signed-in account that still has to confirm its address opens the same
+  // screen from the account menu, without signing out first. Verified accounts
+  // fall through to the product.
+  if (user?.emailVerified === false && verifyIntent()) return <LoginPage />
 
   return children
 }
