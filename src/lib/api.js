@@ -198,53 +198,135 @@ export async function startBackgroundDeck(payload) {
   return jobId
 }
 
-export async function connectToJob(jobId, handlers = {}) {
-  const res = await fetch(`/api/generate-deck/job/${encodeURIComponent(jobId)}`, {
-    headers: getAuthHeaders(),
+/**
+ * The job endpoint pings every 15 seconds, so a longer silence means the
+ * connection is gone rather than the model being slow.
+ */
+const JOB_SILENCE_MS = 45000
+
+/** Backoff between reconnects to a dropped job stream. */
+const JOB_RECONNECT_DELAYS_MS = [800, 1600, 3200]
+
+/**
+ * `reader.read()` that gives up when the server goes quiet, so a connection
+ * that never closes but never sends anything cannot hang the viewer forever.
+ */
+async function readWithSilence(reader) {
+  let timer
+  const silent = new Promise((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error('Job stream went quiet')),
+      JOB_SILENCE_MS,
+    )
   })
+  try {
+    return await Promise.race([reader.read(), silent])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * One connection to the job stream, from first byte to close. Resolves with
+ * `terminal: true` only when the server said the job was done or failed;
+ * anything else means the stream was cut and the deck is still unfinished.
+ */
+async function readJobStream(jobId, handlers) {
+  let res
+  try {
+    res = await fetch(`/api/generate-deck/job/${encodeURIComponent(jobId)}`, {
+      headers: getAuthHeaders(),
+    })
+  } catch {
+    return { terminal: false, message: 'Could not reach the server.' }
+  }
   if (res.status === 404) {
     handlers.onError?.('Job not found — it may have expired.')
-    return
+    return { terminal: true }
   }
   if (!res.ok || !res.body) {
-    handlers.onError?.(`Could not connect to job (${res.status})`)
-    return
+    return { terminal: false, message: `Could not connect to job (${res.status})` }
   }
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ''
+  let terminal = false
 
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) break
-    buf += decoder.decode(value, { stream: true })
-    let idx
-    while ((idx = buf.indexOf('\n\n')) >= 0) {
-      const block = buf.slice(0, idx)
-      buf = buf.slice(idx + 2)
-      let event = 'message'
-      let data = ''
-      for (const line of block.split('\n')) {
-        if (line.startsWith(':')) continue
-        if (line.startsWith('event:')) event = line.slice(6).trim()
-        else if (line.startsWith('data:')) data += line.slice(5).trim()
-      }
-      if (!data) continue
-      let parsed
-      try { parsed = JSON.parse(data) } catch { continue }
-      if (event === 'thinking') handlers.onThinking?.(parsed)
-      else if (event === 'meta') handlers.onMeta?.(parsed)
-      else if (event === 'partial') handlers.onPartial?.(parsed)
-      else if (event === 'slide') handlers.onSlide?.(parsed)
-      else if (event === 'credits') handlers.onCredits?.(parsed)
-      else if (event === 'done') handlers.onDone?.(parsed.deck)
-      else if (event === 'error') {
-        handlers.onError?.(parsed.error || 'Failed to generate', parsed)
-        return
+  try {
+    while (!terminal) {
+      const { value, done } = await readWithSilence(reader)
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      let idx
+      while (!terminal && (idx = buf.indexOf('\n\n')) >= 0) {
+        const block = buf.slice(0, idx)
+        buf = buf.slice(idx + 2)
+        let event = 'message'
+        let data = ''
+        for (const line of block.split('\n')) {
+          if (line.startsWith(':')) continue
+          if (line.startsWith('event:')) event = line.slice(6).trim()
+          else if (line.startsWith('data:')) data += line.slice(5).trim()
+        }
+        if (!data) continue
+        let parsed
+        try { parsed = JSON.parse(data) } catch { continue }
+        if (event === 'thinking') handlers.onThinking?.(parsed)
+        else if (event === 'meta') handlers.onMeta?.(parsed)
+        else if (event === 'partial') handlers.onPartial?.(parsed)
+        else if (event === 'slide') handlers.onSlide?.(parsed)
+        else if (event === 'credits') handlers.onCredits?.(parsed)
+        else if (event === 'done') {
+          terminal = true
+          handlers.onDone?.(parsed.deck)
+        } else if (event === 'error') {
+          terminal = true
+          handlers.onError?.(parsed.error || 'Failed to generate', parsed)
+        }
       }
     }
+  } catch {
+    // Connection died mid-stream (network change, sleeping tab, proxy
+    // timeout). The caller reconnects; the job is still running server-side.
+  } finally {
+    try { reader.cancel() } catch { /* already closed */ }
   }
+
+  return { terminal }
+}
+
+/**
+ * Follow a generation job to its end.
+ *
+ * A stream can die before the deck does: a phone switching networks, a laptop
+ * asleep, a proxy closing an idle connection. Ending the read quietly used to
+ * leave the viewer on "Drafting slide 3 of 8" forever, with no error and
+ * nothing to click — the visitor waits, then leaves.
+ *
+ * The job runs server-side and the endpoint replays its whole event history,
+ * so reconnecting loses nothing: slides that landed while we were away arrive
+ * on the replay, and a deck that finished in the meantime arrives complete.
+ * Only when every attempt fails does the visitor get an error — and the app
+ * hands their brief back with a one-click retry.
+ */
+export async function connectToJob(jobId, handlers = {}) {
+  let message = ''
+
+  for (let attempt = 0; attempt <= JOB_RECONNECT_DELAYS_MS.length; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, JOB_RECONNECT_DELAYS_MS[attempt - 1]),
+      )
+    }
+    const result = await readJobStream(jobId, handlers)
+    if (result.terminal) return
+    message = result.message || message
+  }
+
+  handlers.onError?.(
+    message || 'The connection dropped before your deck finished building.',
+  )
 }
 
 export async function streamGenerateDeck(payload, handlers = {}) {
