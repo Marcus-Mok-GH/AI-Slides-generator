@@ -28,7 +28,10 @@ export function parseLength(length) {
  * sentence is the brief, so the count in it wins over the default.
  */
 export function lengthFromPrompt(prompt) {
-  const match = String(prompt || '').match(/\b(\d{1,2})\s*[-\s]?\s*(?:slides?|cards?)\b/i)
+  // Dashes arrive as "10-slide", "10–slide" or "10 — slide" depending on what
+  // the visitor pasted, so all three separators are accepted; a three-digit
+  // count is read and then clamped, rather than silently ignored.
+  const match = String(prompt || '').match(/\b(\d{1,3})\s*[-\u2010-\u2015\s]?\s*(?:slides?|cards?)\b/i)
   if (!match) return null
   const requested = parseInt(match[1], 10)
   if (!Number.isFinite(requested)) return null

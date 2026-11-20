@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import './OptionsPage.css'
-import { deckCostCents } from '../lib/pricing.js'
+import { deckCostCents, parseLength } from '../lib/pricing.js'
 import { DEFAULT_PREFS, loadDeckPrefs, resetDeckPrefs, saveDeckPrefs } from '../lib/deckPreferences.js'
 import useFlashMessage from '../lib/useFlashMessage.js'
 
@@ -24,11 +24,29 @@ const PRESET_THEMES = [
   { id: 'gold',     name: 'Gold',     primary: '#ffca28', accent: '#ffa000', background: '#120d00' },
 ]
 
-export default function OptionsPage({ onBack, onGenerate, onPlan, status = 'idle', error = '' }) {
+export default function OptionsPage({
+  defaults = {},
+  onBack,
+  onGenerate,
+  onPlan,
+  status = 'idle',
+  error = '',
+}) {
   // Last visit's choices, read once on mount, so the page reopens where the
   // user left it instead of resetting to the defaults.
   const [prefs] = useState(loadDeckPrefs)
-  const [length, setLength] = useState(prefs.length)
+  // A count written into the brief ("a 10-slide pitch") opens the panel on that
+  // length instead of the remembered one; the visitor can still change it.
+  const [length, setLength] = useState(defaults.length || prefs.length)
+  // Presets are 4/8/12/16; a length carried in from the brief can be anything
+  // from 3 to 20, so it gets its own segment instead of highlighting nothing.
+  const lengthOptions = useMemo(
+    () =>
+      lengths.includes(length)
+        ? lengths
+        : [...lengths, length].sort((a, b) => parseLength(a) - parseLength(b)),
+    [length],
+  )
   const [tone, setTone] = useState(prefs.tone)
   const [language, setLanguage] = useState(prefs.language)
   const [mode, setMode] = useState(prefs.mode)
@@ -174,7 +192,7 @@ export default function OptionsPage({ onBack, onGenerate, onPlan, status = 'idle
         <section className="opts-section">
           <span className="opts-section-label">Length</span>
           <div className="seg">
-            {lengths.map((l) => (
+            {lengthOptions.map((l) => (
               <button
                 key={l}
                 type="button"

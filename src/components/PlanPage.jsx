@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { planDeck, suggestPlanQuestions } from '../lib/api.js'
-import { deckCostCents } from '../lib/pricing.js'
+import { deckCostCents, parseLength } from '../lib/pricing.js'
 import { DEFAULT_DECK_OPTIONS } from '../lib/deckDefaults.js'
 import './PlanPage.css'
 
@@ -39,6 +39,16 @@ export default function PlanPage({
     language: defaults.language || DEFAULT_DECK_OPTIONS.language,
   })
   const [length, setLength] = useState(initial.current.length)
+  // The brief can name a count that is not one of the four presets ("a
+  // 10-slide pitch" → 10). Give that count its own segment so the length
+  // control highlights the deck that will actually be built.
+  const lengthOptions = useMemo(
+    () =>
+      LENGTHS.includes(length)
+        ? LENGTHS
+        : [...LENGTHS, length].sort((a, b) => parseLength(a) - parseLength(b)),
+    [length],
+  )
   const [tone, setTone] = useState(initial.current.tone)
   const [mode, setMode] = useState(initial.current.mode)
 
@@ -210,7 +220,7 @@ export default function PlanPage({
             <div className="plan-control">
               <span className="plan-control-label">Length</span>
               <div className="plan-seg">
-                {LENGTHS.map((l) => (
+                {lengthOptions.map((l) => (
                   <button
                     key={l}
                     type="button"

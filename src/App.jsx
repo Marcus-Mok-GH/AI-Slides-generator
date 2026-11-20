@@ -20,7 +20,7 @@ import {
   loadDecks,
 } from './lib/api.js'
 import useTheme from './lib/useTheme.js'
-import { parseLength } from './lib/pricing.js'
+import { lengthFromPrompt, parseLength } from './lib/pricing.js'
 import { deckOptionsFor } from './lib/deckDefaults.js'
 import useCredits from './hooks/useCredits.js'
 import { useAuth } from './context/AuthContext.jsx'
@@ -675,6 +675,7 @@ export default function App() {
         ) : createStep === 'options' && promptPayload ? (
           <div className="content">
             <OptionsPage
+              defaults={promptPayload}
               onBack={() => setCreateStep('prompt')}
               onGenerate={(opts) =>
                 handleGenerate({ ...promptPayload, ...opts })
@@ -715,7 +716,12 @@ export default function App() {
               totalCount={savedDecks.length}
               query={searchQuery}
               onContinue={({ prompt }) => {
-                setPromptPayload({ prompt })
+                // Carry the count the brief asks for into the Customize page as
+                // its starting point, so opening the panel does not quietly
+                // drop back to the remembered length. Any pick made there still
+                // wins, because it arrives as an explicit option.
+                const requested = lengthFromPrompt(prompt)
+                setPromptPayload({ prompt, ...(requested ? { length: requested } : {}) })
                 setCreateStep('options')
               }}
               onGenerate={({ prompt }) =>
