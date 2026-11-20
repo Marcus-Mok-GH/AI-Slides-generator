@@ -18,6 +18,19 @@ export function parseLength(length) {
   return BASE_SLIDES
 }
 
+/** Deck lengths offered as one-tap options in Customize and Plan. */
+export const LENGTH_PRESETS = ['4 cards', '8 cards', '12 cards', '16 cards']
+
+/**
+ * The preset buttons plus the selected length when it is not one of them — a
+ * brief can ask for 10 slides — sorted by slide count, so the highlighted
+ * button always shows the deck that will be built.
+ */
+export function lengthOptionsFor(length) {
+  if (!length || LENGTH_PRESETS.includes(length)) return LENGTH_PRESETS
+  return [...LENGTH_PRESETS, length].sort((a, b) => parseLength(a) - parseLength(b))
+}
+
 /**
  * The slide count a prompt asks for in its own words — "a 10-slide pitch",
  * "8 cards", "an 8 slide overview" — as an options string, or null when it

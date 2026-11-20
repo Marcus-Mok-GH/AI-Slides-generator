@@ -507,7 +507,9 @@ const Composer = forwardRef(function Composer(
           title={`Build ${requestedSlides} slides for ${costLabel}`}
         >
           {planFirst ? 'Plan deck' : 'Generate deck'}
-          <span className="composer-submit-cost">{costLabel}</span>
+          <span className="composer-submit-cost">
+            {requestedSlides} slides · {costLabel}
+          </span>
           <span className="composer-submit-icon">{TOOL_ICONS.arrow}</span>
         </button>
       </div>

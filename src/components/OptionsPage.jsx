@@ -1,10 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import './OptionsPage.css'
-import { deckCostCents, parseLength } from '../lib/pricing.js'
+import { deckCostCents, lengthOptionsFor } from '../lib/pricing.js'
 import { DEFAULT_PREFS, loadDeckPrefs, resetDeckPrefs, saveDeckPrefs } from '../lib/deckPreferences.js'
 import useFlashMessage from '../lib/useFlashMessage.js'
 
-const lengths = ['4 cards', '8 cards', '12 cards', '16 cards']
 const tones = ['Professional', 'Casual', 'Playful', 'Bold']
 
 const MODES = [
@@ -40,13 +39,7 @@ export default function OptionsPage({
   const [length, setLength] = useState(defaults.length || prefs.length)
   // Presets are 4/8/12/16; a length carried in from the brief can be anything
   // from 3 to 20, so it gets its own segment instead of highlighting nothing.
-  const lengthOptions = useMemo(
-    () =>
-      lengths.includes(length)
-        ? lengths
-        : [...lengths, length].sort((a, b) => parseLength(a) - parseLength(b)),
-    [length],
-  )
+  const lengthOptions = lengthOptionsFor(length)
   const [tone, setTone] = useState(prefs.tone)
   const [language, setLanguage] = useState(prefs.language)
   const [mode, setMode] = useState(prefs.mode)
