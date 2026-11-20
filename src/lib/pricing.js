@@ -18,6 +18,23 @@ export function parseLength(length) {
   return BASE_SLIDES
 }
 
+/**
+ * The slide count a prompt asks for in its own words — "a 10-slide pitch",
+ * "8 cards", "an 8 slide overview" — as an options string, or null when it
+ * names none.
+ *
+ * Quick-generate builds from a silent eight-slide default, so a visitor who
+ * typed "10-slide" used to get eight slides and be charged for eight. Their
+ * sentence is the brief, so the count in it wins over the default.
+ */
+export function lengthFromPrompt(prompt) {
+  const match = String(prompt || '').match(/\b(\d{1,2})\s*[-\s]?\s*(?:slides?|cards?)\b/i)
+  if (!match) return null
+  const requested = parseInt(match[1], 10)
+  if (!Number.isFinite(requested)) return null
+  return `${Math.max(MIN_SLIDES, Math.min(MAX_SLIDES, requested))} cards`
+}
+
 /** Price in cents for a requested deck length, rounded to the nearest cent. */
 export function deckCostCents(length) {
   return Math.max(1, Math.round((BASE_DECK_CENTS * parseLength(length)) / BASE_SLIDES))

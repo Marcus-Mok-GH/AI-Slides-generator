@@ -21,7 +21,7 @@ import {
 } from './lib/api.js'
 import useTheme from './lib/useTheme.js'
 import { parseLength } from './lib/pricing.js'
-import { DEFAULT_DECK_OPTIONS } from './lib/deckDefaults.js'
+import { deckOptionsFor } from './lib/deckDefaults.js'
 import useCredits from './hooks/useCredits.js'
 import { useAuth } from './context/AuthContext.jsx'
 import MobileNav from './components/MobileNav.jsx'
@@ -192,7 +192,7 @@ export default function App() {
       if (prompt && !autoBuildHandled.current) {
         autoBuildHandled.current = true
         clearQueue()
-        handleGenerate({ prompt, ...DEFAULT_DECK_OPTIONS })
+        handleGenerate({ prompt, ...deckOptionsFor(prompt) })
         return
       }
       heroRef.current.applyPrompt(queued)
@@ -512,7 +512,9 @@ export default function App() {
   // already chosen ride along so the planning step starts from them.
   function handlePlan({ prompt, ...options }) {
     setError('')
-    setPromptPayload({ prompt, ...options })
+    // An explicit choice from the Customize page wins; without one, the count
+    // the prompt asks for is the outline length to plan around.
+    setPromptPayload({ prompt, ...deckOptionsFor(prompt), ...options })
     setCreateStep('plan')
   }
 
@@ -717,7 +719,7 @@ export default function App() {
                 setCreateStep('options')
               }}
               onGenerate={({ prompt }) =>
-                handleGenerate({ prompt, ...DEFAULT_DECK_OPTIONS })
+                handleGenerate({ prompt, ...deckOptionsFor(prompt) })
               }
               onPlan={handlePlan}
               onOpen={handleOpenDeck}

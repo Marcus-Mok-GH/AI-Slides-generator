@@ -7,7 +7,7 @@ import {
   useState,
 } from 'react'
 import { getAuthHeaders } from '../lib/api.js'
-import { deckCostCents } from '../lib/pricing.js'
+import { deckCostCents, lengthFromPrompt, parseLength } from '../lib/pricing.js'
 import { DEFAULT_DECK_OPTIONS } from '../lib/deckDefaults.js'
 import { loadDeckPrefs, saveDeckPrefs } from '../lib/deckPreferences.js'
 import useFlashMessage from '../lib/useFlashMessage.js'
@@ -313,7 +313,11 @@ const Composer = forwardRef(function Composer(
   }
 
   const wordCount = prompt.trim() ? prompt.trim().split(/\s+/).length : 0
-  const costLabel = `$${(deckCostCents(DEFAULT_DECK_OPTIONS.length) / 100).toFixed(2)}`
+  // The deck is built at the length the prompt names, so the price on the
+  // button has to be that deck's price — not the eight-slide default's.
+  const requestedLength = lengthFromPrompt(prompt) || DEFAULT_DECK_OPTIONS.length
+  const requestedSlides = parseLength(requestedLength)
+  const costLabel = `$${(deckCostCents(requestedLength) / 100).toFixed(2)}`
 
   return (
     <form
@@ -500,6 +504,7 @@ const Composer = forwardRef(function Composer(
           type="submit"
           className="composer-submit"
           disabled={!prompt.trim() || isLoading}
+          title={`Build ${requestedSlides} slides for ${costLabel}`}
         >
           {planFirst ? 'Plan deck' : 'Generate deck'}
           <span className="composer-submit-cost">{costLabel}</span>
