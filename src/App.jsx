@@ -77,6 +77,11 @@ export default function App() {
   const [deck, setDeck] = useState(null)
   const [status, setStatus] = useState('idle') // idle | streaming | error
   const [error, setError] = useState('')
+  // The request that failed. Generation errors used to drop the visitor on an
+  // empty composer, so a failed build silently threw away the brief they had
+  // just written (and any options they had chosen). Keeping the payload lets
+  // the composer reopen with all of it intact and one click away from a retry.
+  const [failedBuild, setFailedBuild] = useState(null)
   const [savedDecks, setSavedDecks] = useState([])
   const [savingState, setSavingState] = useState('idle') // idle | saving | saved | error
   const [searchQuery, setSearchQuery] = useState('')
@@ -350,7 +355,7 @@ export default function App() {
 
   // Shared SSE event handlers for both fresh generation and job resume.
   // Returns a handlers object compatible with connectToJob().
-  function buildJobHandlers(userTheme, deckId, expectedCount) {
+  function buildJobHandlers(userTheme, deckId, expectedCount, payload = null) {
     const clearJob = () => {
       try { localStorage.removeItem('slideai:activeJob') } catch {}
     }
@@ -413,6 +418,7 @@ export default function App() {
         }))
       },
       onDone: (finalDeck) => {
+        setFailedBuild(null)
         setDeck({
           ...finalDeck,
           id: finalDeck.id || deckId,
@@ -432,6 +438,7 @@ export default function App() {
         }
         setStatus('error')
         setDeck(null)
+        setFailedBuild(payload)
         clearJob()
       },
     }
@@ -439,6 +446,7 @@ export default function App() {
 
   async function handleGenerate(payload) {
     setError('')
+    setFailedBuild(null)
     setStatus('streaming')
     setCreateStep('prompt')
     const expectedCount = parseLength(payload.length)
@@ -485,7 +493,7 @@ export default function App() {
       } catch {}
 
       // Connect to the live SSE stream and replay any events already stored.
-      await connectToJob(jobId, buildJobHandlers(userTheme, newDeckId, expectedCount))
+      await connectToJob(jobId, buildJobHandlers(userTheme, newDeckId, expectedCount, payload))
     } catch (e) {
       if (e.code === 'insufficient_credits') {
         setError("You're out of credits — top up to keep generating decks.")
@@ -494,6 +502,7 @@ export default function App() {
       }
       setStatus('error')
       setDeck(null)
+      setFailedBuild(payload)
       try { localStorage.removeItem('slideai:activeJob') } catch {}
     }
   }
@@ -694,6 +703,12 @@ export default function App() {
               ref={heroRef}
               status={status}
               error={error}
+              recovery={
+                status === 'error' && failedBuild?.prompt
+                  ? { message: error, attempt: failedBuild }
+                  : null
+              }
+              onRetry={() => handleGenerate(failedBuild)}
               decks={filteredDecks}
               totalCount={savedDecks.length}
               query={searchQuery}

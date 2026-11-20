@@ -98,6 +98,11 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
   existing account never spends credits on a stored idea. `src/App.jsx` then calls
   `handleGenerate` with `DEFAULT_DECK_OPTIONS` once per page load (`autoBuildHandled` ref)
   instead of only pre-filling the composer; the queue keys are cleared before the call.
+- **Failed build recovery**: a generation error keeps the visitor's request
+  (`failedBuild` in `src/App.jsx`) so `HomePage`'s composer reopens with the
+  brief already in it, their options intact and a one-click **Try again**
+  that re-runs the same payload. Never clear the brief on failure — the error
+  copy tells them to generate again, so it has to be possible without retyping.
 - **"Start from this deck" handoff**: the shared page's CTA links to `/app?remix={deckId}`; `LoginPage` then opens on sign-up with remix copy, and once `AuthGuard` mounts `<App />` the mount effect in `src/App.jsx` strips the param, `POST`s `/api/shared/decks/:id/copy` (auth required, fresh deck id, no credits spent) and opens the copy in the viewer. OTP verify/reset keep `window.location.search` so the intent survives a full reload.
 - **Auth lifecycle**: Single `fetchCurrentUser()` on mount, global `slideai:unauthorized` event listener.
 - **Deferred email verification**: `POST /api/auth/register` still sends the

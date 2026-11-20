@@ -147,10 +147,15 @@ const TOOL_ICONS = {
    ------------------------------------------------------------------------- */
 
 const Composer = forwardRef(function Composer(
-  { onGenerate, onPlan, onContinue, status = 'idle', error = '' },
+  {
+    onGenerate, onPlan, onContinue, onRetry,
+    status = 'idle', error = '', recovery = null,
+  },
   ref,
 ) {
-  const [prompt, setPrompt] = useState('')
+  // A failed build hands its brief back to the composer: the prompt opens as
+  // it was written, instead of the visitor finding an empty box and an error.
+  const [prompt, setPrompt] = useState(recovery?.attempt?.prompt || '')
   // Plan mode: ask for the spec and plan the deck before building it. The
   // choice is remembered so it survives a reload, like the Customize page.
   const [planFirst, setPlanFirst] = useState(() => loadDeckPrefs().planFirst)
@@ -441,7 +446,28 @@ const Composer = forwardRef(function Composer(
       </div>
 
       {chipError ? <div className="composer-alert">{chipError}</div> : null}
-      {error ? <div className="composer-alert">{error}</div> : null}
+      {error ? (
+        recovery ? (
+          <div className="composer-alert composer-alert--recover" role="alert">
+            <div className="composer-alert-copy">
+              <span>{error}</span>
+              <span className="composer-alert-note">
+                Your brief and settings are still here — nothing was lost.
+              </span>
+            </div>
+            <button
+              type="button"
+              className="composer-retry"
+              onClick={() => onRetry?.()}
+              disabled={isLoading}
+            >
+              Try again
+            </button>
+          </div>
+        ) : (
+          <div className="composer-alert" role="alert">{error}</div>
+        )
+      ) : null}
 
       <div className="composer-foot">
         <span className="composer-hint">
@@ -812,6 +838,8 @@ const HomePage = forwardRef(function HomePage(
   {
     status = 'idle',
     error = '',
+    recovery = null,
+    onRetry,
     decks = [],
     totalCount = 0,
     query = '',
@@ -873,6 +901,8 @@ const HomePage = forwardRef(function HomePage(
             onContinue={onContinue}
             status={status}
             error={error}
+            recovery={recovery}
+            onRetry={onRetry}
           />
         </div>
 

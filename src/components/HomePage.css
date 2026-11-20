@@ -394,6 +394,50 @@
   line-height: 1.45;
 }
 
+/* A failed build that kept the brief: the message, the reassurance and the
+   retry sit on one line so recovery is the obvious next move, not a hunt. */
+.composer-alert--recover {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.composer-alert-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.composer-alert-note {
+  opacity: 0.78;
+  font-size: 12px;
+}
+
+.composer-retry {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--error-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--error-text);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.composer-retry:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.composer-retry:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .composer-foot {
   display: flex;
   align-items: center;
