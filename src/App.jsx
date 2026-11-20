@@ -35,6 +35,13 @@ const DEFAULT_THEME = {
 }
 
 /**
+ * Set by the sign-up screen when the visitor pressed a landing-page "Build my
+ * deck" button before creating an account. The deck they asked for is built as
+ * soon as the app opens, instead of waiting for a second click.
+ */
+const AUTO_BUILD_KEY = 'slideai:autoBuild'
+
+/**
  * Read the current location and decide which deck (if any) the URL is asking
  * for. We support `/app/slide/{id}` (canonical) and `?deck={id}` (legacy share
  * links). Returns the id or null.
@@ -92,6 +99,9 @@ export default function App() {
   const saveTimer = useRef(null)
   const heroRef = useRef(null)
   const remixHandled = useRef(false)
+  // Cleared per page load: the queued-prompt effect below re-runs whenever the
+  // open deck changes, and only one build may come out of one sign-up.
+  const autoBuildHandled = useRef(false)
 
   const refreshDecks = useCallback(async () => {
     try {
@@ -143,27 +153,51 @@ export default function App() {
   // The queue is only cleared once the composer has actually taken the text:
   // this effect runs twice under StrictMode, and an effect that cleared it up
   // front would drop the idea when the first timer got cleaned up.
+  //
+  // A visitor who pressed "Build my deck" before signing up gets that deck
+  // started rather than a filled-in box: their click was the instruction, and
+  // making them press Generate again is where a first session goes quiet.
   useEffect(() => {
     if (typeof window === 'undefined') return
     // Wait for a URL-addressed deck to settle — that request wins.
     if (deck || routeLoading) return
     let queued = ''
-    try { queued = localStorage.getItem('slideai:queuedPrompt') || '' } catch {}
+    let autoBuild = ''
+    try {
+      queued = localStorage.getItem('slideai:queuedPrompt') || ''
+      autoBuild = localStorage.getItem(AUTO_BUILD_KEY) || ''
+    } catch {}
     if (!queued.trim()) return
 
     let cancelled = false
     let attempts = 0
+    function clearQueue() {
+      try {
+        localStorage.removeItem('slideai:queuedPrompt')
+        localStorage.removeItem(AUTO_BUILD_KEY)
+      } catch {}
+    }
     function applyQueued() {
       if (cancelled) return
-      if (heroRef.current) {
-        heroRef.current.applyPrompt(queued)
-        try { localStorage.removeItem('slideai:queuedPrompt') } catch {}
+      if (!heroRef.current) {
+        if (attempts++ < 10) window.setTimeout(applyQueued, 60)
         return
       }
-      if (attempts++ < 10) window.setTimeout(applyQueued, 60)
+      const prompt = autoBuild.trim()
+      if (prompt && !autoBuildHandled.current) {
+        autoBuildHandled.current = true
+        clearQueue()
+        handleGenerate({ prompt, ...DEFAULT_DECK_OPTIONS })
+        return
+      }
+      heroRef.current.applyPrompt(queued)
+      clearQueue()
     }
     applyQueued()
     return () => { cancelled = true }
+    // `handleGenerate` is recreated every render; depending on it would re-run
+    // this effect on every state change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deck, routeLoading])
 
   // Resume any background generation job that was running when the tab

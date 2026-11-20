@@ -15,6 +15,16 @@ const RESEND_COOLDOWN_SECONDS = 30
 const QUEUED_PROMPT_KEY = 'slideai:queuedPrompt'
 
 /**
+ * Written by the landing page when the visitor pressed a "build" button before
+ * having an account. It is only acted on once that visitor actually creates
+ * one here, so signing in to an existing account never builds a deck nobody
+ * asked for in this session.
+ */
+const BUILD_INTENT_KEY = 'slideai:buildIntent'
+/** Read by App on mount: build this prompt instead of only pre-filling it. */
+const AUTO_BUILD_KEY = 'slideai:autoBuild'
+
+/**
  * `/app` with the intent params that matter (a `?remix=` copy) and none of this
  * screen's own, so confirming an email never leaves `?verify=` in the URL.
  */
@@ -84,6 +94,14 @@ export default function LoginPage() {
       return localStorage.getItem(QUEUED_PROMPT_KEY) || ''
     } catch {
       return ''
+    }
+  })
+  // Arrived from a landing-page build button rather than "Start free".
+  const [buildIntent] = useState(() => {
+    try {
+      return Boolean(localStorage.getItem(BUILD_INTENT_KEY))
+    } catch {
+      return false
     }
   })
   const emailRef = useRef(null)
@@ -192,6 +210,21 @@ export default function LoginPage() {
     }
   }, [googleClientId])
 
+  /**
+   * A brand-new account whose visitor already asked for a deck gets that deck
+   * started, rather than a composer with their sentence in it and a second
+   * Generate click in front of the thing they just asked for.
+   */
+  function armFirstBuild() {
+    if (!buildIntent) return
+    try {
+      const prompt = idea.trim() || localStorage.getItem(QUEUED_PROMPT_KEY) || ''
+      if (!prompt) return
+      localStorage.setItem(QUEUED_PROMPT_KEY, prompt)
+      localStorage.setItem(AUTO_BUILD_KEY, prompt)
+    } catch { /* storage unavailable; the composer still opens */ }
+  }
+
   /** Park the visitor on the code screen with a fresh cooldown. */
   function goToVerify(emailValue, message) {
     setEmail(emailValue)
@@ -223,6 +256,7 @@ export default function LoginPage() {
         // account menu instead of a wall in front of their first slide. Keep
         // the query string so a ?remix= copy still goes through.
         if (data?.token) {
+          armFirstBuild()
           window.location.replace(appDestination())
           return
         }
@@ -422,7 +456,9 @@ export default function LoginPage() {
             </label>
             <span className="login-hint" id="login-idea-hint">
               {idea.trim()
-                ? 'Saved — sign up and this is one click from being built.'
+                ? mode === 'register' && buildIntent
+                  ? 'Saved — creating your account starts building it.'
+                  : 'Saved — sign up and this is one click from being built.'
                 : 'Optional. We’ll have it ready for you after you sign in.'}
             </span>
           </div>

@@ -13,6 +13,10 @@ import './LandingPage.css'
  */
 
 const QUEUED_PROMPT_KEY = 'slideai:queuedPrompt'
+// The button said "Build my deck", not "sign up and then press build". This
+// marker carries that instruction through account creation, so LoginPage can
+// hand App a deck to start on instead of just a filled-in text box.
+const BUILD_INTENT_KEY = 'slideai:buildIntent'
 
 const EXAMPLE_IDEAS = [
   'Seed-round pitch for a climate-tech startup',
@@ -94,7 +98,14 @@ const FAQS = [
 function startWithIdea(text) {
   const trimmed = (text || '').trim()
   try {
-    if (trimmed) localStorage.setItem(QUEUED_PROMPT_KEY, trimmed)
+    if (trimmed) {
+      localStorage.setItem(QUEUED_PROMPT_KEY, trimmed)
+      localStorage.setItem(BUILD_INTENT_KEY, trimmed)
+    } else {
+      // "Start free" with no idea is not a build request — drop any intent an
+      // abandoned attempt left behind so nothing builds unannounced.
+      localStorage.removeItem(BUILD_INTENT_KEY)
+    }
   } catch { /* storage may be unavailable; sign-in still works */ }
   window.location.assign('/login?start=1')
 }

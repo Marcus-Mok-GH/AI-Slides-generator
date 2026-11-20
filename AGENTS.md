@@ -89,7 +89,15 @@ AI Slides Generator - React 18 + Vite 5 frontend with Node 20 + Express 5 backen
   to `/share/{id}`. `POST /api/decks/:id/publish` flips the flag, owner-scoped.
   A share link alone never lists a deck, and both the section and the nav link
   disappear when the list is empty or the database is unavailable.
-- **Queued deck idea**: `LoginPage` stores the visitor's optional "What are you presenting?" text in `localStorage` under `slideai:queuedPrompt`; the mount effect in `src/App.jsx` hands it to `HomePage`'s imperative `applyPrompt` and only clears the key once the composer has taken the text. Do not clear it before applying — that effect runs twice under StrictMode.
+- **Queued deck idea**: `LoginPage` stores the visitor's optional "What are you presenting?" text in
+  `localStorage` under `slideai:queuedPrompt`; the mount effect in `src/App.jsx` hands it to
+  `HomePage`'s imperative `applyPrompt` and only clears the key once the composer has taken the text. Do not clear it before applying — that effect runs twice under StrictMode.
+- **Building the queued idea**: a landing-page build button (`startWithIdea` with text) also
+  writes `slideai:buildIntent`. Only a successful `POST /api/auth/register` turns that into
+  `slideai:autoBuild` (LoginPage `armFirstBuild`), so signing in to an
+  existing account never spends credits on a stored idea. `src/App.jsx` then calls
+  `handleGenerate` with `DEFAULT_DECK_OPTIONS` once per page load (`autoBuildHandled` ref)
+  instead of only pre-filling the composer; the queue keys are cleared before the call.
 - **"Start from this deck" handoff**: the shared page's CTA links to `/app?remix={deckId}`; `LoginPage` then opens on sign-up with remix copy, and once `AuthGuard` mounts `<App />` the mount effect in `src/App.jsx` strips the param, `POST`s `/api/shared/decks/:id/copy` (auth required, fresh deck id, no credits spent) and opens the copy in the viewer. OTP verify/reset keep `window.location.search` so the intent survives a full reload.
 - **Auth lifecycle**: Single `fetchCurrentUser()` on mount, global `slideai:unauthorized` event listener.
 - **Deferred email verification**: `POST /api/auth/register` still sends the
